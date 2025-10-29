@@ -102,20 +102,30 @@ const ComptesEpargne: React.FC = () => {
                         <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">
                                 <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">N° Compte</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Client</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Solde</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
-                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">N° Compte</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Client</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Solde Actuel</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fonds Garantie</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date Création</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Succursale</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Agent</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
+                                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
                                 {paginatedComptes.map((compte) => (
-                                    <tr key={compte.id_compte_epargne}>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{compte.no_compte}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{compte.personne ? `${compte.personne.prenom} ${compte.personne.nom}` : 'N/A'}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{compte.solde_actuel.toFixed(2)}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
+                                    <tr key={compte.id_compte_epargne} className="hover:bg-gray-50">
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{compte.no_compte}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{compte.personne ? `${compte.personne.prenom} ${compte.personne.nom}` : 'N/A'}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 font-semibold">{compte.solde_actuel.toFixed(2)}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{compte.fonds_garantie.toFixed(2)}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                                            {new Date(compte.date_creation).toLocaleDateString('fr-FR')}
+                                        </td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{compte.succursale || '-'}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500">{compte.created_by}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap">
                                             <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${compte.statut === 'Actif' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                                                 {compte.statut}
                                             </span>
@@ -149,21 +159,40 @@ const ComptesEpargne: React.FC = () => {
                          <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">
                                 <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">N° Compte</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Montant</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date & Heure</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">N° Compte</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Montant</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Solde Avant</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Solde Après</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Agent</th>
                                 </tr>
                             </thead>
                              <tbody className="bg-white divide-y divide-gray-200">
-                                {paginatedTransactions.map((tx) => (
-                                    <tr key={tx.id_transaction_epargne}>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(tx.date_transaction).toLocaleDateString()}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{tx.no_compte}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{tx.type_transaction}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{tx.montant.toFixed(2)}</td>
+                                {paginatedTransactions.map((tx) => {
+                                    const typeLabels = { 'D': 'Dépôt', 'R': 'Retrait', 'FL': 'Frais Livret', 'S': 'Frais Service' };
+                                    const typeColors = { 'D': 'bg-green-100 text-green-800', 'R': 'bg-red-100 text-red-800', 'FL': 'bg-orange-100 text-orange-800', 'S': 'bg-yellow-100 text-yellow-800' };
+                                    return (
+                                    <tr key={tx.id_transaction_epargne} className="hover:bg-gray-50">
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                                            {new Date(tx.date_transaction).toLocaleString('fr-FR', {
+                                                dateStyle: 'short',
+                                                timeStyle: 'short'
+                                            })}
+                                        </td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{tx.no_compte}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap">
+                                            <span className={`px-2 py-1 text-xs font-semibold rounded ${typeColors[tx.type_transaction]}`}>
+                                                {typeLabels[tx.type_transaction]}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-gray-900">{tx.montant.toFixed(2)}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{tx.solde_avant_transaction.toFixed(2)}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{tx.solde_apres_transaction.toFixed(2)}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500">{tx.created_by}</td>
                                     </tr>
-                                ))}
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>

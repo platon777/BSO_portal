@@ -26,7 +26,7 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const MOCK_USER_ID = 'user-test-123';
-    
+
     let solde_apres_transaction = formData.solde_avant_transaction || 0;
     const montant = formData.montant || 0;
 
@@ -34,8 +34,20 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
         solde_apres_transaction += montant;
     } else if (formData.type_transaction === 'R') {
         solde_apres_transaction -= montant;
+        // Validate that withdrawal doesn't result in negative balance
+        if (solde_apres_transaction < 0) {
+            alert(`Solde insuffisant pour ce retrait. Solde disponible: ${formData.solde_avant_transaction || 0}`);
+            return;
+        }
+    } else if (formData.type_transaction === 'FL' || formData.type_transaction === 'S') {
+        solde_apres_transaction -= montant;
+        // Validate that fees don't result in negative balance
+        if (solde_apres_transaction < 0) {
+            alert(`Solde insuffisant pour ces frais. Solde disponible: ${formData.solde_avant_transaction || 0}`);
+            return;
+        }
     }
-    
+
     const newTransaction: Omit<TransactionEpargne, 'id_transaction_epargne'> = {
         id_compte_epargne: formData.id_compte_epargne!,
         no_compte: formData.no_compte!,
@@ -50,7 +62,11 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
 
     await db.addRecord('transactions_epargne', newTransaction);
     // Also update the account balance
-    await db.updateRecord('comptes_epargne', compteEpargne.id_compte_epargne, { solde_actuel: solde_apres_transaction });
+    await db.updateRecord('comptes_epargne', compteEpargne.id_compte_epargne, {
+      solde_actuel: solde_apres_transaction,
+      updated_by: MOCK_USER_ID,
+      updated_at: new Date().toISOString()
+    });
 
     onSave();
   };

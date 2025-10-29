@@ -65,7 +65,8 @@ const CompteCreditForm: React.FC<CompteCreditFormProps> = ({ compte, onSave, onC
     if (compte && compte.id_compte_credit) {
         await db.updateRecord('comptes_credit', compte.id_compte_credit, {
             ...formData,
-            updated_by: MOCK_USER_ID
+            updated_by: MOCK_USER_ID,
+            updated_at: new Date().toISOString()
         });
     } else {
         if (!formData.id_personne || !formData.id_compte_epargne) {

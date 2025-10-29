@@ -104,23 +104,41 @@ const ComptesCredit: React.FC = () => {
                         <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">
                                 <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">N° Compte</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Client</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Montant Prêté</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Remboursé</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
-                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">N° Compte</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Client</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Montant Prêté</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Remboursé</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Restant</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Taux (%)</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Paiement/Jour</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Durée (mois)</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Garantie</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date Création</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Agent</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
+                                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
-                                {paginatedComptes.map((compte) => (
-                                    <tr key={compte.id_compte_credit}>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{compte.no_compte}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{compte.personne ? `${compte.personne.prenom} ${compte.personne.nom}` : 'N/A'}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{compte.montant_prete.toFixed(2)}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{compte.paiement_rembourse.toFixed(2)}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${compte.statut === 'Actif' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                {paginatedComptes.map((compte) => {
+                                    const restant = compte.montant_prete - compte.paiement_rembourse;
+                                    return (
+                                    <tr key={compte.id_compte_credit} className="hover:bg-gray-50">
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{compte.no_compte}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{compte.personne ? `${compte.personne.prenom} ${compte.personne.nom}` : 'N/A'}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 font-semibold">{compte.montant_prete.toFixed(2)}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-green-600">{compte.paiement_rembourse.toFixed(2)}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-red-600 font-semibold">{restant.toFixed(2)}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{compte.taux_interet}%</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{compte.paiement_journalier.toFixed(2)}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{compte.duree_credit_mois}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{compte.fonds_garantie.toFixed(2)}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                                            {new Date(compte.date_creation).toLocaleDateString('fr-FR')}
+                                        </td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500">{compte.created_by}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap">
+                                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${compte.statut === 'Actif' ? 'bg-green-100 text-green-800' : compte.statut === 'Payé' ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'}`}>
                                                 {compte.statut}
                                             </span>
                                         </td>
@@ -138,7 +156,8 @@ const ComptesCredit: React.FC = () => {
                                             </div>
                                         </td>
                                     </tr>
-                                ))}
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>
@@ -153,21 +172,39 @@ const ComptesCredit: React.FC = () => {
                          <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">
                                 <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">N° Compte</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Montant</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date & Heure</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">N° Compte</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Montant</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Solde Avant</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Versement Déclaré</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Agent</th>
                                 </tr>
                             </thead>
                              <tbody className="bg-white divide-y divide-gray-200">
-                                {paginatedTransactions.map((tx) => (
-                                    <tr key={tx.id_transaction_credit}>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(tx.date_transaction).toLocaleDateString()}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{tx.no_compte}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{tx.type_transaction}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{tx.montant.toFixed(2)}</td>
+                                {paginatedTransactions.map((tx) => {
+                                    const typeColors = { 'Paiement': 'bg-green-100 text-green-800', 'Penalite': 'bg-red-100 text-red-800', 'Garantie': 'bg-blue-100 text-blue-800' };
+                                    return (
+                                    <tr key={tx.id_transaction_credit} className="hover:bg-gray-50">
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                                            {new Date(tx.date_transaction).toLocaleString('fr-FR', {
+                                                dateStyle: 'short',
+                                                timeStyle: 'short'
+                                            })}
+                                        </td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{tx.no_compte}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap">
+                                            <span className={`px-2 py-1 text-xs font-semibold rounded ${typeColors[tx.type_transaction]}`}>
+                                                {tx.type_transaction}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-gray-900">{tx.montant.toFixed(2)}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{tx.solde_avant_transaction.toFixed(2)}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{tx.versement_declare ? tx.versement_declare.toFixed(2) : '-'}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500">{tx.created_by}</td>
                                     </tr>
-                                ))}
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>

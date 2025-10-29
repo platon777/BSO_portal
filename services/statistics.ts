@@ -116,13 +116,11 @@ export async function getAgentStats(userId: string, dateFilter: DateFilter): Pro
   const comptesCredit = await db.comptes_credit.toArray();
   const comptesCreditFiltered = filterByDateAndUser(comptesCredit, 'date_creation', dateFilter, userId);
   stats.comptes_credit_crees = comptesCreditFiltered.length;
-  stats.montant_comptes_credit = comptesCreditFiltered.reduce((sum, c) => sum + (c.montant_prete || 0), 0);
   stats.total_fonds_garantie_credit = comptesCreditFiltered.reduce((sum, c) => sum + (c.fonds_garantie || 0), 0);
 
   const comptesEpargne = await db.comptes_epargne.toArray();
   const comptesEpargneFiltered = filterByDateAndUser(comptesEpargne, 'date_creation', dateFilter, userId);
   stats.comptes_epargne_crees = comptesEpargneFiltered.length;
-  stats.montant_comptes_epargne = comptesEpargneFiltered.reduce((sum, c) => sum + (c.solde_actuel || 0), 0);
   stats.total_fonds_garantie_epargne = comptesEpargneFiltered.reduce((sum, c) => sum + (c.fonds_garantie || 0), 0);
 
   const transactionsEpargne = await db.transactions_epargne.toArray();
@@ -144,6 +142,12 @@ export async function getAgentStats(userId: string, dateFilter: DateFilter): Pro
     }
   });
 
+  // Calculate total savings transactions: deposits minus withdrawals minus fees
+  stats.montant_comptes_epargne = stats.montant_transactions_epargne_depot -
+                                   stats.montant_transactions_epargne_retrait -
+                                   stats.montant_transactions_frais_livret -
+                                   stats.montant_transactions_epargne_frais_service;
+
   const transactionsCredit = await db.transactions_credit.toArray();
   const transactionsCreditFiltered = filterByDateAndUser(transactionsCredit, 'date_transaction', dateFilter, userId);
   transactionsCreditFiltered.forEach(t => {
@@ -160,11 +164,19 @@ export async function getAgentStats(userId: string, dateFilter: DateFilter): Pro
     }
   });
 
+  // Calculate total credit transactions: all payments, penalties and guarantees
+  stats.montant_comptes_credit = stats.montant_transactions_credit_paiement +
+                                  stats.montant_transactions_credit_penalite +
+                                  stats.montant_transactions_credit_garantie;
+
+  // Cash collected includes: deposits, credit payments, penalties, booklet fees, and service fees
   const cashCollecte = stats.montant_transactions_epargne_depot +
     stats.montant_transactions_credit_paiement +
     stats.montant_transactions_credit_penalite +
-    stats.montant_transactions_frais_livret;
+    stats.montant_transactions_frais_livret +
+    stats.montant_transactions_epargne_frais_service;
 
+  // Cash distributed includes: withdrawals
   const cashDistribue = stats.montant_transactions_epargne_retrait;
   stats.cash_total_a_remettre = cashCollecte - cashDistribue;
   stats.total_fonds_garantie_global = stats.total_fonds_garantie_epargne + stats.total_fonds_garantie_credit;

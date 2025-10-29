@@ -24,14 +24,14 @@ export class MySubClassedDexie extends Dexie {
 
   constructor() {
     super('bsoPortalDB');
-    // FIX: Upgraded schema version and included all relevant fields and indexes.
-    // This is the primary fix for the loading errors.
-    this.version(2).stores({
-      personnes: 'id_personne, code_client, nom, prenom, nif_cin, numero_telephone, statut, created_by, &unique_id',
-      comptes_epargne: 'id_compte_epargne, id_personne, no_compte, statut, created_by',
-      comptes_credit: 'id_compte_credit, id_personne, no_compte, id_compte_epargne, statut, created_by',
-      transactions_epargne: 'id_transaction_epargne, id_compte_epargne, date_transaction, type_transaction, created_by',
-      transactions_credit: 'id_transaction_credit, id_compte_credit, date_transaction, type_transaction, created_by',
+    // Complete schema with all indexed fields for optimal querying
+    // Version 3: Added comprehensive indexes for all key fields
+    this.version(3).stores({
+      personnes: 'id_personne, code_client, pseudo, lieu_de_travail, occupation, geocode, prenom, nom, piece_identification, email, numero_telephone, adresse, sexe, date_naissance, nif_cin, photo_identification, date_creation, statut, created_at, &unique_id, id_plan, montant, created_by, updated_by, updated_at',
+      comptes_epargne: 'id_compte_epargne, id_personne, no_compte, id_plan, solde_actuel, fonds_garantie, statut, date_creation, succursale, duree, person_allowed, piece_identification_allowed, nif_cin_allowed, photo_allowed, created_at, created_by, updated_by, updated_at',
+      comptes_credit: 'id_compte_credit, id_personne, no_compte, id_compte_epargne, montant_prete, taux_interet, paiement_journalier, duree_credit_mois, fonds_garantie, penalites, statut, date_creation, created_at, created_by, updated_by, paiement_rembourse, updated_at',
+      transactions_epargne: 'id_transaction_epargne, id_compte_epargne, no_compte, type_transaction, montant, solde_declare, virement_from, type_frais_livret, solde_avant_transaction, date_transaction, solde_apres_transaction, created_at, created_by, updated_at',
+      transactions_credit: 'id_transaction_credit, id_compte_credit, no_compte, type_transaction, montant, solde_avant_transaction, date_transaction, montant_pret, solde_credit, created_at, created_by, versement_declare, updated_at',
       syncQueue: '++id, table, pk, status, timestamp',
     });
   }
@@ -80,32 +80,34 @@ export class MySubClassedDexie extends Dexie {
 
   async deletePersonCascade(personId: string) {
     // FIX: Grouped tables into an array for the transaction, as Dexie's transaction method has a limit on the number of arguments.
-    return this.transaction('rw', [this.personnes, this.comptes_epargne, this.comptes_credit, this.transactions_epargne, this.transactions_credit], async () => {
+    return this.transaction('rw', [this.personnes, this.comptes_epargne, this.comptes_credit, this.transactions_epargne, this.transactions_credit, this.syncQueue], async () => {
       const comptesEpargne = await this.comptes_epargne.where('id_personne').equals(personId).toArray();
       for (const compte of comptesEpargne) {
         await this.deleteCompteEpargneCascade(compte.id_compte_epargne);
       }
       await this.personnes.delete(personId);
-      // NOTE: Cascade deletes for sync queue not implemented for simplicity.
+      await this.addToSyncQueue('delete', 'personnes', personId, { id_personne: personId });
     });
   }
 
   async deleteCompteEpargneCascade(compteEpargneId: string) {
     // FIX: Grouped tables into an array for consistency and to avoid hitting argument limits in Dexie's transaction method.
-    return this.transaction('rw', [this.comptes_epargne, this.comptes_credit, this.transactions_epargne, this.transactions_credit], async () => {
+    return this.transaction('rw', [this.comptes_epargne, this.comptes_credit, this.transactions_epargne, this.transactions_credit, this.syncQueue], async () => {
       const comptesCredit = await this.comptes_credit.where('id_compte_epargne').equals(compteEpargneId).toArray();
       for (const compte of comptesCredit) {
         await this.deleteCompteCreditCascade(compte.id_compte_credit);
       }
       await this.transactions_epargne.where('id_compte_epargne').equals(compteEpargneId).delete();
       await this.comptes_epargne.delete(compteEpargneId);
+      await this.addToSyncQueue('delete', 'comptes_epargne', compteEpargneId, { id_compte_epargne: compteEpargneId });
     });
   }
 
   async deleteCompteCreditCascade(compteCreditId: string) {
-    return this.transaction('rw', this.comptes_credit, this.transactions_credit, async () => {
+    return this.transaction('rw', [this.comptes_credit, this.transactions_credit, this.syncQueue], async () => {
       await this.transactions_credit.where('id_compte_credit').equals(compteCreditId).delete();
       await this.comptes_credit.delete(compteCreditId);
+      await this.addToSyncQueue('delete', 'comptes_credit', compteCreditId, { id_compte_credit: compteCreditId });
     });
   }
 }

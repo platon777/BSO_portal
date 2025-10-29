@@ -42,7 +42,11 @@ const TransactionCreditForm: React.FC<TransactionCreditFormProps> = ({ compteCre
     
     if (formData.type_transaction === 'Paiement') {
         const newPaiementRemourse = (compteCredit.paiement_rembourse || 0) + (formData.montant || 0);
-        await db.updateRecord('comptes_credit', compteCredit.id_compte_credit, { paiement_rembourse: newPaiementRemourse });
+        await db.updateRecord('comptes_credit', compteCredit.id_compte_credit, {
+          paiement_rembourse: newPaiementRemourse,
+          updated_by: MOCK_USER_ID,
+          updated_at: new Date().toISOString()
+        });
     }
 
     onSave();

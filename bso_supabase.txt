@@ -1,0 +1,201 @@
+-- WARNING: This schema is for context only and is not meant to be run.
+-- Table order and constraints may not be valid for execution.
+
+CREATE TABLE public.Succursale (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  name text,
+  Adresse text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT Succursale_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.categorie_compte (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  name text,
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT categorie_compte_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.comptes_credit (
+  montant_prete numeric NOT NULL,
+  taux_interet numeric,
+  paiement_journalier numeric NOT NULL,
+  duree_credit_mois integer NOT NULL,
+  fonds_garantie numeric DEFAULT 0.00,
+  paiement_cumule numeric DEFAULT 0.00,
+  penalites numeric DEFAULT 0.00,
+  date_creation timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp without time zone,
+  no_compte text,
+  id_personne uuid,
+  id_compte_credit uuid NOT NULL DEFAULT gen_random_uuid() UNIQUE,
+  id_compte_epargne uuid,
+  cycle text,
+  collecteur bigint,
+  date_debut timestamp without time zone,
+  date_fin timestamp without time zone,
+  montant_final numeric,
+  montant_restant numeric,
+  created_by uuid,
+  updated_by uuid,
+  ancien_code text,
+  CONSTRAINT comptes_credit_pkey PRIMARY KEY (id_compte_credit),
+  CONSTRAINT comptes_credit_collecteur_fkey FOREIGN KEY (collecteur) REFERENCES public.profiles(id),
+  CONSTRAINT comptes_credit_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(user_id),
+  CONSTRAINT comptes_credit_id_compte_epargne_fkey FOREIGN KEY (id_compte_epargne) REFERENCES public.comptes_epargne(id_compte_epargne),
+  CONSTRAINT comptes_credit_id_personne_fkey FOREIGN KEY (id_personne) REFERENCES public.personnes(id_personne),
+  CONSTRAINT comptes_credit_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.comptes_epargne (
+  solde_actuel numeric DEFAULT 0.00,
+  id_plan integer,
+  fonds_garantie numeric DEFAULT 0.00,
+  date_creation timestamp with time zone,
+  duree bigint,
+  person_allowed text,
+  nif_cin_allowed text,
+  photo_allowed text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  no_compte_ancien text UNIQUE,
+  id_personne uuid,
+  id_compte_epargne uuid NOT NULL DEFAULT gen_random_uuid() UNIQUE,
+  succursale bigint,
+  piece_identification_allowed bigint,
+  created_by uuid,
+  updated_by uuid,
+  no_compte text,
+  CONSTRAINT comptes_epargne_pkey PRIMARY KEY (id_compte_epargne),
+  CONSTRAINT comptes_epargne_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(user_id),
+  CONSTRAINT comptes_epargne_id_personne_fkey FOREIGN KEY (id_personne) REFERENCES public.personnes(id_personne),
+  CONSTRAINT comptes_epargne_id_plan_fkey FOREIGN KEY (id_plan) REFERENCES public.offres_plans(id_plan),
+  CONSTRAINT comptes_epargne_piece_identification_allowed_fkey FOREIGN KEY (piece_identification_allowed) REFERENCES public.piece_identification(id),
+  CONSTRAINT comptes_epargne_succursale_fkey FOREIGN KEY (succursale) REFERENCES public.Succursale(id),
+  CONSTRAINT comptes_epargne_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES public.profiles(user_id)
+);
+CREATE TABLE public.historique_actions (
+  id_action integer NOT NULL DEFAULT nextval('historique_actions_id_action_seq'::regclass),
+  id_personne integer,
+  description_action text NOT NULL,
+  date_heure timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+  type_action character varying NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT historique_actions_pkey PRIMARY KEY (id_action)
+);
+CREATE TABLE public.offres_plans (
+  id_plan integer NOT NULL DEFAULT nextval('offres_plans_id_plan_seq'::regclass),
+  nom_plan character varying NOT NULL,
+  type_plan character varying NOT NULL,
+  duree_mois integer,
+  taux_interet numeric,
+  montant numeric,
+  description text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT offres_plans_pkey PRIMARY KEY (id_plan)
+);
+CREATE TABLE public.personnes (
+  prenom character varying NOT NULL,
+  nom character varying NOT NULL,
+  email character varying,
+  numero_telephone text,
+  adresse text,
+  sexe text,
+  date_naissance date,
+  nif_cin text,
+  photo_identification text,
+  date_creation date,
+  statut text,
+  created_at timestamp without time zone DEFAULT now(),
+  unique_id text UNIQUE,
+  pseudo text,
+  lieu_de_travail text,
+  occupation text,
+  geocode text,
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  created_by bigint,
+  updated_by bigint,
+  id_personne uuid NOT NULL DEFAULT gen_random_uuid() UNIQUE,
+  code_client_ancien text UNIQUE,
+  piece_identification bigint,
+  code text UNIQUE,
+  code_client text,
+  CONSTRAINT personnes_pkey PRIMARY KEY (id_personne),
+  CONSTRAINT personnes_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id),
+  CONSTRAINT personnes_piece_identification_fkey FOREIGN KEY (piece_identification) REFERENCES public.piece_identification(id),
+  CONSTRAINT personnes_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.personnes_roles (
+  id_personne integer NOT NULL,
+  id_role integer NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT personnes_roles_pkey PRIMARY KEY (id_personne, id_role),
+  CONSTRAINT personnes_roles_id_role_fkey FOREIGN KEY (id_role) REFERENCES public.roles(id)
+);
+CREATE TABLE public.piece_identification (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  name text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT piece_identification_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.profiles (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  user_id uuid UNIQUE,
+  email text,
+  firstname text,
+  name text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  role integer DEFAULT 4,
+  CONSTRAINT profiles_pkey PRIMARY KEY (id),
+  CONSTRAINT profiles_role_fkey FOREIGN KEY (role) REFERENCES public.roles(id),
+  CONSTRAINT profiles_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.roles (
+  id integer NOT NULL DEFAULT nextval('roles_id_role_seq'::regclass),
+  nom_role character varying NOT NULL UNIQUE,
+  description text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT roles_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.transactions_credit (
+  type_transaction character varying NOT NULL,
+  montant numeric NOT NULL,
+  paiement_cumule numeric,
+  montant_pret numeric,
+  date_transaction timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+  montant_restant numeric,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  no_compte text,
+  id_compte_credit uuid,
+  id_transaction_credit uuid NOT NULL UNIQUE,
+  versement_declare numeric,
+  created_by uuid,
+  CONSTRAINT transactions_credit_pkey PRIMARY KEY (id_transaction_credit),
+  CONSTRAINT transactions_credit_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(user_id),
+  CONSTRAINT transactions_credit_id_compte_credit_fkey FOREIGN KEY (id_compte_credit) REFERENCES public.comptes_credit(id_compte_credit)
+);
+CREATE TABLE public.transactions_epargne (
+  type_transaction character varying NOT NULL,
+  montant numeric NOT NULL,
+  solde_avant_transaction numeric,
+  solde_apres_transactions numeric,
+  date_transaction timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  no_compte text,
+  id_compte_epargne uuid,
+  id_transaction_epargne uuid NOT NULL UNIQUE,
+  type_frais_livret text,
+  virement_from text,
+  solde_declare numeric,
+  created_by uuid,
+  CONSTRAINT transactions_epargne_pkey PRIMARY KEY (id_transaction_epargne),
+  CONSTRAINT transactions_epargne_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(user_id),
+  CONSTRAINT transactions_epargne_id_compte_epargne_fkey FOREIGN KEY (id_compte_epargne) REFERENCES public.comptes_epargne(id_compte_epargne),
+  CONSTRAINT transactions_epargne_virement_from_fkey FOREIGN KEY (virement_from) REFERENCES public.comptes_epargne(no_compte_ancien)
+);

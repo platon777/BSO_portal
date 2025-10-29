@@ -33,7 +33,8 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSave, onCancel }) => 
       // Update existing client
       await db.updateRecord('personnes', client.id_personne, {
           ...formData,
-          updated_by: MOCK_USER_ID
+          updated_by: MOCK_USER_ID,
+          updated_at: new Date().toISOString()
       });
     } else {
       // Create new client
