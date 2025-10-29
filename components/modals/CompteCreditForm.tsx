@@ -4,6 +4,7 @@ import { CompteCredit, CompteEpargne } from '../../types';
 import { db } from '../../services/database';
 import Input from '../common/Input';
 import Select from '../common/Select';
+import { generateCustomCode } from '../../services/codeGenerator';
 
 interface CompteCreditFormProps {
   compte?: CompteCredit;
@@ -53,10 +54,20 @@ const CompteCreditForm: React.FC<CompteCreditFormProps> = ({ compte, onSave, onC
             updated_by: MOCK_USER_ID
         });
     } else {
+        if (!formData.id_personne || !formData.id_compte_epargne) {
+            alert("Veuillez sélectionner un client et un compte épargne associé.");
+            return;
+        }
+        const selectedCompteEpargne = comptesEpargne.find(c => c.id_compte_epargne === formData.id_compte_epargne);
+        if (!selectedCompteEpargne) {
+            alert("Compte épargne associé non valide.");
+            return;
+        }
+
         const newCompte: Omit<CompteCredit, 'id_compte_credit'> = {
             id_personne: formData.id_personne!,
             id_compte_epargne: formData.id_compte_epargne!,
-            no_compte: formData.no_compte!,
+            no_compte: generateCustomCode(selectedCompteEpargne.no_compte),
             montant_prete: formData.montant_prete!,
             duree_credit_mois: formData.duree_credit_mois!,
             taux_interet: formData.taux_interet!,
@@ -89,7 +100,7 @@ const CompteCreditForm: React.FC<CompteCreditFormProps> = ({ compte, onSave, onC
                 <option value="">Sélectionner un compte</option>
                 {comptesEpargne.map(c => <option key={c.id_compte_epargne} value={c.id_compte_epargne}>{c.no_compte}</option>)}
             </Select>
-            <Input label="Numéro de Compte Crédit" name="no_compte" value={formData.no_compte || ''} onChange={handleChange} required />
+            {compte && <Input label="Numéro de Compte Crédit" name="no_compte" value={formData.no_compte || ''} readOnly disabled />}
             <Input type="number" label="Montant Prêté" name="montant_prete" value={formData.montant_prete || ''} onChange={handleChange} required step="0.01" />
             <Input type="number" label="Durée (mois)" name="duree_credit_mois" value={formData.duree_credit_mois || ''} onChange={handleChange} required />
             <Input type="number" label="Taux d'intérêt (%)" name="taux_interet" value={formData.taux_interet || ''} onChange={handleChange} required step="0.01" />

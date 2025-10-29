@@ -4,6 +4,7 @@ import { CompteEpargne } from '../../types';
 import { db } from '../../services/database';
 import Input from '../common/Input';
 import Select from '../common/Select';
+import { generateCustomCode } from '../../services/codeGenerator';
 
 interface CompteEpargneFormProps {
   compte?: CompteEpargne;
@@ -44,9 +45,19 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
             updated_by: MOCK_USER_ID
         });
     } else {
+        if (!formData.id_personne) {
+            alert("Veuillez sélectionner un client.");
+            return;
+        }
+        const selectedClient = clients?.find(c => c.id_personne === formData.id_personne);
+        if (!selectedClient) {
+            alert("Client non valide sélectionné.");
+            return;
+        }
+
         const newCompte: Omit<CompteEpargne, 'id_compte_epargne'> = {
           id_personne: formData.id_personne!,
-          no_compte: formData.no_compte!,
+          no_compte: generateCustomCode(selectedClient.code_client),
           solde_actuel: formData.solde_actuel || 0,
           fonds_garantie: formData.fonds_garantie || 0,
           statut: formData.statut || 'Actif',
@@ -77,7 +88,7 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
             </option>
           ))}
         </Select>
-        <Input label="Numéro de Compte" name="no_compte" value={formData.no_compte || ''} onChange={handleChange} required />
+        {compte && <Input label="Numéro de Compte" name="no_compte" value={formData.no_compte || ''} readOnly disabled />}
         <Input label="Succursale" name="succursale" value={formData.succursale || ''} onChange={handleChange} />
         <Input type="number" label="Durée (mois)" name="duree" value={formData.duree || ''} onChange={handleChange} />
         <Input type="number" label="ID Plan" name="id_plan" value={formData.id_plan || ''} onChange={handleChange} />

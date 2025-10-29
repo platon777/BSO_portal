@@ -3,6 +3,7 @@ import { Personne } from '../../types';
 import Input from '../common/Input';
 import Select from '../common/Select';
 import { db } from '../../services/database';
+import { generateUserCode } from '../../services/codeGenerator';
 
 interface ClientFormProps {
   client?: Personne;
@@ -36,20 +37,20 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSave, onCancel }) => 
       });
     } else {
       // Create new client
+      if (!formData.nom || !formData.prenom || !formData.numero_telephone) {
+          alert("Nom, prénom et téléphone sont requis.");
+          return;
+      }
+      
       const newClientData = {
         ...formData,
-        code_client: formData.code_client || `C${Date.now()}`,
+        code_client: generateUserCode(formData.prenom, formData.nom),
         created_by: MOCK_USER_ID,
         date_creation: new Date().toISOString(),
         sexe: formData.sexe || 'M',
         statut: formData.statut || 'Actif',
-        unique_id: formData.unique_id || `${formData.code_client}-${Date.now()}`
+        unique_id: crypto.randomUUID()
       } as Omit<Personne, 'id_personne'>;
-
-      if (!newClientData.nom || !newClientData.prenom || !newClientData.numero_telephone) {
-          alert("Nom, prénom et téléphone sont requis.");
-          return;
-      }
       
       await db.addRecord('personnes', newClientData);
     }
@@ -61,8 +62,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSave, onCancel }) => 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Input label="Nom" name="nom" value={formData.nom || ''} onChange={handleChange} required />
         <Input label="Prénom" name="prenom" value={formData.prenom || ''} onChange={handleChange} required />
-        <Input label="Code Client" name="code_client" value={formData.code_client || ''} onChange={handleChange} required />
-        <Input label="ID Unique" name="unique_id" value={formData.unique_id || ''} onChange={handleChange} />
+        {client && <Input label="Code Client" name="code_client" value={formData.code_client || ''} readOnly disabled />}
         <Input label="Pseudo" name="pseudo" value={formData.pseudo || ''} onChange={handleChange} />
         <Select label="Pièce d'identification" name="piece_identification" value={formData.piece_identification || ''} onChange={handleChange}>
           <option value="">Sélectionner</option>
