@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { CompteEpargne } from '../../types';
 import { db } from '../../services/database';
 import Input from '../common/Input';
 import Select from '../common/Select';
 import { generateCustomCode } from '../../services/codeGenerator';
+import SearchableSelect from '../common/SearchableSelect';
 
 interface CompteEpargneFormProps {
   compte?: CompteEpargne;
@@ -34,6 +35,19 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
     const isNumber = ['id_personne', 'solde_actuel', 'fonds_garantie', 'duree', 'id_plan'].includes(name);
     setFormData(prev => ({ ...prev, [name]: isNumber ? parseFloat(value) || 0 : value }));
   };
+
+  const handleClientChange = (clientId: string | null) => {
+    setFormData(prev => ({ ...prev, id_personne: clientId || undefined }));
+  };
+  
+  const clientOptions = useMemo(() => {
+      if (!clients) return [];
+      return clients.map(client => ({
+          id: client.id_personne,
+          label: `${client.prenom} ${client.nom}`,
+          subLabel: `Code: ${client.code_client}`,
+      }));
+  }, [clients]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,20 +94,24 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Select label="Client" name="id_personne" value={formData.id_personne || ''} onChange={handleChange} required disabled={!!compte} className="md:col-span-2">
-          <option value="">Sélectionner un client</option>
-          {clients?.map(client => (
-            <option key={client.id_personne} value={client.id_personne}>
-              {`${client.prenom} ${client.nom} (${client.code_client})`}
-            </option>
-          ))}
-        </Select>
+        <div className="md:col-span-2">
+            <SearchableSelect
+                label="Client"
+                options={clientOptions}
+                value={formData.id_personne || null}
+                onChange={handleClientChange}
+                placeholder="Rechercher par nom ou code client..."
+                disabled={!!compte}
+                required
+            />
+        </div>
+        
         {compte && <Input label="Numéro de Compte" name="no_compte" value={formData.no_compte || ''} readOnly disabled />}
         <Input label="Succursale" name="succursale" value={formData.succursale || ''} onChange={handleChange} />
         <Input type="number" label="Durée (mois)" name="duree" value={formData.duree || ''} onChange={handleChange} />
         <Input type="number" label="ID Plan" name="id_plan" value={formData.id_plan || ''} onChange={handleChange} />
-        <Input type="number" label="Solde Initial" name="solde_actuel" value={formData.solde_actuel || ''} onChange={handleChange} disabled={!!compte} />
-        <Input type="number" label="Fonds de Garantie" name="fonds_garantie" value={formData.fonds_garantie || ''} onChange={handleChange} />
+        <Input type="number" label="Solde Initial" name="solde_actuel" value={formData.solde_actuel || ''} onChange={handleChange} disabled={!!compte} step="0.01" />
+        <Input type="number" label="Fonds de Garantie" name="fonds_garantie" value={formData.fonds_garantie || ''} onChange={handleChange} step="0.01" />
         <Input label="Personne Autorisée" name="person_allowed" value={formData.person_allowed || ''} onChange={handleChange} className="md:col-span-2"/>
         <Input label="Pièce d'Ident. Autorisée" name="piece_identification_allowed" value={formData.piece_identification_allowed || ''} onChange={handleChange} />
         <Input label="NIF/CIN Autorisé" name="nif_cin_allowed" value={formData.nif_cin_allowed || ''} onChange={handleChange} />

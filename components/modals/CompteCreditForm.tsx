@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { CompteCredit, CompteEpargne } from '../../types';
 import { db } from '../../services/database';
 import Input from '../common/Input';
 import Select from '../common/Select';
 import { generateCustomCode } from '../../services/codeGenerator';
+import SearchableSelect from '../common/SearchableSelect';
 
 interface CompteCreditFormProps {
   compte?: CompteCredit;
@@ -43,6 +44,19 @@ const CompteCreditForm: React.FC<CompteCreditFormProps> = ({ compte, onSave, onC
     const isNumber = ['montant_prete', 'duree_credit_mois', 'taux_interet', 'fonds_garantie', 'paiement_journalier', 'penalites'].includes(name);
     setFormData(prev => ({ ...prev, [name]: isNumber ? parseFloat(value) || 0 : value }));
   };
+
+  const handleClientChange = (clientId: string | null) => {
+    setFormData(prev => ({ ...prev, id_personne: clientId || undefined, id_compte_epargne: undefined })); // Reset savings account when client changes
+  };
+
+  const clientOptions = useMemo(() => {
+    if (!clients) return [];
+    return clients.map(client => ({
+        id: client.id_personne,
+        label: `${client.prenom} ${client.nom}`,
+        subLabel: `Code: ${client.code_client}`,
+    }));
+  }, [clients]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,14 +102,17 @@ const CompteCreditForm: React.FC<CompteCreditFormProps> = ({ compte, onSave, onC
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Select label="Client" name="id_personne" value={formData.id_personne || ''} onChange={handleChange} required disabled={!!compte} className="md:col-span-2">
-                <option value="">Sélectionner un client</option>
-                {clients?.map(client => (
-                <option key={client.id_personne} value={client.id_personne}>
-                    {`${client.prenom} ${client.nom} (${client.code_client})`}
-                </option>
-                ))}
-            </Select>
+            <div className="md:col-span-2">
+                <SearchableSelect
+                    label="Client"
+                    options={clientOptions}
+                    value={formData.id_personne || null}
+                    onChange={handleClientChange}
+                    placeholder="Rechercher par nom ou code client..."
+                    disabled={!!compte}
+                    required
+                />
+            </div>
             <Select label="Compte Épargne Associé" name="id_compte_epargne" value={formData.id_compte_epargne || ''} onChange={handleChange} required disabled={!!compte || !formData.id_personne} className="md:col-span-2">
                 <option value="">Sélectionner un compte</option>
                 {comptesEpargne.map(c => <option key={c.id_compte_epargne} value={c.id_compte_epargne}>{c.no_compte}</option>)}
