@@ -1,0 +1,104 @@
+import React, { useState, useEffect } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { CompteEpargne } from '../../types';
+import { db } from '../../services/database';
+import Input from '../common/Input';
+import Select from '../common/Select';
+
+interface CompteEpargneFormProps {
+  compte?: CompteEpargne;
+  onSave: () => void;
+  onCancel: () => void;
+}
+
+const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, onCancel }) => {
+  const [formData, setFormData] = useState<Partial<CompteEpargne>>({});
+  
+  const clients = useLiveQuery(() => db.personnes.where('statut').equals('Actif').toArray(), []);
+
+  useEffect(() => {
+    if (compte) {
+      setFormData(compte);
+    } else {
+      setFormData({
+          solde_actuel: 0,
+          fonds_garantie: 0,
+          statut: 'Actif',
+      });
+    }
+  }, [compte]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    const isNumber = ['id_personne', 'solde_actuel', 'fonds_garantie', 'duree', 'id_plan'].includes(name);
+    setFormData(prev => ({ ...prev, [name]: isNumber ? parseFloat(value) || 0 : value }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const MOCK_USER_ID = 'user-test-123';
+    
+    if (compte && compte.id_compte_epargne) {
+        await db.updateRecord('comptes_epargne', compte.id_compte_epargne, {
+            ...formData,
+            updated_by: MOCK_USER_ID
+        });
+    } else {
+        const newCompte: Omit<CompteEpargne, 'id_compte_epargne'> = {
+          id_personne: formData.id_personne!,
+          no_compte: formData.no_compte!,
+          solde_actuel: formData.solde_actuel || 0,
+          fonds_garantie: formData.fonds_garantie || 0,
+          statut: formData.statut || 'Actif',
+          date_creation: new Date().toISOString(),
+          created_by: MOCK_USER_ID,
+          created_at: new Date().toISOString(),
+          succursale: formData.succursale,
+          duree: formData.duree,
+          id_plan: formData.id_plan,
+          person_allowed: formData.person_allowed,
+          piece_identification_allowed: formData.piece_identification_allowed,
+          nif_cin_allowed: formData.nif_cin_allowed,
+          photo_allowed: formData.photo_allowed,
+        };
+        await db.add('comptes_epargne', newCompte);
+    }
+    onSave();
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Select label="Client" name="id_personne" value={formData.id_personne || ''} onChange={handleChange} required disabled={!!compte} className="md:col-span-2">
+          <option value="">Sélectionner un client</option>
+          {clients?.map(client => (
+            <option key={client.id_personne} value={client.id_personne}>
+              {`${client.prenom} ${client.nom} (${client.code_client})`}
+            </option>
+          ))}
+        </Select>
+        <Input label="Numéro de Compte" name="no_compte" value={formData.no_compte || ''} onChange={handleChange} required />
+        <Input label="Succursale" name="succursale" value={formData.succursale || ''} onChange={handleChange} />
+        <Input type="number" label="Durée (mois)" name="duree" value={formData.duree || ''} onChange={handleChange} />
+        <Input type="number" label="ID Plan" name="id_plan" value={formData.id_plan || ''} onChange={handleChange} />
+        <Input type="number" label="Solde Initial" name="solde_actuel" value={formData.solde_actuel || ''} onChange={handleChange} disabled={!!compte} />
+        <Input type="number" label="Fonds de Garantie" name="fonds_garantie" value={formData.fonds_garantie || ''} onChange={handleChange} />
+        <Input label="Personne Autorisée" name="person_allowed" value={formData.person_allowed || ''} onChange={handleChange} className="md:col-span-2"/>
+        <Input label="Pièce d'Ident. Autorisée" name="piece_identification_allowed" value={formData.piece_identification_allowed || ''} onChange={handleChange} />
+        <Input label="NIF/CIN Autorisé" name="nif_cin_allowed" value={formData.nif_cin_allowed || ''} onChange={handleChange} />
+        <Input label="Photo Autorisée (URL)" name="photo_allowed" value={formData.photo_allowed || ''} onChange={handleChange} className="md:col-span-2"/>
+        <Select label="Statut" name="statut" value={formData.statut || 'Actif'} onChange={handleChange} className="md:col-span-2">
+            <option value="Actif">Actif</option>
+            <option value="Inactif">Inactif</option>
+            <option value="Fermé">Fermé</option>
+        </Select>
+      </div>
+
+      <div className="pt-4 flex justify-end space-x-2">
+        <button type="button" onClick={onCancel} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200">Annuler</button>
+        <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">Enregistrer</button>
+      </div>
+    </form>
+  );
+};
+export default CompteEpargneForm;

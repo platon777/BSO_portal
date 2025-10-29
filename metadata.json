@@ -1,0 +1,5 @@
+{
+  "name": "BSO Portal - Offline First",
+  "description": "An offline-first data collection application for a mutual fund, built with React, TypeScript, Tailwind CSS, and Dexie.js for robust offline capabilities and synchronization with Supabase.",
+  "requestFramePermissions": []
+}
