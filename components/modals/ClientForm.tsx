@@ -51,7 +51,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSave, onCancel }) => 
           return;
       }
       
-      await db.add('personnes', newClientData);
+      await db.addRecord('personnes', newClientData);
     }
     onSave();
   };

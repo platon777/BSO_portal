@@ -61,7 +61,7 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
           nif_cin_allowed: formData.nif_cin_allowed,
           photo_allowed: formData.photo_allowed,
         };
-        await db.add('comptes_epargne', newCompte);
+        await db.addRecord('comptes_epargne', newCompte);
     }
     onSave();
   };

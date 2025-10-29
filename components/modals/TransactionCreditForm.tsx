@@ -38,7 +38,7 @@ const TransactionCreditForm: React.FC<TransactionCreditFormProps> = ({ compteCre
       created_at: new Date().toISOString(),
     };
 
-    await db.add('transactions_credit', newTransaction);
+    await db.addRecord('transactions_credit', newTransaction);
     
     if (formData.type_transaction === 'Paiement') {
         const newPaiementRemourse = (compteCredit.paiement_rembourse || 0) + (formData.montant || 0);

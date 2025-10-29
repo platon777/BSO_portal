@@ -48,7 +48,7 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
         solde_apres_transaction
     };
 
-    await db.add('transactions_epargne', newTransaction);
+    await db.addRecord('transactions_epargne', newTransaction);
     // Also update the account balance
     await db.updateRecord('comptes_epargne', compteEpargne.id_compte_epargne, { solde_actuel: solde_apres_transaction });
 

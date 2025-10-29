@@ -69,7 +69,7 @@ const CompteCreditForm: React.FC<CompteCreditFormProps> = ({ compte, onSave, onC
             created_at: new Date().toISOString(),
             created_by: MOCK_USER_ID,
         };
-        await db.add('comptes_credit', newCompte);
+        await db.addRecord('comptes_credit', newCompte);
     }
     onSave();
   };
