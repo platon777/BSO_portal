@@ -1,5 +1,5 @@
-const CACHE_NAME = 'bso-portal-cache-v9';
-const RUNTIME_CACHE = 'bso-portal-runtime-v9';
+const CACHE_NAME = 'bso-portal-cache-v10';
+const RUNTIME_CACHE = 'bso-portal-runtime-v10';
 
 // Core assets that MUST work offline
 const PRECACHE_CORE_ASSETS = [
@@ -39,6 +39,15 @@ const precacheFromManifest = async (cache) => {
           if (Array.isArray(entry.assets)) {
             entry.assets.forEach((asset) => addAssetToSet(assetsToCache, asset));
           }
+          if (Array.isArray(entry.imports)) {
+            entry.imports.forEach((imp) => {
+              // Find the imported module in the manifest
+              const importedEntry = Object.values(manifest).find(e => e.name === imp || e.file === imp);
+              if (importedEntry) {
+                addAssetToSet(assetsToCache, importedEntry.file);
+              }
+            });
+          }
         });
         console.log('[SW] Production: precaching', assetsToCache.size, 'assets from manifest');
       }
@@ -49,24 +58,33 @@ const precacheFromManifest = async (cache) => {
     console.log('[SW] Dev mode: using runtime caching strategy');
   }
 
-  // Precache only core assets
-  await Promise.allSettled(
+  // Precache all discovered assets
+  const results = await Promise.allSettled(
     Array.from(assetsToCache).map((url) =>
       cache.add(new Request(url, { cache: 'reload' }))
-        .then(() => console.log('[SW] ✓ Precached:', url))
-        .catch((error) => console.warn('[SW] ✗ Failed to precache:', url, error))
+        .then(() => {
+          console.log('[SW] ✓ Precached:', url);
+          return url;
+        })
+        .catch((error) => {
+          console.warn('[SW] ✗ Failed to precache:', url, error);
+          return null;
+        })
     )
   );
+
+  const successful = results.filter(r => r.status === 'fulfilled' && r.value).length;
+  console.log(`[SW] Precache complete: ${successful}/${assetsToCache.size} assets cached`);
 };
 
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installing service worker v9...');
+  console.log('[SW] Installing service worker v10...');
   self.skipWaiting();
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => precacheFromManifest(cache)));
 });
 
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activating service worker v9...');
+  console.log('[SW] Activating service worker v10...');
   const currentCaches = [CACHE_NAME, RUNTIME_CACHE];
   event.waitUntil(
     caches.keys()
@@ -102,12 +120,16 @@ self.addEventListener('fetch', (event) => {
         url.pathname.includes('.vite') ||
         url.search.includes('import') ||
         url.search.includes('t=')) {
-      console.log('[SW] Skipping dev resource:', url.pathname);
-      return;
+      return; // Let browser handle it normally
     }
   }
 
-  // Handle external origins (CDN, Supabase, etc.)
+  // Skip Supabase API calls - let them fail fast offline
+  if (url.hostname.includes('supabase')) {
+    return; // Don't cache API calls
+  }
+
+  // Handle external origins (CDN, fonts, etc.)
   if (url.origin !== self.location.origin) {
     event.respondWith(
       caches.match(request).then((cachedResponse) => {
@@ -115,10 +137,10 @@ self.addEventListener('fetch', (event) => {
           console.log('[SW] 🎯 CDN cache hit:', url.href);
           return cachedResponse;
         }
-        return fetch(request)
+        return fetch(request, { cache: 'no-cache' })
           .then((response) => {
             // Cache successful responses from CDNs
-            if (response && (response.status === 200 || response.status === 0)) {
+            if (response && response.ok) {
               const responseClone = response.clone();
               caches.open(RUNTIME_CACHE).then((cache) => {
                 cache.put(request, responseClone);
@@ -128,7 +150,8 @@ self.addEventListener('fetch', (event) => {
             return response;
           })
           .catch((error) => {
-            console.error('[SW] ❌ CDN fetch failed:', url.href, error);
+            console.error('[SW] ❌ CDN fetch failed (offline?):', url.href);
+            // Return cached version if available
             return caches.match(request);
           });
       })
@@ -146,10 +169,10 @@ self.addEventListener('fetch', (event) => {
         }
 
         console.log('[SW] 📡 Cache miss, fetching:', url.pathname);
-        return fetch(request)
+        return fetch(request, { cache: 'no-cache' })
           .then((response) => {
             // Only cache successful responses
-            if (response && response.status === 200) {
+            if (response && response.ok) {
               const responseClone = response.clone();
               caches.open(CACHE_NAME).then((cache) => {
                 cache.put(request, responseClone);
@@ -159,7 +182,7 @@ self.addEventListener('fetch', (event) => {
             return response;
           })
           .catch((error) => {
-            console.error('[SW] ❌ Fetch failed:', url.pathname, error);
+            console.error('[SW] ❌ Fetch failed (offline?):', url.pathname);
 
             // If navigation request fails, try to serve cached index.html
             if (request.mode === 'navigate') {
@@ -168,7 +191,18 @@ self.addEventListener('fetch', (event) => {
             }
 
             // Try to serve from cache without ignoreSearch
-            return caches.match(request);
+            return caches.match(request).then(cached => {
+              if (cached) return cached;
+
+              // Return a basic offline page for failed requests
+              return new Response('Offline - Resource not available', {
+                status: 503,
+                statusText: 'Service Unavailable',
+                headers: new Headers({
+                  'Content-Type': 'text/plain'
+                })
+              });
+            });
           });
       })
   );
@@ -179,5 +213,19 @@ self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     console.log('[SW] Received SKIP_WAITING message');
     self.skipWaiting();
+  }
+
+  // Allow app to trigger a cache refresh
+  if (event.data && event.data.type === 'CACHE_URLS') {
+    const urls = event.data.urls || [];
+    caches.open(CACHE_NAME).then(cache => {
+      urls.forEach(url => {
+        cache.add(url).then(() => {
+          console.log('[SW] 💾 Manually cached:', url);
+        }).catch(err => {
+          console.warn('[SW] Failed to manually cache:', url, err);
+        });
+      });
+    });
   }
 });

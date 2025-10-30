@@ -42,11 +42,35 @@ const App: React.FC = () => {
       window.addEventListener('load', () => {
         const swUrl = `${window.location.origin}/sw.js`;
         navigator.serviceWorker.register(swUrl)
-          .then((registration) => {
-            console.log('Service Worker successfully registered with scope:', registration.scope);
+          .then(async (registration) => {
+            console.log('[App] Service Worker successfully registered with scope:', registration.scope);
+
+            // Wait for service worker to be active
+            await navigator.serviceWorker.ready;
+
+            // Force cache of current page assets after a short delay
+            setTimeout(async () => {
+              if (registration.active) {
+                const scripts = Array.from(document.querySelectorAll('script[src]')).map(
+                  (script: any) => script.src
+                );
+                const styles = Array.from(document.querySelectorAll('link[rel="stylesheet"]')).map(
+                  (link: any) => link.href
+                );
+
+                const urls = [...scripts, ...styles];
+
+                registration.active.postMessage({
+                  type: 'CACHE_URLS',
+                  urls: urls,
+                });
+
+                console.log('[App] Requested caching of', urls.length, 'critical assets');
+              }
+            }, 2000);
           })
           .catch((error) => {
-            console.error('Service Worker registration failed:', error);
+            console.error('[App] Service Worker registration failed:', error);
           });
       });
     }
