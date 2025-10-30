@@ -1,11 +1,11 @@
-const CACHE_NAME = 'bso-portal-cache-v6';
-const RUNTIME_CACHE = 'bso-portal-runtime-v6';
+const CACHE_NAME = 'bso-portal-cache-v7';
+const RUNTIME_CACHE = 'bso-portal-runtime-v7';
 
+// Assets critiques à mettre en cache lors de l'installation
 const PRECACHE_CORE_ASSETS = [
   '/',
   '/index.html',
-  '/manifest.webmanifest',
-  '/manifest.json'
+  '/manifest.webmanifest'
 ];
 
 const addAssetToSet = (set, assetPath) => {
@@ -19,8 +19,9 @@ const addAssetToSet = (set, assetPath) => {
 const precacheFromManifest = async (cache) => {
   const assetsToCache = new Set(PRECACHE_CORE_ASSETS);
 
+  // Essayer de charger .vite/manifest.json (généré par Vite en production)
   try {
-    const response = await fetch('/manifest.json', { cache: 'no-store' });
+    const response = await fetch('/.vite/manifest.json', { cache: 'no-store' });
     if (response.ok) {
       const manifest = await response.json();
       Object.values(manifest).forEach((entry) => {
@@ -33,19 +34,23 @@ const precacheFromManifest = async (cache) => {
           entry.assets.forEach((asset) => addAssetToSet(assetsToCache, asset));
         }
       });
+      console.log('[SW] Vite manifest loaded, found', assetsToCache.size, 'assets to precache');
     }
   } catch (error) {
-    console.warn('[SW] Unable to fetch build manifest for precache:', error);
+    console.warn('[SW] No Vite manifest found (dev mode?), will cache dynamically:', error);
   }
 
+  // Precache tous les assets découverts
+  const cachePromises = [];
   for (const url of assetsToCache) {
-    try {
-      await cache.add(new Request(url, { cache: 'reload' }));
-      console.log('[SW] Precached asset:', url);
-    } catch (error) {
-      console.warn('[SW] Failed to precache asset:', url, error);
-    }
+    const cacheRequest = cache.add(new Request(url, { cache: 'reload' }))
+      .then(() => console.log('[SW] ✓ Precached:', url))
+      .catch((error) => console.warn('[SW] ✗ Failed to precache:', url, error));
+    cachePromises.push(cacheRequest);
   }
+
+  await Promise.allSettled(cachePromises);
+  console.log('[SW] Precache complete!');
 };
 
 self.addEventListener('install', (event) => {
@@ -105,30 +110,33 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // STRATÉGIE CACHE-FIRST PURE : toujours servir depuis le cache si disponible
   event.respondWith(
     caches.match(request, { ignoreSearch: true })
       .then((cachedResponse) => {
+        // Si en cache, retourner IMMÉDIATEMENT sans fetch
         if (cachedResponse) {
-          fetch(request)
-            .then((response) => {
-              if (response && response.status === 200) {
-                caches.open(CACHE_NAME).then((cache) => cache.put(request, response));
-              }
-            })
-            .catch(() => {});
+          console.log('[SW] 🎯 Cache hit:', request.url);
           return cachedResponse;
         }
 
+        // Pas en cache : fetch depuis le réseau ET mettre en cache
+        console.log('[SW] 📡 Cache miss, fetching:', request.url);
         return fetch(request)
           .then((response) => {
+            // Mettre en cache seulement les réponses valides
             if (response && response.status === 200) {
               const clone = response.clone();
-              caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+              caches.open(CACHE_NAME).then((cache) => {
+                cache.put(request, clone);
+                console.log('[SW] 💾 Cached:', request.url);
+              });
             }
             return response;
           })
           .catch((error) => {
-            console.error('[SW] Fetch failed:', request.url, error);
+            console.error('[SW] ❌ Fetch failed:', request.url, error);
+            // Si navigation échoue, tenter de retourner l'index.html en cache
             if (request.mode === 'navigate') {
               return caches.match('/index.html');
             }
