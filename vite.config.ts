@@ -18,6 +18,20 @@ export default defineConfig(({ mode }) => {
         alias: {
           '@': path.resolve(__dirname, '.'),
         }
+      },
+      build: {
+        // Generate manifest for better caching
+        manifest: true,
+        // Optimize chunks for better caching
+        rollupOptions: {
+          output: {
+            manualChunks: {
+              'react-vendor': ['react', 'react-dom'],
+              'supabase-vendor': ['@supabase/supabase-js'],
+              'db-vendor': ['dexie', 'dexie-react-hooks']
+            }
+          }
+        }
       }
     };
 });
