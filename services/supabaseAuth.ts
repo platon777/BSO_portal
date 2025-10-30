@@ -1,6 +1,7 @@
-import { supabase, handleSupabaseError } from './supabase';
+import { supabase, handleSupabaseError, isOnline as isOnlineSupabase } from './supabase';
 import { LoginCredentials, UserProfile, AuthError } from '../types/auth';
 import { User } from '@supabase/supabase-js';
+import { executeWithTimeout } from './networkMonitor';
 
 /**
  * Authentication service for Supabase
@@ -24,17 +25,24 @@ export const register = async (
   lastname: string
 ): Promise<{ user: User; profile: UserProfile } | AuthError> => {
   try {
+    // Offline-first: block registration when offline to avoid long waits
+    if (!isOnlineSupabase()) {
+      return { message: 'Vous êtes hors ligne. Impossible de créer un compte.' };
+    }
     // 1. Create auth user
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          firstname,
-          lastname,
+    const { data, error } = await executeWithTimeout(
+      supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            firstname,
+            lastname,
+          }
         }
-      }
-    });
+      }),
+      10000
+    );
 
     if (error) {
       return handleSupabaseError(error);
@@ -94,10 +102,15 @@ export const register = async (
  */
 export const login = async (credentials: LoginCredentials): Promise<{ user: User; profile: UserProfile } | AuthError> => {
   try {
-    const { data, error } = await supabase.auth.signInWithPassword({
+    // Offline-first: fail fast offline (UI peut basculer en mode hors ligne)
+    if (!isOnlineSupabase()) {
+      return { message: 'Vous êtes hors ligne. Connectez-vous lorsque la connexion est disponible.' };
+    }
+
+    const { data, error } = await executeWithTimeout(supabase.auth.signInWithPassword({
       email: credentials.email,
       password: credentials.password,
-    });
+    }), 10000);
 
     if (error) {
       return handleSupabaseError(error);
@@ -160,7 +173,13 @@ export const login = async (credentials: LoginCredentials): Promise<{ user: User
  */
 export const logout = async (): Promise<void | AuthError> => {
   try {
-    const { error } = await supabase.auth.signOut();
+    // Si hors ligne, on efface localement sans appeler le réseau
+    if (!isOnlineSupabase()) {
+      clearOfflineAuthData();
+      return;
+    }
+
+    const { error } = await executeWithTimeout(supabase.auth.signOut(), 8000);
 
     if (error) {
       return handleSupabaseError(error);
@@ -178,7 +197,12 @@ export const logout = async (): Promise<void | AuthError> => {
  */
 export const getCurrentSession = async () => {
   try {
-    const { data: { session }, error } = await supabase.auth.getSession();
+    // Hors ligne: pas de session réseau
+    if (!isOnlineSupabase()) {
+      return { session: null, error: null };
+    }
+
+    const { data: { session }, error } = await executeWithTimeout(supabase.auth.getSession(), 8000);
 
     if (error) {
       return { session: null, error: handleSupabaseError(error) };
@@ -195,7 +219,12 @@ export const getCurrentSession = async () => {
  */
 export const getCurrentUser = async (): Promise<{ user: User | null; profile: UserProfile | null }> => {
   try {
-    const { data: { user }, error } = await supabase.auth.getUser();
+    // Offline-first: retourner immédiatement les données locales
+    if (!isOnlineSupabase()) {
+      return getOfflineAuthData();
+    }
+
+    const { data: { user }, error } = await executeWithTimeout(supabase.auth.getUser(), 8000);
 
     if (error || !user) {
       // Try to get from offline storage
@@ -225,6 +254,9 @@ export const getCurrentUser = async (): Promise<{ user: User | null; profile: Us
  */
 export const fetchUserProfile = async (userId: string): Promise<UserProfile | AuthError> => {
   try {
+    if (!isOnlineSupabase()) {
+      return { message: 'Hors ligne' };
+    }
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
@@ -250,7 +282,10 @@ export const fetchUserProfile = async (userId: string): Promise<UserProfile | Au
  */
 export const refreshSession = async () => {
   try {
-    const { data, error } = await supabase.auth.refreshSession();
+    if (!isOnlineSupabase()) {
+      return { session: null, error: { message: 'Hors ligne', code: 'OFFLINE' } };
+    }
+    const { data, error } = await executeWithTimeout(supabase.auth.refreshSession(), 8000);
 
     if (error) {
       return { session: null, error: handleSupabaseError(error) };

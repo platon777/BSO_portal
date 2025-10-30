@@ -78,17 +78,35 @@ const SyncProgressModal: React.FC<SyncProgressModalProps> = ({
 
         {/* Errors Section */}
         {errors.length > 0 && (
-          <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded max-h-40 overflow-y-auto">
-            <h4 className="text-sm font-semibold text-red-800 mb-2">
-              Erreurs ({errors.length})
-            </h4>
-            <ul className="list-disc list-inside space-y-1">
+          <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded max-h-60 overflow-y-auto">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-sm font-semibold text-red-800 flex items-center">
+                <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+                Erreurs Détaillées ({errors.length})
+              </h4>
+              <span className="text-xs text-red-600 bg-red-100 px-2 py-1 rounded">
+                {errors.length} échec{errors.length > 1 ? 's' : ''}
+              </span>
+            </div>
+            <div className="space-y-2">
               {errors.map((error, index) => (
-                <li key={index} className="text-xs text-red-700">
-                  {error}
-                </li>
+                <div key={index} className="bg-white border border-red-200 rounded p-2">
+                  <div className="flex items-start">
+                    <span className="text-red-600 font-mono text-xs mr-2 mt-0.5">#{index + 1}</span>
+                    <p className="text-xs text-red-700 flex-1 break-words font-mono leading-relaxed">
+                      {error}
+                    </p>
+                  </div>
+                </div>
               ))}
-            </ul>
+            </div>
+            <div className="mt-3 pt-3 border-t border-red-200">
+              <p className="text-xs text-red-600 italic">
+                💡 Astuce : Ces éléments seront automatiquement réessayés lors de la prochaine synchronisation.
+              </p>
+            </div>
           </div>
         )}
 

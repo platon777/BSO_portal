@@ -120,7 +120,18 @@ export const uploadPendingChanges = async (
         } catch (error: any) {
           // Mark as failed and increment retry count
           const errorMessage = error.message || 'Unknown error';
-          errors.push(`${item.table} (${item.pk}): ${errorMessage}`);
+          const errorCode = error.code || '';
+          const errorDetails = error.details || '';
+          const errorHint = error.hint || '';
+
+          // Build comprehensive error message
+          let fullErrorMsg = `Table: ${item.table}, Action: ${item.action}, ID: ${item.pk?.substring(0, 8)}...`;
+          fullErrorMsg += `\n→ Erreur: ${errorMessage}`;
+          if (errorCode) fullErrorMsg += ` (Code: ${errorCode})`;
+          if (errorDetails) fullErrorMsg += `\n→ Détails: ${errorDetails}`;
+          if (errorHint) fullErrorMsg += `\n→ Suggestion: ${errorHint}`;
+
+          errors.push(fullErrorMsg);
 
           await db.syncQueue.update(item.id!, {
             status: 'failed',
@@ -195,8 +206,17 @@ export const downloadUpdatesFromServer = async (
         const downloaded = await downloadTable(tableName, lastSyncTimestamp);
         totalDownloaded += downloaded;
       } catch (error: any) {
-        const errorMessage = `${tableName}: ${error.message || 'Erreur inconnue'}`;
-        errors.push(errorMessage);
+        const errorCode = error.code || '';
+        const errorDetails = error.details || '';
+        const errorHint = error.hint || '';
+
+        let fullErrorMsg = `Table: ${tableName} (Téléchargement)`;
+        fullErrorMsg += `\n→ Erreur: ${error.message || 'Erreur inconnue'}`;
+        if (errorCode) fullErrorMsg += ` (Code: ${errorCode})`;
+        if (errorDetails) fullErrorMsg += `\n→ Détails: ${errorDetails}`;
+        if (errorHint) fullErrorMsg += `\n→ Suggestion: ${errorHint}`;
+
+        errors.push(fullErrorMsg);
         totalFailed++;
       }
     }

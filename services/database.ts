@@ -168,7 +168,16 @@ export async function seedDatabase() {
               await newDb.transactions_credit.bulkAdd(FAKE_TRANSACTIONS_CREDIT);
           });
           console.log("Re-seeding complete.");
-          window.location.reload(); // Reload to use the new DB instance
+          // Avoid potential infinite reload loop by guarding with sessionStorage
+          try {
+            const reloadedFlag = sessionStorage.getItem('bso_db_reloaded');
+            if (!reloadedFlag) {
+              sessionStorage.setItem('bso_db_reloaded', '1');
+              window.location.reload(); // Reload to use the new DB instance
+            }
+          } catch (_) {
+            window.location.reload();
+          }
        }
     } catch (clearError) {
         console.error("Failed to clear and re-seed database:", clearError);
