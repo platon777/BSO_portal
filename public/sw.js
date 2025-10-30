@@ -1,10 +1,33 @@
-const CACHE_NAME = 'bso-portal-cache-v3';
-const RUNTIME_CACHE = 'bso-portal-runtime-v3';
+const CACHE_NAME = 'bso-portal-cache-v4';
+const RUNTIME_CACHE = 'bso-portal-runtime-v4';
 
-// Install event - skip waiting to activate immediately
+// Critical CDN resources to precache for offline-first functionality
+const CRITICAL_CDNS = [
+  'https://cdn.tailwindcss.com',
+  // Note: React import maps URLs will be cached on first fetch
+];
+
+// Install event - precache critical CDN resources
 self.addEventListener('install', (event) => {
   console.log('[SW] Installing service worker...');
-  self.skipWaiting();
+  event.waitUntil(
+    caches.open(RUNTIME_CACHE)
+      .then((cache) => {
+        console.log('[SW] Precaching critical CDN resources...');
+        // Try to cache CDN resources, but don't fail if offline during install
+        return Promise.allSettled(
+          CRITICAL_CDNS.map(url =>
+            fetch(url)
+              .then(response => cache.put(url, response))
+              .catch(err => console.warn('[SW] Failed to precache:', url, err))
+          )
+        );
+      })
+      .then(() => {
+        console.log('[SW] Service worker installed');
+        return self.skipWaiting();
+      })
+  );
 });
 
 // Activate event - clean up old caches and take control immediately
@@ -54,16 +77,32 @@ self.addEventListener('fetch', (event) => {
           console.log('[SW] Serving CDN asset from cache:', request.url);
           return cachedResponse;
         }
-        return fetch(request).then((response) => {
-          // Cache CDN assets for offline use
-          if (response && response.status === 200) {
-            return caches.open(RUNTIME_CACHE).then((cache) => {
-              cache.put(request, response.clone());
-              return response;
+        // Not in cache, try to fetch from network
+        console.log('[SW] Fetching CDN asset from network:', request.url);
+        return fetch(request)
+          .then((response) => {
+            // Cache CDN assets for offline use (even if status is not 200)
+            // Some CDN responses might have different status codes
+            if (response && (response.status === 200 || response.status === 0)) {
+              return caches.open(RUNTIME_CACHE).then((cache) => {
+                cache.put(request, response.clone());
+                console.log('[SW] Cached CDN asset:', request.url);
+                return response;
+              });
+            }
+            return response;
+          })
+          .catch((error) => {
+            console.error('[SW] CDN fetch failed:', request.url, error);
+            // Try to return from cache one more time
+            return caches.match(request).then((fallbackResponse) => {
+              if (fallbackResponse) {
+                console.log('[SW] Serving stale CDN asset from cache:', request.url);
+                return fallbackResponse;
+              }
+              throw error;
             });
-          }
-          return response;
-        });
+          });
       })
     );
     return;
