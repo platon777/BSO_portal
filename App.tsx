@@ -12,6 +12,7 @@ import Register from './pages/Register';
 import { ModalProvider } from './contexts/ModalContext';
 import { db, seedDatabase } from './services/database';
 import ModalRoot from './components/common/ModalRoot';
+import OfflineIndicator from './components/common/OfflineIndicator';
 import { useAuthStore } from './stores/authStore';
 import { Toaster } from 'react-hot-toast';
 
@@ -161,6 +162,7 @@ const App: React.FC = () => {
         <MobileNav currentPage={currentPage} setCurrentPage={handleSetPage} />
       </div>
       <ModalRoot />
+      <OfflineIndicator />
     </ModalProvider>
   );
 };
