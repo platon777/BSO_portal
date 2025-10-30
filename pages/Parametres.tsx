@@ -380,6 +380,7 @@ const Parametres: React.FC = () => {
                 totalSteps={syncProgress.total}
                 currentMessage={syncProgress.message}
                 errors={syncErrors}
+                onClose={() => setIsSyncing(false)}
                 canCancel={false}
             />
         </div>

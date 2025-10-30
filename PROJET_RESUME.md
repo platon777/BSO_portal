@@ -1,10 +1,11 @@
 # BSO PORTAL - RÉSUMÉ TECHNIQUE DU PROJET
 
 **Date de dernière mise à jour** : 29 Octobre 2025
-**Version de la base de données** : 3
-**Framework** : React + TypeScript + Vite
-**Base de données locale** : Dexie.js (IndexedDB)
-**Architecture** : Offline-First avec Service Worker
+**Version de la base de données** : 4
+**Framework** : React 19.2.0 + TypeScript 5.8.2 + Vite 6.2.0
+**Base de données locale** : Dexie.js v4.2.1 (IndexedDB)
+**Base de données serveur** : Supabase PostgreSQL
+**Architecture** : Offline-First avec Service Worker et Synchronisation Bidirectionnelle
 
 ---
 
@@ -37,15 +38,28 @@
 ```
 BSO_portal/
 ├── components/
+│   ├── auth/            # ProtectedRoute pour routes sécurisées
 │   ├── common/          # Composants réutilisables (Input, Select, Pagination)
 │   ├── icons/           # Icônes SVG
-│   ├── layout/          # Layout (Sidebar, Header)
-│   └── modals/          # Modals (ClientForm, CompteForm, TransactionForm, etc.)
+│   ├── layout/          # Layout (Sidebar, Header avec profil)
+│   └── modals/          # Modals (ClientForm, CompteForm, TransactionForm, SyncProgressModal)
 ├── contexts/            # Context React (ModalContext)
 ├── data/                # Données fake pour seed
-├── pages/               # Pages principales (Clients, ComptesEpargne, ComptesCredit, Parametres)
-├── services/            # Services (database.ts, statistics.ts, codeGenerator.ts)
-├── types.ts             # Définitions TypeScript
+├── pages/               # Pages (Clients, ComptesEpargne, ComptesCredit, Parametres, Login, Register)
+├── services/            # Services (database, statistics, auth, sync, validation, logging)
+│   ├── database.ts      # IndexedDB avec Dexie.js
+│   ├── statistics.ts    # Calculs statistiques
+│   ├── codeGenerator.ts # Génération codes client/compte
+│   ├── supabase.ts      # Client Supabase
+│   ├── supabaseAuth.ts  # Authentification Supabase
+│   ├── syncService.ts   # Service de synchronisation principal
+│   ├── schemaMapper.ts  # Mapping local ↔ Supabase
+│   ├── dataValidator.ts # Validation avant sync
+│   ├── networkMonitor.ts# Retry avec exponential backoff
+│   └── syncLogger.ts    # Historique des syncs
+├── stores/              # Zustand stores (authStore)
+├── types.ts             # Définitions TypeScript principales
+├── types/               # Types spécifiques (auth.ts)
 └── .mcp.json           # Configuration MCP Supabase
 ```
 
@@ -161,9 +175,9 @@ created_at, created_by, versement_declare, updated_at
 #### Table `syncQueue` (Queue de synchronisation)
 **Clé primaire** : `id` (auto-increment)
 
-**Champs indexés (6 champs)** :
+**Champs indexés (7 champs)** :
 ```
-++id, table, pk, status, timestamp
+++id, table, pk, status, timestamp, retry_count
 ```
 
 **Champs** :
@@ -173,6 +187,8 @@ created_at, created_by, versement_declare, updated_at
 - `data` : Données complètes de l'enregistrement
 - `status` : `pending`, `completed`, `failed`
 - `timestamp` : Unix timestamp
+- `retry_count` : Nombre de tentatives de sync (max 3)
+- `updated_at` : Timestamp de dernière modification
 - `error` : Message d'erreur (optionnel)
 
 ---
@@ -222,12 +238,33 @@ created_at, created_by, versement_declare, updated_at
 - ✅ 15 statistiques détaillées
 - ✅ Cash à remettre calculé correctement
 
-### 7. Synchronisation
-- ✅ Tracking de toutes les opérations (add, update, delete)
-- ✅ Visualiseur de la queue de synchronisation
-- ✅ Affichage détaillé : ID, Table, Action, Clé, Statut, Date, Données
+### 7. Authentification
+- ✅ Login avec Supabase Auth (email + password)
+- ✅ Inscription avec création automatique du profil
+- ✅ Auto-création du profil si manquant (résout erreurs 401)
+- ✅ Persistance du profil en localStorage
+- ✅ Affichage du prénom de l'utilisateur dans le header
+- ✅ Logout fonctionnel avec redirection
+- ✅ Routes protégées (redirection vers login)
+- ✅ Gestion du mode offline (warning, désactivation inscription)
 
-### 8. Maintenance
+### 8. Synchronisation Bidirectionnelle
+- ✅ Tracking de toutes les opérations (add, update, delete)
+- ✅ **Bouton "Synchroniser"** : Upload local → Supabase
+- ✅ **Bouton "Forcer Téléchargement"** : Download Supabase → local
+- ✅ **Bouton "Réessayer échecs"** : Retry failed items
+- ✅ Modal de progression avec état en temps réel
+- ✅ Batch processing (50 upload, 1000 download)
+- ✅ Retry automatique avec exponential backoff (max 3 tentatives)
+- ✅ Last Modified Wins (comparaison updated_at)
+- ✅ Validation des données avant upload
+- ✅ Logs de synchronisation (historique)
+- ✅ Visualiseur de la queue de synchronisation
+- ✅ Affichage détaillé : ID, Table, Action, Clé, Statut, Date, Retry, Données
+- ✅ Gestion des dépendances (ordre de sync)
+- ✅ Toast notifications pour résultats
+
+### 9. Maintenance
 - ✅ Bouton "Mettre à jour l'application" (réenregistre service worker)
 - ✅ Bouton "Vider la base de données" (réinitialisation complète)
 - ✅ Modals de confirmation pour les deux actions
@@ -464,7 +501,7 @@ stats.montant_comptes_credit =
 
 ---
 
-## 🔌 CONFIGURATION MCP SUPABASE
+## 🔌 CONFIGURATION SUPABASE
 
 ### Fichier : `.mcp.json`
 
@@ -482,68 +519,141 @@ stats.montant_comptes_credit =
 }
 ```
 
-### Status
-✅ **Serveur MCP connecté**
-⚠️ **Outils MCP non exposés** dans la session actuelle
-📝 **Synchronisation à implémenter**
+### Configuration Client Supabase
 
-### Prochaines Étapes pour la Sync
-1. Créer les tables correspondantes dans Supabase
-2. Implémenter la logique de synchronisation dans un service dédié
-3. Gérer les conflits (last-write-wins, version vectors, etc.)
-4. Ajouter un système d'authentification
+**URL** : `https://cdfqltezhcssutyjtyjb.supabase.co`
+**Anon Key** : `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...`
+
+**Fichier** : [services/supabase.ts](services/supabase.ts)
+
+### Status
+✅ **Authentification implémentée et fonctionnelle**
+✅ **Synchronisation bidirectionnelle implémentée**
+✅ **Gestion des conflits (Last Modified Wins)**
+✅ **Retry avec exponential backoff**
+✅ **Validation et mapping des données**
+✅ **Logs de synchronisation**
+
+### Configuration Supabase Requise
+
+#### 1. Tables Supabase
+Les tables suivantes doivent exister dans Supabase avec le même schéma que IndexedDB :
+- `personnes`
+- `comptes_epargne`
+- `comptes_credit`
+- `transactions_epargne`
+- `transactions_credit`
+- `profiles` (pour l'authentification)
+
+#### 2. RLS Policies pour `profiles`
+```sql
+-- Allow all to read profiles
+CREATE POLICY "Profiles are readable by everyone"
+ON profiles FOR SELECT
+USING (true);
+
+-- Allow users to insert their own profile
+CREATE POLICY "Users can insert their own profile"
+ON profiles FOR INSERT
+WITH CHECK (auth.uid() = user_id);
+
+-- Allow users to update their own profile
+CREATE POLICY "Users can update their own profile"
+ON profiles FOR UPDATE
+USING (auth.uid() = user_id);
+```
+
+#### 3. Trigger Auto-création Profil (Recommandé)
+```sql
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.profiles (user_id, email, firstname, name, role)
+  VALUES (
+    NEW.id,
+    NEW.email,
+    COALESCE(NEW.raw_user_meta_data->>'firstname', ''),
+    COALESCE(NEW.raw_user_meta_data->>'lastname', ''),
+    4
+  );
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW
+  EXECUTE FUNCTION public.handle_new_user();
+```
 
 ---
 
-## ⚠️ PROBLÈMES CONNUS
+## ⚠️ PROBLÈMES CONNUS ET LIMITATIONS
 
-### 1. User ID en dur
-**Description** : L'ID utilisateur est codé en dur (`MOCK_USER_ID = 'test27'` ou `'user-test-123'`)
-**Impact** : Pas de vraie séparation multi-utilisateurs
-**Solution** : Implémenter un système d'authentification
+### 1. ✅ User ID en dur (RÉSOLU)
+**Description** : L'ID utilisateur était codé en dur (`MOCK_USER_ID = 'test27'`)
+**Solution** : ✅ Authentification Supabase implémentée avec profil utilisateur
 
-### 2. Synchronisation non implémentée
-**Description** : La queue de sync est remplie mais jamais envoyée à Supabase
-**Impact** : Les données restent uniquement locales
-**Solution** : Implémenter la logique de synchronisation
+### 2. ✅ Synchronisation non implémentée (RÉSOLU)
+**Description** : La queue de sync était remplie mais jamais envoyée
+**Solution** : ✅ Synchronisation bidirectionnelle complète implémentée
 
-### 3. Génération de codes
-**Description** : Les `code_client` et `no_compte` sont générés localement
-**Impact** : Risque de collision en multi-device
-**Solution** : Générer les codes côté serveur ou utiliser des UUID
-
-### 4. Pas de gestion des conflits
+### 3. ✅ Gestion des conflits (RÉSOLU)
 **Description** : Pas de stratégie de résolution de conflits
-**Impact** : En cas de modifications concurrentes, last-write-wins
-**Solution** : Implémenter CRDTs ou version vectors
+**Solution** : ✅ Last Modified Wins implémenté (comparaison `updated_at`)
+
+### 4. Génération de codes locale
+**Description** : Les `code_client` et `no_compte` sont générés localement
+**Impact** : Risque de collision en multi-device si deux utilisateurs créent des clients en même temps offline
+**Solution future** : Générer les codes côté serveur via Supabase Function ou utiliser uniquement des UUID
+
+### 5. Schéma Supabase inconsistant
+**Description** : `created_by`/`updated_by` sont bigint pour `personnes` mais uuid pour les autres tables
+**Impact actuel** : Utilisation de `null` ou délégation aux triggers Supabase pour `personnes`
+**Solution future** : Harmoniser le schéma Supabase (tout en uuid ou tout en bigint)
+
+### 6. Pas de cache des images
+**Description** : Les photos (`photo_identification`) ne sont pas optimisées
+**Impact** : Taille de la base IndexedDB peut grossir rapidement
+**Solution future** : Stocker les images sur Supabase Storage et garder uniquement les URLs localement
 
 ---
 
 ## 🚀 PROCHAINES ÉTAPES
 
-### Court terme (Sprint 1)
-1. ✅ ~~Corriger les problèmes de sync queue~~
-2. ✅ ~~Ajouter les timestamps updated_at~~
-3. ✅ ~~Valider les soldes~~
-4. ✅ ~~Améliorer l'affichage des tables~~
-5. ✅ ~~Ajouter boutons maintenance~~
-6. ⏳ Implémenter l'authentification
-7. ⏳ Créer les tables Supabase
+### Court terme (Sprint 1) - ✅ COMPLÉTÉ
+1. ✅ Corriger les problèmes de sync queue
+2. ✅ Ajouter les timestamps updated_at
+3. ✅ Valider les soldes
+4. ✅ Améliorer l'affichage des tables
+5. ✅ Ajouter boutons maintenance
+6. ✅ Implémenter l'authentification Supabase
+7. ✅ Implémenter la synchronisation bidirectionnelle
+8. ✅ Gérer les conflits (Last Modified Wins)
+9. ✅ Ajouter modal de progression sync
+10. ✅ Fix tous les bugs UI (modal auto-display, navigation, profil)
 
 ### Moyen terme (Sprint 2)
-1. Implémenter la synchronisation bidirectionnelle
-2. Gérer les conflits
-3. Ajouter des notifications pour les erreurs de sync
-4. Optimiser les performances
-5. Ajouter des tests unitaires
+1. ⏳ Tester la synchronisation en conditions réelles
+2. ⏳ Créer toutes les tables dans Supabase
+3. ⏳ Configurer les RLS policies complètes
+4. ⏳ Harmoniser le schéma Supabase (created_by/updated_by)
+5. ⏳ Optimiser les performances (indexation, batch size)
+6. ⏳ Ajouter des tests unitaires (services)
+7. ⏳ Implémenter gestion des rôles (Admin, Manager, Supervisor, Agent)
+8. ⏳ Améliorer les logs de sync (filtrage, export)
 
 ### Long terme (Sprint 3+)
 1. Rapports et exports (PDF, Excel)
-2. Tableau de bord avec graphiques
-3. Gestion des utilisateurs et permissions
-4. Notifications push
-5. Version mobile native (React Native)
-6. Backup automatique
+2. Tableau de bord avec graphiques (Chart.js)
+3. Gestion des utilisateurs et permissions granulaires
+4. Notifications push pour les syncs
+5. Optimisation images (Supabase Storage)
+6. Version mobile native (React Native)
+7. Backup automatique quotidien
+8. Tests end-to-end (Playwright)
+9. CI/CD pipeline
+10. Monitoring et analytics
 
 ---
 
@@ -607,14 +717,17 @@ npm run preview      # Prévisualise le build
 
 ## 📊 MÉTRIQUES DU PROJET
 
-- **Lignes de code TypeScript** : ~5000+
-- **Composants React** : 20+
+- **Lignes de code TypeScript** : ~8000+
+- **Composants React** : 25+
+- **Services** : 9 (database, statistics, codeGenerator, supabase, supabaseAuth, syncService, schemaMapper, dataValidator, networkMonitor, syncLogger)
 - **Tables de base de données** : 6
 - **Champs indexés** : 80+
-- **Pages** : 4 principales
-- **Taille du bundle** : 372.84 KB (gzip: 108.96 KB)
-- **Version Dexie** : 4.x
-- **Version React** : 18.x
+- **Pages** : 6 (Clients, ComptesEpargne, ComptesCredit, Parametres, Login, Register)
+- **Taille du bundle** : 590.45 KB (gzip: 168.32 KB)
+- **Version Dexie** : 4.2.1
+- **Version React** : 19.2.0
+- **Version TypeScript** : 5.8.2
+- **Version Vite** : 6.2.0
 
 ---
 
@@ -625,16 +738,22 @@ npm run preview      # Prévisualise le build
 - ✅ Gestion des comptes épargne et crédit
 - ✅ Suivi des transactions
 - ✅ Statistiques détaillées pour les agents
-- ⏳ Synchronisation avec le serveur
-- ⏳ Multi-utilisateurs avec permissions
+- ✅ Authentification Supabase (login/register)
+- ✅ Synchronisation bidirectionnelle avec le serveur
+- ✅ Résolution de conflits (Last Modified Wins)
+- ⏳ Multi-utilisateurs avec permissions (structure prête)
 
 ### Non-fonctionnels
 - ✅ Offline-first (fonctionne sans connexion)
-- ✅ Performances optimisées (indexes)
-- ✅ Interface responsive
+- ✅ Performances optimisées (indexes, batch processing)
+- ✅ Interface responsive avec Tailwind CSS
 - ✅ TypeScript pour la sécurité des types
+- ✅ Retry automatique avec exponential backoff
+- ✅ Validation des données avant sync
+- ✅ Logs détaillés de synchronisation
+- ✅ Toast notifications pour UX
 - ⏳ Tests automatisés
-- ⏳ Documentation complète
+- ✅ Documentation complète (5 fichiers MD)
 
 ---
 

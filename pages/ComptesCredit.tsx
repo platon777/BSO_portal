@@ -41,18 +41,20 @@ const ComptesCredit: React.FC = () => {
     }, [searchTerm], { comptes: [], transactions: [] });
 
     const paginatedComptes = useMemo(() => {
+        if (!data) return [];
         const start = (currentPageComptes - 1) * itemsPerPageComptes;
         return data.comptes.slice(start, start + itemsPerPageComptes);
-    }, [data.comptes, currentPageComptes, itemsPerPageComptes]);
-    
-    const totalPagesComptes = Math.ceil(data.comptes.length / itemsPerPageComptes);
+    }, [data, currentPageComptes, itemsPerPageComptes]);
+
+    const totalPagesComptes = data ? Math.ceil(data.comptes.length / itemsPerPageComptes) : 0;
 
     const paginatedTransactions = useMemo(() => {
+        if (!data) return [];
         const start = (currentPageTransactions - 1) * itemsPerPageTransactions;
         return data.transactions.slice(start, start + itemsPerPageTransactions);
-    }, [data.transactions, currentPageTransactions, itemsPerPageTransactions]);
+    }, [data, currentPageTransactions, itemsPerPageTransactions]);
 
-    const totalPagesTransactions = Math.ceil(data.transactions.length / itemsPerPageTransactions);
+    const totalPagesTransactions = data ? Math.ceil(data.transactions.length / itemsPerPageTransactions) : 0;
 
 
     const handleAddCompte = () => {
@@ -126,13 +128,13 @@ const ComptesCredit: React.FC = () => {
                                     <tr key={compte.id_compte_credit} className="hover:bg-gray-50">
                                         <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{compte.no_compte}</td>
                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{compte.personne ? `${compte.personne.prenom} ${compte.personne.nom}` : 'N/A'}</td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 font-semibold">{compte.montant_prete.toFixed(2)}</td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-green-600">{compte.paiement_rembourse.toFixed(2)}</td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-red-600 font-semibold">{restant.toFixed(2)}</td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{compte.taux_interet}%</td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{compte.paiement_journalier.toFixed(2)}</td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{compte.duree_credit_mois}</td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{compte.fonds_garantie.toFixed(2)}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 font-semibold">{(compte.montant_prete ?? 0).toFixed(2)}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-green-600">{(compte.paiement_rembourse ?? 0).toFixed(2)}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-red-600 font-semibold">{(restant ?? 0).toFixed(2)}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{compte.taux_interet ?? 0}%</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{(compte.paiement_journalier ?? 0).toFixed(2)}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{compte.duree_credit_mois ?? 0}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{(compte.fonds_garantie ?? 0).toFixed(2)}</td>
                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
                                             {new Date(compte.date_creation).toLocaleDateString('fr-FR')}
                                         </td>
@@ -161,7 +163,7 @@ const ComptesCredit: React.FC = () => {
                             </tbody>
                         </table>
                     </div>
-                    <Pagination currentPage={currentPageComptes} totalPages={totalPagesComptes} onPageChange={setCurrentPageComptes} itemsPerPage={itemsPerPageComptes} totalItems={data.comptes.length} onItemsPerPageChange={(v) => { setItemsPerPageComptes(v); setCurrentPageComptes(1); }} />
+                    <Pagination currentPage={currentPageComptes} totalPages={totalPagesComptes} onPageChange={setCurrentPageComptes} itemsPerPage={itemsPerPageComptes} totalItems={data?.comptes.length || 0} onItemsPerPageChange={(v) => { setItemsPerPageComptes(v); setCurrentPageComptes(1); }} />
                 </div>
             </div>
 
@@ -198,9 +200,9 @@ const ComptesCredit: React.FC = () => {
                                                 {tx.type_transaction}
                                             </span>
                                         </td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-gray-900">{tx.montant.toFixed(2)}</td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{tx.solde_avant_transaction.toFixed(2)}</td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{tx.versement_declare ? tx.versement_declare.toFixed(2) : '-'}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-gray-900">{(tx.montant ?? 0).toFixed(2)}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{(tx.solde_avant_transaction ?? 0).toFixed(2)}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{tx.versement_declare ? (tx.versement_declare ?? 0).toFixed(2) : '-'}</td>
                                         <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500">{tx.created_by}</td>
                                     </tr>
                                     );
@@ -208,7 +210,7 @@ const ComptesCredit: React.FC = () => {
                             </tbody>
                         </table>
                     </div>
-                    <Pagination currentPage={currentPageTransactions} totalPages={totalPagesTransactions} onPageChange={setCurrentPageTransactions} itemsPerPage={itemsPerPageTransactions} totalItems={data.transactions.length} onItemsPerPageChange={(v) => { setItemsPerPageTransactions(v); setCurrentPageTransactions(1); }} />
+                    <Pagination currentPage={currentPageTransactions} totalPages={totalPagesTransactions} onPageChange={setCurrentPageTransactions} itemsPerPage={itemsPerPageTransactions} totalItems={data?.transactions.length || 0} onItemsPerPageChange={(v) => { setItemsPerPageTransactions(v); setCurrentPageTransactions(1); }} />
                  </div>
             </div>
 

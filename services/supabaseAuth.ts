@@ -15,6 +15,81 @@ const STORAGE_KEYS = {
 };
 
 /**
+ * Register new user with email and password
+ */
+export const register = async (
+  email: string,
+  password: string,
+  firstname: string,
+  lastname: string
+): Promise<{ user: User; profile: UserProfile } | AuthError> => {
+  try {
+    // 1. Create auth user
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          firstname,
+          lastname,
+        }
+      }
+    });
+
+    if (error) {
+      return handleSupabaseError(error);
+    }
+
+    if (!data.user) {
+      return { message: 'Échec de la création du compte' };
+    }
+
+    // 2. Create profile in database
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .insert({
+        user_id: data.user.id,
+        email,
+        firstname,
+        name: lastname,
+        role: 4, // Default role (Agent)
+      });
+
+    if (profileError) {
+      console.error('Profile creation error:', profileError);
+      // Don't throw - profile might be created by trigger
+    }
+
+    // Fetch the created profile
+    const profile = await fetchUserProfile(data.user.id);
+
+    if ('message' in profile) {
+      // Profile creation failed, but user was created
+      return {
+        user: data.user,
+        profile: {
+          id: 0,
+          user_id: data.user.id,
+          email,
+          firstname,
+          name: lastname,
+          role: 4,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }
+      };
+    }
+
+    // Store for offline access
+    storeOfflineAuthData(data.user, profile);
+
+    return { user: data.user, profile };
+  } catch (error: any) {
+    return handleSupabaseError(error);
+  }
+};
+
+/**
  * Login with email and password
  */
 export const login = async (credentials: LoginCredentials): Promise<{ user: User; profile: UserProfile } | AuthError> => {
@@ -33,10 +108,42 @@ export const login = async (credentials: LoginCredentials): Promise<{ user: User
     }
 
     // Fetch user profile from database
-    const profile = await fetchUserProfile(data.user.id);
+    let profile = await fetchUserProfile(data.user.id);
 
     if ('message' in profile) {
-      return profile; // Error occurred
+      // Profile doesn't exist, create it automatically
+      console.log('Profile not found, creating one...');
+
+      const { error: createError } = await supabase
+        .from('profiles')
+        .insert({
+          user_id: data.user.id,
+          email: data.user.email || credentials.email,
+          firstname: data.user.user_metadata?.firstname || '',
+          name: data.user.user_metadata?.lastname || data.user.user_metadata?.name || '',
+          role: 4, // Default role
+        });
+
+      if (createError) {
+        console.error('Failed to create profile:', createError);
+      }
+
+      // Try to fetch again
+      profile = await fetchUserProfile(data.user.id);
+
+      if ('message' in profile) {
+        // Still failed, create a temporary profile
+        profile = {
+          id: 0,
+          user_id: data.user.id,
+          email: data.user.email || credentials.email,
+          firstname: data.user.user_metadata?.firstname || 'User',
+          name: data.user.user_metadata?.lastname || data.user.user_metadata?.name || 'Unknown',
+          role: 4,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+      }
     }
 
     // Store for offline access
