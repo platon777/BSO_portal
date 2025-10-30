@@ -13,6 +13,7 @@ import { ModalProvider } from './contexts/ModalContext';
 import { db, seedDatabase } from './services/database';
 import ModalRoot from './components/common/ModalRoot';
 import OfflineIndicator from './components/common/OfflineIndicator';
+import CacheDiagnostic from './components/common/CacheDiagnostic';
 import { useAuthStore } from './stores/authStore';
 import { Toaster } from 'react-hot-toast';
 
@@ -187,6 +188,7 @@ const App: React.FC = () => {
       </div>
       <ModalRoot />
       <OfflineIndicator />
+      <CacheDiagnostic />
     </ModalProvider>
   );
 };
