@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v11';
+const CACHE_VERSION = 'v12';
 const CACHE_NAME = `bso-portal-cache-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `bso-portal-runtime-${CACHE_VERSION}`;
 
@@ -39,16 +39,23 @@ self.addEventListener('install', (event) => {
 
           Object.values(manifest).forEach((entry) => {
             if (entry.file) {
-              allFiles.add(`/assets/${entry.file.replace('assets/', '')}`);
+              // entry.file is like "assets/index-xxx.js", we need to add "/" prefix
+              const url = entry.file.startsWith('/') ? entry.file : `/${entry.file}`;
+              allFiles.add(url);
+              console.log('[SW] Adding to cache:', url);
             }
             if (entry.css) {
               entry.css.forEach(css => {
-                allFiles.add(`/assets/${css.replace('assets/', '')}`);
+                const url = css.startsWith('/') ? css : `/${css}`;
+                allFiles.add(url);
+                console.log('[SW] Adding CSS to cache:', url);
               });
             }
             if (entry.assets) {
               entry.assets.forEach(asset => {
-                allFiles.add(`/assets/${asset.replace('assets/', '')}`);
+                const url = asset.startsWith('/') ? asset : `/${asset}`;
+                allFiles.add(url);
+                console.log('[SW] Adding asset to cache:', url);
               });
             }
           });
