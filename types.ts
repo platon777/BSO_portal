@@ -110,6 +110,8 @@ export interface SyncQueueItem {
   data: any;
   status: 'pending' | 'completed' | 'failed';
   timestamp: number;
+  retry_count: number;
+  updated_at: number;
   error?: string;
 }
 

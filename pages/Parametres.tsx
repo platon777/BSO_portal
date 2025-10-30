@@ -7,6 +7,10 @@ import { RefreshCwIcon, UploadCloudIcon, DownloadCloudIcon, RotateCcwIcon, Alert
 import { db } from '../services/database';
 import { useModal } from '../contexts/ModalContext';
 import ConfirmationModal from '../components/modals/ConfirmationModal';
+import SyncProgressModal from '../components/modals/SyncProgressModal';
+import { uploadPendingChanges, downloadUpdatesFromServer, retryFailedSyncItems } from '../services/syncService';
+import { useAuthStore } from '../stores/authStore';
+import toast from 'react-hot-toast';
 import Dexie from 'dexie';
 
 const StatCard: React.FC<{ title: string; value: string | number; color: string }> = ({ title, value, color }) => (
@@ -17,32 +21,119 @@ const StatCard: React.FC<{ title: string; value: string | number; color: string 
 );
 
 const Parametres: React.FC = () => {
-    const MOCK_USER_ID = 'test27'; // Should come from auth
+    const { profile } = useAuthStore();
+    const userId = profile?.user_id || 'test27';
     const [stats, setStats] = useState<AgentStats | null>(null);
     const [dateFilter, setDateFilter] = useState<DateFilter>({ type: 'today' });
     const unsyncedItems = useLiveQuery(() => getUnsyncedStats(), []);
     const { showModal, hideModal } = useModal();
 
+    // Sync progress state
+    const [isSyncing, setIsSyncing] = useState(false);
+    const [syncProgress, setSyncProgress] = useState({ current: 0, total: 0, message: '' });
+    const [syncErrors, setSyncErrors] = useState<string[]>([]);
+
     useEffect(() => {
         const fetchStats = async () => {
-            const agentStats = await getAgentStats(MOCK_USER_ID, dateFilter);
+            const agentStats = await getAgentStats(userId, dateFilter);
             setStats(agentStats);
         };
         fetchStats();
-    }, [dateFilter]);
+    }, [dateFilter, userId]);
 
-    const handleSync = () => {
-        // Mock sync logic
-        alert('Syncing data with server...');
-    }
+    const handleSync = async () => {
+        setIsSyncing(true);
+        setSyncErrors([]);
+        setSyncProgress({ current: 0, total: 0, message: 'Démarrage de la synchronisation...' });
 
-    const handleForceDownload = () => {
-        alert('Force downloading data from server...');
-    }
+        try {
+            const result = await uploadPendingChanges((current, total, message) => {
+                setSyncProgress({ current, total, message });
+            });
 
-    const handleRetryFailed = () => {
-        alert('Retrying failed sync items...');
-    }
+            setIsSyncing(false);
+
+            if (result.failed === 0) {
+                toast.success(`✅ Synchronisation réussie ! ${result.success} élément(s) synchronisé(s).`);
+            } else {
+                toast.error(`⚠️ Synchronisation partielle : ${result.success} réussi(s), ${result.failed} échec(s).`);
+                setSyncErrors(result.errors);
+            }
+        } catch (error: any) {
+            setIsSyncing(false);
+            toast.error(`❌ Erreur de synchronisation : ${error.message}`);
+        }
+    };
+
+    const handleForceDownload = async () => {
+        // Check if there are pending items
+        const pendingCount = unsyncedItems?.filter(i => i.status === 'pending').length || 0;
+
+        if (pendingCount > 0) {
+            showModal(
+                'Confirmer le téléchargement',
+                <ConfirmationModal
+                    title="Attention : Données non synchronisées"
+                    message={`Vous avez ${pendingCount} élément(s) en attente de synchronisation. Le téléchargement forcé pourrait écraser ces modifications locales. Voulez-vous continuer ?`}
+                    onConfirm={async () => {
+                        hideModal();
+                        await performDownload();
+                    }}
+                    onCancel={hideModal}
+                />
+            );
+        } else {
+            await performDownload();
+        }
+    };
+
+    const performDownload = async () => {
+        setIsSyncing(true);
+        setSyncErrors([]);
+        setSyncProgress({ current: 0, total: 0, message: 'Démarrage du téléchargement...' });
+
+        try {
+            const result = await downloadUpdatesFromServer((current, total, message) => {
+                setSyncProgress({ current, total, message });
+            });
+
+            setIsSyncing(false);
+
+            if (result.failed === 0) {
+                toast.success(`✅ Téléchargement réussi ! ${result.success} élément(s) téléchargé(s).`);
+            } else {
+                toast.error(`⚠️ Téléchargement partiel : ${result.success} réussi(s), ${result.failed} échec(s).`);
+                setSyncErrors(result.errors);
+            }
+        } catch (error: any) {
+            setIsSyncing(false);
+            toast.error(`❌ Erreur de téléchargement : ${error.message}`);
+        }
+    };
+
+    const handleRetryFailed = async () => {
+        setIsSyncing(true);
+        setSyncErrors([]);
+        setSyncProgress({ current: 0, total: 0, message: 'Relance des éléments en échec...' });
+
+        try {
+            const result = await retryFailedSyncItems((current, total, message) => {
+                setSyncProgress({ current, total, message });
+            });
+
+            setIsSyncing(false);
+
+            if (result.failed === 0) {
+                toast.success(`✅ Relance réussie ! ${result.success} élément(s) synchronisé(s).`);
+            } else {
+                toast.error(`⚠️ Relance partielle : ${result.success} réussi(s), ${result.failed} encore en échec.`);
+                setSyncErrors(result.errors);
+            }
+        } catch (error: any) {
+            setIsSyncing(false);
+            toast.error(`❌ Erreur lors de la relance : ${error.message}`);
+        }
+    };
 
     const handleClearDatabase = () => {
         const confirmClear = async () => {
@@ -244,7 +335,7 @@ const Parametres: React.FC = () => {
             </div>
 
             <div className="bg-white p-4 rounded-lg shadow-md">
-                <h2 className="text-lg font-bold text-gray-800 mb-4">Statistiques de l'agent ({MOCK_USER_ID})</h2>
+                <h2 className="text-lg font-bold text-gray-800 mb-4">Statistiques de l'agent ({userId})</h2>
                  <div className="mb-4">
                     <select onChange={(e) => setDateFilter({type: e.target.value as any})} className="p-2 border rounded-md">
                         <option value="today">Aujourd'hui</option>
@@ -280,6 +371,17 @@ const Parametres: React.FC = () => {
                     <StatCard title="🛡️ Garantie Totale" value={stats.total_fonds_garantie_global.toFixed(2)} color="border-indigo-600" />
                 </div>
             </div>
+
+            {/* Sync Progress Modal */}
+            <SyncProgressModal
+                isOpen={isSyncing}
+                title="Synchronisation en cours"
+                currentStep={syncProgress.current}
+                totalSteps={syncProgress.total}
+                currentMessage={syncProgress.message}
+                errors={syncErrors}
+                canCancel={false}
+            />
         </div>
     );
 };

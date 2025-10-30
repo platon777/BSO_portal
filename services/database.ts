@@ -34,6 +34,21 @@ export class MySubClassedDexie extends Dexie {
       transactions_credit: 'id_transaction_credit, id_compte_credit, no_compte, type_transaction, montant, solde_avant_transaction, date_transaction, montant_pret, solde_credit, created_at, created_by, versement_declare, updated_at',
       syncQueue: '++id, table, pk, status, timestamp',
     });
+
+    // Version 4: Add retry_count and updated_at to syncQueue
+    this.version(4).stores({
+      syncQueue: '++id, table, pk, status, timestamp, retry_count',
+    }).upgrade(tx => {
+      // Add retry_count field to existing syncQueue items
+      return tx.table('syncQueue').toCollection().modify(item => {
+        if (item.retry_count === undefined) {
+          item.retry_count = 0;
+        }
+        if (item.updated_at === undefined) {
+          item.updated_at = item.timestamp;
+        }
+      });
+    });
   }
 
   private async addToSyncQueue(action: 'add' | 'update' | 'delete', table: SyncQueueItem['table'], pk: string, data: any) {
@@ -44,6 +59,8 @@ export class MySubClassedDexie extends Dexie {
       data,
       status: 'pending',
       timestamp: Date.now(),
+      retry_count: 0,
+      updated_at: Date.now(),
     };
     await this.syncQueue.add(item);
   }
