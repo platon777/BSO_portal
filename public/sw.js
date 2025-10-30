@@ -1,33 +1,11 @@
-const CACHE_NAME = 'bso-portal-cache-v4';
-const RUNTIME_CACHE = 'bso-portal-runtime-v4';
+const CACHE_NAME = 'bso-portal-cache-v5';
+const RUNTIME_CACHE = 'bso-portal-runtime-v5';
 
-// Critical CDN resources to precache for offline-first functionality
-const CRITICAL_CDNS = [
-  'https://cdn.tailwindcss.com',
-  // Note: React import maps URLs will be cached on first fetch
-];
-
-// Install event - precache critical CDN resources
+// Install event - activate immediately
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installing service worker...');
-  event.waitUntil(
-    caches.open(RUNTIME_CACHE)
-      .then((cache) => {
-        console.log('[SW] Precaching critical CDN resources...');
-        // Try to cache CDN resources, but don't fail if offline during install
-        return Promise.allSettled(
-          CRITICAL_CDNS.map(url =>
-            fetch(url)
-              .then(response => cache.put(url, response))
-              .catch(err => console.warn('[SW] Failed to precache:', url, err))
-          )
-        );
-      })
-      .then(() => {
-        console.log('[SW] Service worker installed');
-        return self.skipWaiting();
-      })
-  );
+  console.log('[SW] Installing service worker v5...');
+  // Skip waiting to activate immediately
+  self.skipWaiting();
 });
 
 // Activate event - clean up old caches and take control immediately
