@@ -41,20 +41,18 @@ const ComptesEpargne: React.FC = () => {
     }, [searchTerm], { comptes: [], transactions: [] });
 
     const paginatedComptes = useMemo(() => {
-        if (!data) return [];
         const start = (currentPageComptes - 1) * itemsPerPageComptes;
         return data.comptes.slice(start, start + itemsPerPageComptes);
-    }, [data, currentPageComptes, itemsPerPageComptes]);
-
-    const totalPagesComptes = data ? Math.ceil(data.comptes.length / itemsPerPageComptes) : 0;
+    }, [data.comptes, currentPageComptes, itemsPerPageComptes]);
+    
+    const totalPagesComptes = Math.ceil(data.comptes.length / itemsPerPageComptes);
 
     const paginatedTransactions = useMemo(() => {
-        if (!data) return [];
         const start = (currentPageTransactions - 1) * itemsPerPageTransactions;
         return data.transactions.slice(start, start + itemsPerPageTransactions);
-    }, [data, currentPageTransactions, itemsPerPageTransactions]);
-
-    const totalPagesTransactions = data ? Math.ceil(data.transactions.length / itemsPerPageTransactions) : 0;
+    }, [data.transactions, currentPageTransactions, itemsPerPageTransactions]);
+    
+    const totalPagesTransactions = Math.ceil(data.transactions.length / itemsPerPageTransactions);
 
     const handleAddCompte = () => {
         showModal('Créer un compte épargne', <CompteEpargneForm onSave={hideModal} onCancel={hideModal} />);
@@ -120,8 +118,8 @@ const ComptesEpargne: React.FC = () => {
                                     <tr key={compte.id_compte_epargne} className="hover:bg-gray-50">
                                         <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{compte.no_compte}</td>
                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{compte.personne ? `${compte.personne.prenom} ${compte.personne.nom}` : 'N/A'}</td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 font-semibold">{(compte.solde_actuel ?? 0).toFixed(2)}</td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{(compte.fonds_garantie ?? 0).toFixed(2)}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 font-semibold">{compte.solde_actuel.toFixed(2)}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{compte.fonds_garantie.toFixed(2)}</td>
                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
                                             {new Date(compte.date_creation).toLocaleDateString('fr-FR')}
                                         </td>
@@ -150,7 +148,7 @@ const ComptesEpargne: React.FC = () => {
                             </tbody>
                         </table>
                     </div>
-                     <Pagination currentPage={currentPageComptes} totalPages={totalPagesComptes} onPageChange={setCurrentPageComptes} itemsPerPage={itemsPerPageComptes} totalItems={data?.comptes.length || 0} onItemsPerPageChange={(v) => { setItemsPerPageComptes(v); setCurrentPageComptes(1); }} />
+                     <Pagination currentPage={currentPageComptes} totalPages={totalPagesComptes} onPageChange={setCurrentPageComptes} itemsPerPage={itemsPerPageComptes} totalItems={data.comptes.length} onItemsPerPageChange={(v) => { setItemsPerPageComptes(v); setCurrentPageComptes(1); }} />
                 </div>
             </div>
 
@@ -188,9 +186,9 @@ const ComptesEpargne: React.FC = () => {
                                                 {typeLabels[tx.type_transaction]}
                                             </span>
                                         </td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-gray-900">{(tx.montant ?? 0).toFixed(2)}</td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{(tx.solde_avant_transaction ?? 0).toFixed(2)}</td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{(tx.solde_apres_transaction ?? 0).toFixed(2)}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-gray-900">{tx.montant.toFixed(2)}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{tx.solde_avant_transaction.toFixed(2)}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{tx.solde_apres_transaction.toFixed(2)}</td>
                                         <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500">{tx.created_by}</td>
                                     </tr>
                                     );
@@ -198,7 +196,7 @@ const ComptesEpargne: React.FC = () => {
                             </tbody>
                         </table>
                     </div>
-                    <Pagination currentPage={currentPageTransactions} totalPages={totalPagesTransactions} onPageChange={setCurrentPageTransactions} itemsPerPage={itemsPerPageTransactions} totalItems={data?.transactions.length || 0} onItemsPerPageChange={(v) => { setItemsPerPageTransactions(v); setCurrentPageTransactions(1); }} />
+                    <Pagination currentPage={currentPageTransactions} totalPages={totalPagesTransactions} onPageChange={setCurrentPageTransactions} itemsPerPage={itemsPerPageTransactions} totalItems={data.transactions.length} onItemsPerPageChange={(v) => { setItemsPerPageTransactions(v); setCurrentPageTransactions(1); }} />
                  </div>
             </div>
         </div>

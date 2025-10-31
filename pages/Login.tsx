@@ -15,7 +15,7 @@ const Login: React.FC = () => {
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('clients');
+      navigate('/');
     }
   }, [isAuthenticated, navigate]);
 
@@ -157,17 +157,8 @@ const Login: React.FC = () => {
         </form>
 
         {/* Footer */}
-        <div className="mt-6 text-center space-y-3">
+        <div className="mt-6 text-center">
           <p className="text-sm text-gray-600">
-            Vous n'avez pas de compte ?{' '}
-            <button
-              onClick={() => navigate('register')}
-              className="text-blue-600 hover:text-blue-700 font-semibold"
-            >
-              S'inscrire
-            </button>
-          </p>
-          <p className="text-xs text-gray-500">
             Problème de connexion ? Contactez votre administrateur
           </p>
         </div>

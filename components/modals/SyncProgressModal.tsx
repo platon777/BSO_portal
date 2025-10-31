@@ -8,7 +8,6 @@ export interface SyncProgressModalProps {
   totalSteps: number;
   currentMessage: string;
   errors: string[];
-  onClose: () => void;
   onCancel?: () => void;
   canCancel?: boolean;
 }
@@ -20,16 +19,13 @@ const SyncProgressModal: React.FC<SyncProgressModalProps> = ({
   totalSteps,
   currentMessage,
   errors,
-  onClose,
   onCancel,
   canCancel = false,
 }) => {
   const progress = totalSteps > 0 ? (currentStep / totalSteps) * 100 : 0;
 
-  if (!isOpen) return null;
-
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={title}>
+    <Modal isOpen={isOpen} onClose={() => {}} title={title}>
       <div className="space-y-6">
         {/* Progress Bar */}
         <div>

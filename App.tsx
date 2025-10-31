@@ -8,7 +8,6 @@ import ComptesEpargne from './pages/ComptesEpargne';
 import ComptesCredit from './pages/ComptesCredit';
 import Parametres from './pages/Parametres';
 import Login from './pages/Login';
-import Register from './pages/Register';
 import { ModalProvider } from './contexts/ModalContext';
 import { db, seedDatabase } from './services/database';
 import ModalRoot from './components/common/ModalRoot';
@@ -17,7 +16,7 @@ import CacheDiagnostic from './components/common/CacheDiagnostic';
 import { useAuthStore } from './stores/authStore';
 import { Toaster } from 'react-hot-toast';
 
-type Page = 'dashboard' | 'clients' | 'epargne' | 'credit' | 'recouvrement' | 'rapports' | 'parametres' | 'login' | 'register';
+type Page = 'dashboard' | 'clients' | 'epargne' | 'credit' | 'recouvrement' | 'rapports' | 'parametres' | 'login';
 
 // Export a simple navigation hook for use in child components
 let navigateFn: ((page: Page) => void) | null = null;
@@ -84,7 +83,7 @@ const App: React.FC = () => {
 
   // Redirect to login if not authenticated
   useEffect(() => {
-    if (!isLoading && !isAuthenticated && currentPage !== 'login' && currentPage !== 'register') {
+    if (!isLoading && !isAuthenticated && currentPage !== 'login') {
       setCurrentPage('login');
     }
   }, [isAuthenticated, isLoading, currentPage]);
@@ -94,8 +93,6 @@ const App: React.FC = () => {
     switch (currentPage) {
       case 'login':
         return <Login />;
-      case 'register':
-        return <Register />;
       case 'clients':
         return <Clients />;
       case 'epargne':
@@ -149,23 +146,12 @@ const App: React.FC = () => {
     );
   }
 
-  // Show login or register page if not authenticated
-  if (!isAuthenticated && currentPage !== 'login' && currentPage !== 'register') {
+  // Show login page if not authenticated
+  if (!isAuthenticated && currentPage !== 'login') {
     return (
       <ModalProvider>
         <Toaster position="top-right" />
         <Login />
-        <ModalRoot />
-      </ModalProvider>
-    );
-  }
-
-  // Show register page
-  if (!isAuthenticated && currentPage === 'register') {
-    return (
-      <ModalProvider>
-        <Toaster position="top-right" />
-        <Register />
         <ModalRoot />
       </ModalProvider>
     );

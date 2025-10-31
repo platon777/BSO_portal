@@ -16,6 +16,7 @@ const STORAGE_KEYS = {
 };
 
 /**
+<<<<<<< HEAD
  * Register new user with email and password
  */
 export const register = async (
@@ -98,6 +99,8 @@ export const register = async (
 };
 
 /**
+=======
+>>>>>>> parent of 8ba6656 (first version complete mvp)
  * Login with email and password
  */
 export const login = async (credentials: LoginCredentials): Promise<{ user: User; profile: UserProfile } | AuthError> => {
@@ -121,42 +124,10 @@ export const login = async (credentials: LoginCredentials): Promise<{ user: User
     }
 
     // Fetch user profile from database
-    let profile = await fetchUserProfile(data.user.id);
+    const profile = await fetchUserProfile(data.user.id);
 
     if ('message' in profile) {
-      // Profile doesn't exist, create it automatically
-      console.log('Profile not found, creating one...');
-
-      const { error: createError } = await supabase
-        .from('profiles')
-        .insert({
-          user_id: data.user.id,
-          email: data.user.email || credentials.email,
-          firstname: data.user.user_metadata?.firstname || '',
-          name: data.user.user_metadata?.lastname || data.user.user_metadata?.name || '',
-          role: 4, // Default role
-        });
-
-      if (createError) {
-        console.error('Failed to create profile:', createError);
-      }
-
-      // Try to fetch again
-      profile = await fetchUserProfile(data.user.id);
-
-      if ('message' in profile) {
-        // Still failed, create a temporary profile
-        profile = {
-          id: 0,
-          user_id: data.user.id,
-          email: data.user.email || credentials.email,
-          firstname: data.user.user_metadata?.firstname || 'User',
-          name: data.user.user_metadata?.lastname || data.user.user_metadata?.name || 'Unknown',
-          role: 4,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-      }
+      return profile; // Error occurred
     }
 
     // Store for offline access
