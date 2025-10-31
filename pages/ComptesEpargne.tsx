@@ -116,10 +116,10 @@ const ComptesEpargne: React.FC = () => {
                             <tbody className="bg-white divide-y divide-gray-200">
                                 {paginatedComptes.map((compte) => (
                                     <tr key={compte.id_compte_epargne} className="hover:bg-gray-50">
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{compte.no_compte}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{compte.no_compte || '-'}</td>
                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{compte.personne ? `${compte.personne.prenom} ${compte.personne.nom}` : 'N/A'}</td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 font-semibold">{compte.solde_actuel.toFixed(2)}</td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{compte.fonds_garantie.toFixed(2)}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 font-semibold">{(compte.solde_actuel ?? 0).toFixed(2)}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{(compte.fonds_garantie ?? 0).toFixed(2)}</td>
                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
                                             {new Date(compte.date_creation).toLocaleDateString('fr-FR')}
                                         </td>
@@ -170,26 +170,26 @@ const ComptesEpargne: React.FC = () => {
                             </thead>
                              <tbody className="bg-white divide-y divide-gray-200">
                                 {paginatedTransactions.map((tx) => {
-                                    const typeLabels = { 'D': 'Dépôt', 'R': 'Retrait', 'FL': 'Frais Livret', 'S': 'Frais Service' };
-                                    const typeColors = { 'D': 'bg-green-100 text-green-800', 'R': 'bg-red-100 text-red-800', 'FL': 'bg-orange-100 text-orange-800', 'S': 'bg-yellow-100 text-yellow-800' };
+                                    const typeLabels: Record<string, string> = { 'D': 'Dépôt', 'R': 'Retrait', 'FL': 'Frais Livret', 'S': 'Frais Service' };
+                                    const typeColors: Record<string, string> = { 'D': 'bg-green-100 text-green-800', 'R': 'bg-red-100 text-red-800', 'FL': 'bg-orange-100 text-orange-800', 'S': 'bg-yellow-100 text-yellow-800' };
                                     return (
                                     <tr key={tx.id_transaction_epargne} className="hover:bg-gray-50">
                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
-                                            {new Date(tx.date_transaction).toLocaleString('fr-FR', {
+                                            {tx.date_transaction ? new Date(tx.date_transaction).toLocaleString('fr-FR', {
                                                 dateStyle: 'short',
                                                 timeStyle: 'short'
-                                            })}
+                                            }) : '-'}
                                         </td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{tx.no_compte}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{tx.no_compte || '-'}</td>
                                         <td className="px-4 py-3 whitespace-nowrap">
-                                            <span className={`px-2 py-1 text-xs font-semibold rounded ${typeColors[tx.type_transaction]}`}>
-                                                {typeLabels[tx.type_transaction]}
+                                            <span className={`px-2 py-1 text-xs font-semibold rounded ${typeColors[tx.type_transaction] || 'bg-gray-100 text-gray-800'}`}>
+                                                {typeLabels[tx.type_transaction] || tx.type_transaction}
                                             </span>
                                         </td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-gray-900">{tx.montant.toFixed(2)}</td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{tx.solde_avant_transaction.toFixed(2)}</td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{tx.solde_apres_transaction.toFixed(2)}</td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500">{tx.created_by}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-gray-900">{(tx.montant ?? 0).toFixed(2)}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{(tx.solde_avant_transaction ?? 0).toFixed(2)}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{(tx.solde_apres_transaction ?? 0).toFixed(2)}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500">{tx.created_by || '-'}</td>
                                     </tr>
                                     );
                                 })}
