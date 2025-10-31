@@ -11,7 +11,7 @@ const ModalRoot: React.FC = () => {
   }
 
   return (
-    <Modal title={modalState.title} onClose={hideModal}>
+    <Modal title={modalState.title} onClose={hideModal} isOpen={modalState.isOpen}>
       {modalState.content}
     </Modal>
   );
