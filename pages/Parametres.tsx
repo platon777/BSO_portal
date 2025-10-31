@@ -381,6 +381,7 @@ const Parametres: React.FC = () => {
                 currentMessage={syncProgress.message}
                 errors={syncErrors}
                 canCancel={false}
+                onCancel={() => setIsSyncing(false)}
             />
         </div>
     );

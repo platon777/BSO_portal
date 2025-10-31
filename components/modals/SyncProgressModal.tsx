@@ -25,7 +25,7 @@ const SyncProgressModal: React.FC<SyncProgressModalProps> = ({
   const progress = totalSteps > 0 ? (currentStep / totalSteps) * 100 : 0;
 
   return (
-    <Modal isOpen={isOpen} onClose={() => {}} title={title}>
+    <Modal isOpen={isOpen} onClose={canCancel && onCancel ? onCancel : () => {}} title={title}>
       <div className="space-y-6">
         {/* Progress Bar */}
         <div>
@@ -106,22 +106,28 @@ const SyncProgressModal: React.FC<SyncProgressModalProps> = ({
           </div>
         )}
 
-        {/* Cancel Button */}
-        {canCancel && onCancel && (
+        {/* Cancel/Close Button */}
+        {onCancel && (
           <div className="flex justify-end">
             <button
               onClick={onCancel}
-              className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition"
+              className={`px-4 py-2 text-white rounded-md transition ${
+                canCancel
+                  ? 'bg-gray-600 hover:bg-gray-700'
+                  : 'bg-blue-600 hover:bg-blue-700'
+              }`}
             >
-              Annuler
+              {canCancel ? 'Annuler' : 'Fermer'}
             </button>
           </div>
         )}
 
         {/* Info */}
-        <p className="text-xs text-gray-500 text-center">
-          Veuillez ne pas fermer cette fenêtre pendant la synchronisation
-        </p>
+        {!canCancel && currentStep < totalSteps && (
+          <p className="text-xs text-gray-500 text-center">
+            Veuillez ne pas fermer cette fenêtre pendant la synchronisation
+          </p>
+        )}
       </div>
     </Modal>
   );
