@@ -16,8 +16,6 @@ const STORAGE_KEYS = {
 };
 
 /**
-<<<<<<< HEAD
-<<<<<<< HEAD
  * Register new user with email and password
  */
 export const register = async (
@@ -100,10 +98,6 @@ export const register = async (
 };
 
 /**
-=======
->>>>>>> parent of 8ba6656 (first version complete mvp)
-=======
->>>>>>> parent of 8ba6656 (first version complete mvp)
  * Login with email and password
  */
 export const login = async (credentials: LoginCredentials): Promise<{ user: User; profile: UserProfile } | AuthError> => {
