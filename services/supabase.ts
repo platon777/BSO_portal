@@ -14,6 +14,8 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   },
 });
 
+//test deploy
+
 // Helper to check if we're online
 export const isOnline = (): boolean => {
   return navigator.onLine;
