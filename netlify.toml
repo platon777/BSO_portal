@@ -1,0 +1,38 @@
+# Configuration Netlify pour BSO Portal (PWA avec vite-plugin-pwa)
+
+# SPA fallback (laisser le SW gérer la nav offline)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+  # IMPORTANT: exclus les assets existants pour éviter de casser la livraison directe
+  force = false
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# Headers de cache
+# 1) SW NON mis en cache par CDN (pour détecter les updates)
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+
+# 2) Manifest PWA non caché (pour updates)
+[[headers]]
+  for = "/manifest.webmanifest"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+# 3) Assets Vite versionnés = cache long
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# 4) index.html courte durée (on laisse Workbox gérer)
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-cache"

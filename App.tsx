@@ -37,43 +37,8 @@ const App: React.FC = () => {
     // Populate database with fake data on first load
     seedDatabase();
 
-    // Register Service Worker
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        const swUrl = `${window.location.origin}/sw.js`;
-        navigator.serviceWorker.register(swUrl)
-          .then(async (registration) => {
-            console.log('[App] Service Worker successfully registered with scope:', registration.scope);
-
-            // Wait for service worker to be active
-            await navigator.serviceWorker.ready;
-
-            // Force cache of current page assets after a short delay
-            setTimeout(async () => {
-              if (registration.active) {
-                const scripts = Array.from(document.querySelectorAll('script[src]')).map(
-                  (script: any) => script.src
-                );
-                const styles = Array.from(document.querySelectorAll('link[rel="stylesheet"]')).map(
-                  (link: any) => link.href
-                );
-
-                const urls = [...scripts, ...styles];
-
-                registration.active.postMessage({
-                  type: 'CACHE_URLS',
-                  urls: urls,
-                });
-
-                console.log('[App] Requested caching of', urls.length, 'critical assets');
-              }
-            }, 2000);
-          })
-          .catch((error) => {
-            console.error('[App] Service Worker registration failed:', error);
-          });
-      });
-    }
+    // Service Worker is now auto-registered by vite-plugin-pwa
+    console.log('[App] PWA initialized - Service Worker auto-registered');
   }, [initialize]);
 
   // Update navigate function
