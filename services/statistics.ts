@@ -18,19 +18,12 @@ export interface AgentStats {
   transactions_credit_paiement: number;
   transactions_credit_penalite: number;
   transactions_credit_garantie: number;
-  montant_comptes_credit: number;
-  montant_comptes_epargne: number;
   montant_transactions_epargne_depot: number;
   montant_transactions_epargne_retrait: number;
-  montant_transactions_epargne_frais_service: number;
   montant_transactions_frais_livret: number;
   montant_transactions_credit_paiement: number;
   montant_transactions_credit_penalite: number;
-  montant_transactions_credit_garantie: number;
-  cash_total_a_remettre: number;
-  total_fonds_garantie_epargne: number;
-  total_fonds_garantie_credit: number;
-  total_fonds_garantie_global: number;
+  total_cash: number;
 }
 
 export const initialStats: AgentStats = {
@@ -43,19 +36,12 @@ export const initialStats: AgentStats = {
   transactions_credit_paiement: 0,
   transactions_credit_penalite: 0,
   transactions_credit_garantie: 0,
-  montant_comptes_credit: 0,
-  montant_comptes_epargne: 0,
   montant_transactions_epargne_depot: 0,
   montant_transactions_epargne_retrait: 0,
-  montant_transactions_epargne_frais_service: 0,
   montant_transactions_frais_livret: 0,
   montant_transactions_credit_paiement: 0,
   montant_transactions_credit_penalite: 0,
-  montant_transactions_credit_garantie: 0,
-  cash_total_a_remettre: 0,
-  total_fonds_garantie_epargne: 0,
-  total_fonds_garantie_credit: 0,
-  total_fonds_garantie_global: 0,
+  total_cash: 0,
 };
 
 // FIX: Expanded the generic constraint to include all properties used on the filtered items.
@@ -116,12 +102,10 @@ export async function getAgentStats(userId: string, dateFilter: DateFilter): Pro
   const comptesCredit = await db.comptes_credit.toArray();
   const comptesCreditFiltered = filterByDateAndUser(comptesCredit, 'date_creation', dateFilter, userId);
   stats.comptes_credit_crees = comptesCreditFiltered.length;
-  stats.total_fonds_garantie_credit = comptesCreditFiltered.reduce((sum, c) => sum + (c.fonds_garantie || 0), 0);
 
   const comptesEpargne = await db.comptes_epargne.toArray();
   const comptesEpargneFiltered = filterByDateAndUser(comptesEpargne, 'date_creation', dateFilter, userId);
   stats.comptes_epargne_crees = comptesEpargneFiltered.length;
-  stats.total_fonds_garantie_epargne = comptesEpargneFiltered.reduce((sum, c) => sum + (c.fonds_garantie || 0), 0);
 
   const transactionsEpargne = await db.transactions_epargne.toArray();
   const transactionsEpargneFiltered = filterByDateAndUser(transactionsEpargne, 'date_transaction', dateFilter, userId);
@@ -138,15 +122,8 @@ export async function getAgentStats(userId: string, dateFilter: DateFilter): Pro
       stats.montant_transactions_frais_livret += montant;
     } else if (t.type_transaction === 'S') {
       stats.transactions_epargne_frais_service++;
-      stats.montant_transactions_epargne_frais_service += montant;
     }
   });
-
-  // Calculate total savings transactions: deposits minus withdrawals minus fees
-  stats.montant_comptes_epargne = stats.montant_transactions_epargne_depot -
-                                   stats.montant_transactions_epargne_retrait -
-                                   stats.montant_transactions_frais_livret -
-                                   stats.montant_transactions_epargne_frais_service;
 
   const transactionsCredit = await db.transactions_credit.toArray();
   const transactionsCreditFiltered = filterByDateAndUser(transactionsCredit, 'date_transaction', dateFilter, userId);
@@ -160,26 +137,15 @@ export async function getAgentStats(userId: string, dateFilter: DateFilter): Pro
       stats.montant_transactions_credit_penalite += montant;
     } else if (t.type_transaction === 'Garantie') {
       stats.transactions_credit_garantie++;
-      stats.montant_transactions_credit_garantie += montant;
     }
   });
 
-  // Calculate total credit transactions: all payments, penalties and guarantees
-  stats.montant_comptes_credit = stats.montant_transactions_credit_paiement +
-                                  stats.montant_transactions_credit_penalite +
-                                  stats.montant_transactions_credit_garantie;
-
-  // Cash collected includes: deposits, credit payments, penalties, booklet fees, and service fees
-  const cashCollecte = stats.montant_transactions_epargne_depot +
-    stats.montant_transactions_credit_paiement +
-    stats.montant_transactions_credit_penalite +
-    stats.montant_transactions_frais_livret +
-    stats.montant_transactions_epargne_frais_service;
-
-  // Cash distributed includes: withdrawals
-  const cashDistribue = stats.montant_transactions_epargne_retrait;
-  stats.cash_total_a_remettre = cashCollecte - cashDistribue;
-  stats.total_fonds_garantie_global = stats.total_fonds_garantie_epargne + stats.total_fonds_garantie_credit;
+  // Calculate total cash: depot + retrait + frais livret + paiement credit + penalites
+  stats.total_cash = stats.montant_transactions_epargne_depot +
+                     stats.montant_transactions_epargne_retrait +
+                     stats.montant_transactions_frais_livret +
+                     stats.montant_transactions_credit_paiement +
+                     stats.montant_transactions_credit_penalite;
 
   return stats;
 }

@@ -13,10 +13,17 @@ import { useAuthStore } from '../stores/authStore';
 import toast from 'react-hot-toast';
 import Dexie from 'dexie';
 
-const StatCard: React.FC<{ title: string; value: string | number; color: string }> = ({ title, value, color }) => (
+const StatCard: React.FC<{ title: string; value: string | number; count?: number; amount?: string; color: string }> = ({ title, value, count, amount, color }) => (
     <div className={`bg-white p-4 rounded-lg shadow-md border-l-4 ${color}`}>
         <h3 className="text-sm font-medium text-gray-500">{title}</h3>
-        <p className="text-2xl font-bold text-gray-800">{value}</p>
+        {count !== undefined && amount !== undefined ? (
+            <>
+                <p className="text-2xl font-bold text-gray-800">{count}</p>
+                <p className="text-sm text-gray-600">{amount}</p>
+            </>
+        ) : (
+            <p className="text-2xl font-bold text-gray-800">{value}</p>
+        )}
     </div>
 );
 
@@ -357,32 +364,23 @@ const Parametres: React.FC = () => {
                     </select>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {/* Cash Summary */}
-                    <StatCard title="💰 Cash à remettre" value={`${stats.cash_total_a_remettre.toFixed(2)}`} color="border-blue-600" />
+                    {/* Comptes créés */}
+                    <StatCard title="Comptes Crédit Créés" value="" count={stats.comptes_credit_crees} amount="0,00 HTG" color="border-blue-100" />
+                    <StatCard title="Comptes Épargne Créés" value="" count={stats.comptes_epargne_crees} amount="0,00 HTG" color="border-blue-100" />
 
-                    {/* Account Creation */}
-                    <StatCard title="📁 Nouveaux Comptes Épargne" value={stats.comptes_epargne_crees} color="border-purple-500" />
-                    <StatCard title="📁 Nouveaux Comptes Crédit" value={stats.comptes_credit_crees} color="border-purple-500" />
+                    {/* Transactions Épargne */}
+                    <StatCard title="Transactions Épargne Dépôt" value="" count={stats.transactions_epargne_depot} amount={`${stats.montant_transactions_epargne_depot.toFixed(2)} HTG`} color="border-green-100" />
+                    <StatCard title="Transactions Frais Services" value="" count={stats.transactions_epargne_frais_service} amount="0,00 HTG" color="border-green-100" />
+                    <StatCard title="Transactions Frais Livret" value="" count={stats.transactions_frais_livret} amount={`${stats.montant_transactions_frais_livret.toFixed(2)} HTG`} color="border-green-100" />
+                    <StatCard title="Transactions Épargne Retrait" value="" count={stats.transactions_epargne_retrait} amount={`${stats.montant_transactions_epargne_retrait.toFixed(2)} HTG`} color="border-red-100" />
 
-                    {/* Savings Transactions - Amounts */}
-                    <StatCard title="⬆️ Total Dépôts Épargne" value={`${stats.montant_transactions_epargne_depot.toFixed(2)} (${stats.transactions_epargne_depot})`} color="border-green-500" />
-                    <StatCard title="⬇️ Total Retraits Épargne" value={`${stats.montant_transactions_epargne_retrait.toFixed(2)} (${stats.transactions_epargne_retrait})`} color="border-red-500" />
-                    <StatCard title="📖 Frais Livret" value={`${stats.montant_transactions_frais_livret.toFixed(2)} (${stats.transactions_frais_livret})`} color="border-orange-500" />
-                    <StatCard title="🔧 Frais Service" value={`${stats.montant_transactions_epargne_frais_service.toFixed(2)} (${stats.transactions_epargne_frais_service})`} color="border-yellow-500" />
+                    {/* Transactions Crédit */}
+                    <StatCard title="Transactions Crédit Paiement" value="" count={stats.transactions_credit_paiement} amount={`${stats.montant_transactions_credit_paiement.toFixed(2)} HTG`} color="border-green-100" />
+                    <StatCard title="Transactions Fond Garantie" value="" count={stats.transactions_credit_garantie} amount="0,00 HTG" color="border-green-100" />
+                    <StatCard title="Transactions Crédit Pénalité" value="" count={stats.transactions_credit_penalite} amount={`${stats.montant_transactions_credit_penalite.toFixed(2)} HTG`} color="border-red-100" />
 
-                    {/* Credit Transactions - Amounts */}
-                    <StatCard title="💳 Paiements Crédit" value={`${stats.montant_transactions_credit_paiement.toFixed(2)} (${stats.transactions_credit_paiement})`} color="border-green-600" />
-                    <StatCard title="⚠️ Pénalités" value={`${stats.montant_transactions_credit_penalite.toFixed(2)} (${stats.transactions_credit_penalite})`} color="border-red-600" />
-                    <StatCard title="🛡️ Fonds Garantie" value={`${stats.montant_transactions_credit_garantie.toFixed(2)} (${stats.transactions_credit_garantie})`} color="border-indigo-500" />
-
-                    {/* Transaction Totals (Net) */}
-                    <StatCard title="💵 Net Transactions Épargne" value={stats.montant_comptes_epargne.toFixed(2)} color="border-teal-500" />
-                    <StatCard title="💵 Total Transactions Crédit" value={stats.montant_comptes_credit.toFixed(2)} color="border-cyan-500" />
-
-                    {/* Guarantee Funds */}
-                    <StatCard title="🛡️ Garantie Épargne" value={stats.total_fonds_garantie_epargne.toFixed(2)} color="border-indigo-400" />
-                    <StatCard title="🛡️ Garantie Crédit" value={stats.total_fonds_garantie_credit.toFixed(2)} color="border-indigo-400" />
-                    <StatCard title="🛡️ Garantie Totale" value={stats.total_fonds_garantie_global.toFixed(2)} color="border-indigo-600" />
+                    {/* Total Cash */}
+                    <StatCard title="Total Cash" value={`${stats.total_cash.toFixed(2)} HTG`} color="border-red-100" />
                 </div>
             </div>
 
