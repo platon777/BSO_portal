@@ -12,6 +12,7 @@ interface AuthStore {
 
   // Actions
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  register: (email: string, password: string, firstname: string, lastname: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   setOfflineMode: (offline: boolean) => void;
@@ -32,6 +33,29 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     set({ isLoading: true });
 
     const result = await authService.login({ email, password });
+
+    if ('message' in result) {
+      set({ isLoading: false });
+      return { success: false, error: result.message };
+    }
+
+    set({
+      user: result.user,
+      profile: result.profile,
+      isAuthenticated: true,
+      isLoading: false,
+    });
+
+    return { success: true };
+  },
+
+  /**
+   * Register new user
+   */
+  register: async (email: string, password: string, firstname: string, lastname: string) => {
+    set({ isLoading: true });
+
+    const result = await authService.register(email, password, firstname, lastname);
 
     if ('message' in result) {
       set({ isLoading: false });

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { getAgentStats, AgentStats, DateFilter, getUnsyncedStats } from '../services/statistics';
+import { getAgentStats, AgentStats, DateFilter, getUnsyncedStats, initialStats } from '../services/statistics';
 import { SyncQueueItem } from '../types';
 import { RefreshCwIcon, UploadCloudIcon, DownloadCloudIcon, RotateCcwIcon, AlertTriangleIcon, TrashIcon, Trash2Icon } from '../components/icons/Icons';
 import { db } from '../services/database';
@@ -22,7 +22,7 @@ const StatCard: React.FC<{ title: string; value: string | number; color: string 
 
 const Parametres: React.FC = () => {
     const { profile } = useAuthStore();
-    const userId = profile?.user_id || 'test27';
+    const userId = profile?.user_id || '';
     const [stats, setStats] = useState<AgentStats | null>(null);
     const [dateFilter, setDateFilter] = useState<DateFilter>({ type: 'today' });
     const unsyncedItems = useLiveQuery(() => getUnsyncedStats(), []);
@@ -35,6 +35,11 @@ const Parametres: React.FC = () => {
 
     useEffect(() => {
         const fetchStats = async () => {
+            if (!userId) {
+                console.warn('[Parametres] No user ID available, skipping stats fetch');
+                setStats({ ...initialStats } as AgentStats);
+                return;
+            }
             const agentStats = await getAgentStats(userId, dateFilter);
             setStats(agentStats);
         };
@@ -335,7 +340,16 @@ const Parametres: React.FC = () => {
             </div>
 
             <div className="bg-white p-4 rounded-lg shadow-md">
-                <h2 className="text-lg font-bold text-gray-800 mb-4">Statistiques de l'agent ({userId})</h2>
+                <h2 className="text-lg font-bold text-gray-800 mb-4">
+                    Statistiques de l'agent {userId ? `(${userId})` : '(Non connecté)'}
+                </h2>
+                {!userId && (
+                    <div className="mb-4 p-3 bg-yellow-50 border-l-4 border-yellow-400 rounded-md">
+                        <p className="text-sm text-yellow-800">
+                            <strong>Note :</strong> Aucun utilisateur connecté. Les statistiques sont vides.
+                        </p>
+                    </div>
+                )}
                  <div className="mb-4">
                     <select onChange={(e) => setDateFilter({type: e.target.value as any})} className="p-2 border rounded-md">
                         <option value="today">Aujourd'hui</option>

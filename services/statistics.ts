@@ -33,7 +33,7 @@ export interface AgentStats {
   total_fonds_garantie_global: number;
 }
 
-const initialStats: AgentStats = {
+export const initialStats: AgentStats = {
   comptes_credit_crees: 0,
   comptes_epargne_crees: 0,
   transactions_epargne_depot: 0,

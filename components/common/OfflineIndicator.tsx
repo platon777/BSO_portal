@@ -66,7 +66,7 @@ const OfflineIndicator: React.FC = () => {
   };
 
   return (
-    <div className="fixed bottom-4 right-4 z-50">
+    <div className="fixed bottom-24 right-4 md:bottom-4 z-50">
       {/* Main indicator badge */}
       <div
         className={`flex items-center gap-2 px-3 py-2 rounded-lg shadow-lg cursor-pointer transition-all ${
