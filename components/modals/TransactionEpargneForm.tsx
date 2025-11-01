@@ -3,6 +3,7 @@ import { TransactionEpargne, CompteEpargneAvecPersonne } from '../../types';
 import { db } from '../../services/database';
 import Input from '../common/Input';
 import Select from '../common/Select';
+import { useAuthStore } from '../../stores/authStore';
 
 interface TransactionEpargneFormProps {
   compteEpargne: CompteEpargneAvecPersonne;
@@ -11,6 +12,7 @@ interface TransactionEpargneFormProps {
 }
 
 const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteEpargne, onSave, onCancel }) => {
+  const { profile } = useAuthStore();
   const [formData, setFormData] = useState<Partial<TransactionEpargne>>({
       id_compte_epargne: compteEpargne.id_compte_epargne,
       no_compte: compteEpargne.no_compte,
@@ -25,7 +27,13 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const MOCK_USER_ID = 'user-test-123';
+
+    // Get current user ID from profile
+    const userId = profile?.user_id;
+    if (!userId) {
+      alert('Erreur: Utilisateur non connecté');
+      return;
+    }
 
     let solde_apres_transaction = formData.solde_avant_transaction || 0;
     const montant = formData.montant || 0;
@@ -55,7 +63,7 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
         montant: formData.montant!,
         solde_avant_transaction: formData.solde_avant_transaction!,
         date_transaction: new Date().toISOString(),
-        created_by: MOCK_USER_ID,
+        created_by: userId,
         created_at: new Date().toISOString(),
         solde_apres_transaction
     };
@@ -64,7 +72,7 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
     // Also update the account balance
     await db.updateRecord('comptes_epargne', compteEpargne.id_compte_epargne, {
       solde_actuel: solde_apres_transaction,
-      updated_by: MOCK_USER_ID,
+      updated_by: userId,
       updated_at: new Date().toISOString()
     });
 

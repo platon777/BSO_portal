@@ -4,6 +4,7 @@ import Input from '../common/Input';
 import Select from '../common/Select';
 import { db } from '../../services/database';
 import { generateUserCode } from '../../services/codeGenerator';
+import { useAuthStore } from '../../stores/authStore';
 
 interface ClientFormProps {
   client?: Personne;
@@ -12,6 +13,7 @@ interface ClientFormProps {
 }
 
 const ClientForm: React.FC<ClientFormProps> = ({ client, onSave, onCancel }) => {
+  const { profile } = useAuthStore();
   const [formData, setFormData] = useState<Partial<Personne>>(client || {
     sexe: 'M',
     statut: 'Actif'
@@ -25,15 +27,19 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSave, onCancel }) => 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // MOCK_USER_ID should be replaced by real user ID from auth
-    const MOCK_USER_ID = 'user-test-123';
+
+    // Get current user ID from profile
+    const userId = profile?.user_id;
+    if (!userId) {
+      alert('Erreur: Utilisateur non connecté');
+      return;
+    }
 
     if (client && client.id_personne) {
       // Update existing client
       await db.updateRecord('personnes', client.id_personne, {
           ...formData,
-          updated_by: MOCK_USER_ID,
+          updated_by: userId,
           updated_at: new Date().toISOString()
       });
     } else {
@@ -42,17 +48,17 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSave, onCancel }) => 
           alert("Nom, prénom et téléphone sont requis.");
           return;
       }
-      
+
       const newClientData = {
         ...formData,
         code_client: generateUserCode(formData.prenom, formData.nom),
-        created_by: MOCK_USER_ID,
+        created_by: userId,
         date_creation: new Date().toISOString(),
         sexe: formData.sexe || 'M',
         statut: formData.statut || 'Actif',
         unique_id: crypto.randomUUID()
       } as Omit<Personne, 'id_personne'>;
-      
+
       await db.addRecord('personnes', newClientData);
     }
     onSave();

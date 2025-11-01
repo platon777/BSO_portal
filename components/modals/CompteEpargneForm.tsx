@@ -6,6 +6,7 @@ import Input from '../common/Input';
 import Select from '../common/Select';
 import { generateCustomCode } from '../../services/codeGenerator';
 import SearchableSelect from '../common/SearchableSelect';
+import { useAuthStore } from '../../stores/authStore';
 
 interface CompteEpargneFormProps {
   compte?: CompteEpargne;
@@ -14,6 +15,7 @@ interface CompteEpargneFormProps {
 }
 
 const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, onCancel }) => {
+  const { profile } = useAuthStore();
   const [formData, setFormData] = useState<Partial<CompteEpargne>>({});
   
   const clients = useLiveQuery(() => db.personnes.where('statut').equals('Actif').toArray(), []);
@@ -51,12 +53,18 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const MOCK_USER_ID = 'user-test-123';
-    
+
+    // Get current user ID from profile
+    const userId = profile?.user_id;
+    if (!userId) {
+      alert('Erreur: Utilisateur non connecté');
+      return;
+    }
+
     if (compte && compte.id_compte_epargne) {
         await db.updateRecord('comptes_epargne', compte.id_compte_epargne, {
             ...formData,
-            updated_by: MOCK_USER_ID,
+            updated_by: userId,
             updated_at: new Date().toISOString()
         });
     } else {
@@ -77,7 +85,7 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
           fonds_garantie: formData.fonds_garantie || 0,
           statut: formData.statut || 'Actif',
           date_creation: new Date().toISOString(),
-          created_by: MOCK_USER_ID,
+          created_by: userId,
           created_at: new Date().toISOString(),
           succursale: formData.succursale,
           duree: formData.duree,

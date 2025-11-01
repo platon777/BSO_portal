@@ -3,6 +3,7 @@ import { TransactionCredit, CompteCreditEnriched } from '../../types';
 import { db } from '../../services/database';
 import Input from '../common/Input';
 import Select from '../common/Select';
+import { useAuthStore } from '../../stores/authStore';
 
 interface TransactionCreditFormProps {
   compteCredit: CompteCreditEnriched;
@@ -11,6 +12,7 @@ interface TransactionCreditFormProps {
 }
 
 const TransactionCreditForm: React.FC<TransactionCreditFormProps> = ({ compteCredit, onSave, onCancel }) => {
+  const { profile } = useAuthStore();
   const [formData, setFormData] = useState<Partial<TransactionCredit>>({
     id_compte_credit: compteCredit.id_compte_credit,
     no_compte: compteCredit.no_compte,
@@ -25,8 +27,14 @@ const TransactionCreditForm: React.FC<TransactionCreditFormProps> = ({ compteCre
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const MOCK_USER_ID = 'user-test-123';
-    
+
+    // Get current user ID from profile
+    const userId = profile?.user_id;
+    if (!userId) {
+      alert('Erreur: Utilisateur non connecté');
+      return;
+    }
+
     const newTransaction: Omit<TransactionCredit, 'id_transaction_credit'> = {
       id_compte_credit: formData.id_compte_credit!,
       no_compte: formData.no_compte!,
@@ -34,17 +42,17 @@ const TransactionCreditForm: React.FC<TransactionCreditFormProps> = ({ compteCre
       type_transaction: formData.type_transaction!,
       montant: formData.montant!,
       date_transaction: new Date().toISOString(),
-      created_by: MOCK_USER_ID,
+      created_by: userId,
       created_at: new Date().toISOString(),
     };
 
     await db.addRecord('transactions_credit', newTransaction);
-    
+
     if (formData.type_transaction === 'Paiement') {
         const newPaiementRemourse = (compteCredit.paiement_rembourse || 0) + (formData.montant || 0);
         await db.updateRecord('comptes_credit', compteCredit.id_compte_credit, {
           paiement_rembourse: newPaiementRemourse,
-          updated_by: MOCK_USER_ID,
+          updated_by: userId,
           updated_at: new Date().toISOString()
         });
     }

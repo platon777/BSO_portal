@@ -6,6 +6,7 @@ import Input from '../common/Input';
 import Select from '../common/Select';
 import { generateCustomCode } from '../../services/codeGenerator';
 import SearchableSelect from '../common/SearchableSelect';
+import { useAuthStore } from '../../stores/authStore';
 
 interface CompteCreditFormProps {
   compte?: CompteCredit;
@@ -14,6 +15,7 @@ interface CompteCreditFormProps {
 }
 
 const CompteCreditForm: React.FC<CompteCreditFormProps> = ({ compte, onSave, onCancel }) => {
+  const { profile } = useAuthStore();
   const [formData, setFormData] = useState<Partial<CompteCredit>>({});
   const [comptesEpargne, setComptesEpargne] = useState<CompteEpargne[]>([]);
   
@@ -60,12 +62,18 @@ const CompteCreditForm: React.FC<CompteCreditFormProps> = ({ compte, onSave, onC
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const MOCK_USER_ID = 'user-test-123';
+
+    // Get current user ID from profile
+    const userId = profile?.user_id;
+    if (!userId) {
+      alert('Erreur: Utilisateur non connecté');
+      return;
+    }
 
     if (compte && compte.id_compte_credit) {
         await db.updateRecord('comptes_credit', compte.id_compte_credit, {
             ...formData,
-            updated_by: MOCK_USER_ID,
+            updated_by: userId,
             updated_at: new Date().toISOString()
         });
     } else {
@@ -93,7 +101,7 @@ const CompteCreditForm: React.FC<CompteCreditFormProps> = ({ compte, onSave, onC
             statut: 'Actif',
             date_creation: new Date().toISOString(),
             created_at: new Date().toISOString(),
-            created_by: MOCK_USER_ID,
+            created_by: userId,
         };
         await db.addRecord('comptes_credit', newCompte);
     }
