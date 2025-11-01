@@ -8,15 +8,15 @@ import ComptesEpargne from './pages/ComptesEpargne';
 import ComptesCredit from './pages/ComptesCredit';
 import Parametres from './pages/Parametres';
 import Login from './pages/Login';
+import Signup from './pages/Signup';
 import { ModalProvider } from './contexts/ModalContext';
 import { db, seedDatabase } from './services/database';
 import ModalRoot from './components/common/ModalRoot';
 import OfflineIndicator from './components/common/OfflineIndicator';
-import CacheDiagnostic from './components/common/CacheDiagnostic';
 import { useAuthStore } from './stores/authStore';
 import { Toaster } from 'react-hot-toast';
 
-type Page = 'dashboard' | 'clients' | 'epargne' | 'credit' | 'recouvrement' | 'rapports' | 'parametres' | 'login';
+type Page = 'dashboard' | 'clients' | 'epargne' | 'credit' | 'recouvrement' | 'rapports' | 'parametres' | 'login' | 'signup';
 
 // Export a simple navigation hook for use in child components
 let navigateFn: ((page: Page) => void) | null = null;
@@ -48,7 +48,7 @@ const App: React.FC = () => {
 
   // Redirect to login if not authenticated
   useEffect(() => {
-    if (!isLoading && !isAuthenticated && currentPage !== 'login') {
+    if (!isLoading && !isAuthenticated && currentPage !== 'login' && currentPage !== 'signup') {
       setCurrentPage('login');
     }
   }, [isAuthenticated, isLoading, currentPage]);
@@ -58,6 +58,8 @@ const App: React.FC = () => {
     switch (currentPage) {
       case 'login':
         return <Login />;
+      case 'signup':
+        return <Signup />;
       case 'clients':
         return <Clients />;
       case 'epargne':
@@ -111,12 +113,12 @@ const App: React.FC = () => {
     );
   }
 
-  // Show login page if not authenticated
-  if (!isAuthenticated && currentPage !== 'login') {
+  // Show login/signup page if not authenticated
+  if (!isAuthenticated && (currentPage === 'login' || currentPage === 'signup')) {
     return (
       <ModalProvider>
         <Toaster position="top-right" />
-        <Login />
+        {currentPage === 'login' ? <Login /> : <Signup />}
         <ModalRoot />
       </ModalProvider>
     );
@@ -139,7 +141,6 @@ const App: React.FC = () => {
       </div>
       <ModalRoot />
       <OfflineIndicator />
-      <CacheDiagnostic />
     </ModalProvider>
   );
 };
