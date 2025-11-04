@@ -86,14 +86,18 @@ const SyncProgressModal: React.FC<SyncProgressModalProps> = ({
                 {errors.length} échec{errors.length > 1 ? 's' : ''}
               </span>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-3">
               {errors.map((error, index) => (
-                <div key={index} className="bg-white border border-red-200 rounded p-2">
+                <div key={index} className="bg-white border border-red-200 rounded p-3">
                   <div className="flex items-start">
-                    <span className="text-red-600 font-mono text-xs mr-2 mt-0.5">#{index + 1}</span>
-                    <p className="text-xs text-red-700 flex-1 break-words font-mono leading-relaxed">
-                      {error}
-                    </p>
+                    <span className="text-red-600 font-bold text-xs mr-2 mt-0.5 flex-shrink-0">
+                      #{index + 1}
+                    </span>
+                    <div className="flex-1">
+                      <pre className="text-xs text-red-700 whitespace-pre-wrap break-words font-sans leading-relaxed">
+                        {error}
+                      </pre>
+                    </div>
                   </div>
                 </div>
               ))}

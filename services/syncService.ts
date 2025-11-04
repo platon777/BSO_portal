@@ -6,6 +6,7 @@ import { validateSyncItem } from './dataValidator';
 import { withRetry, batchArray, isOnline } from './networkMonitor';
 import { SyncLogBuilder } from './syncLogger';
 import { useAuthStore } from '../stores/authStore';
+import { parseSupabaseError, parseNetworkError, formatErrorForDisplay, formatErrorForLog, createSyncContext } from './errorHandler';
 
 /**
  * Sync Service - Core synchronization logic
@@ -103,7 +104,7 @@ export const uploadPendingChanges = async (
           // Validate item
           const validation = validateSyncItem(item);
           if (!validation.isValid) {
-            throw new Error(`Validation failed: ${validation.errors.join(', ')}`);
+            throw new Error(`Validation échouée: ${validation.errors.join(', ')}`);
           }
 
           // Upload item
@@ -118,24 +119,20 @@ export const uploadPendingChanges = async (
 
           successCount++;
         } catch (error: any) {
-          // Mark as failed and increment retry count
-          const errorMessage = error.message || 'Unknown error';
-          const errorCode = error.code || '';
-          const errorDetails = error.details || '';
-          const errorHint = error.hint || '';
+          // Parse error for better messaging
+          const parsedError = error?.code ? parseSupabaseError(error) : parseNetworkError(error);
+          const context = createSyncContext(item.table, item.action, item.pk);
 
-          // Build comprehensive error message
-          let fullErrorMsg = `Table: ${item.table}, Action: ${item.action}, ID: ${item.pk?.substring(0, 8)}...`;
-          fullErrorMsg += `\n→ Erreur: ${errorMessage}`;
-          if (errorCode) fullErrorMsg += ` (Code: ${errorCode})`;
-          if (errorDetails) fullErrorMsg += `\n→ Détails: ${errorDetails}`;
-          if (errorHint) fullErrorMsg += `\n→ Suggestion: ${errorHint}`;
+          // Format error for display
+          const displayError = formatErrorForDisplay(parsedError, context);
+          const logError = formatErrorForLog(parsedError, context);
 
-          errors.push(fullErrorMsg);
+          errors.push(displayError);
 
+          // Store detailed error in sync queue
           await db.syncQueue.update(item.id!, {
             status: 'failed',
-            error: errorMessage,
+            error: logError,
             retry_count: item.retry_count + 1,
             updated_at: Date.now(),
           });
@@ -159,10 +156,11 @@ export const uploadPendingChanges = async (
 
     return { success: successCount, failed: failedCount, errors };
   } catch (error: any) {
-    const errorMessage = error.message || 'Erreur inconnue lors de la synchronisation';
-    logger.addError(errorMessage);
+    const parsedError = error?.code ? parseSupabaseError(error) : parseNetworkError(error);
+    const displayError = formatErrorForDisplay(parsedError, 'Synchronisation générale');
+    logger.addError(displayError);
     await logger.save();
-    return { success: 0, failed: 0, errors: [errorMessage] };
+    return { success: 0, failed: 0, errors: [displayError] };
   }
 };
 
@@ -206,17 +204,14 @@ export const downloadUpdatesFromServer = async (
         const downloaded = await downloadTable(tableName, lastSyncTimestamp);
         totalDownloaded += downloaded;
       } catch (error: any) {
-        const errorCode = error.code || '';
-        const errorDetails = error.details || '';
-        const errorHint = error.hint || '';
+        // Parse error for better messaging
+        const parsedError = error?.code ? parseSupabaseError(error) : parseNetworkError(error);
+        const context = createSyncContext(tableName, 'download');
 
-        let fullErrorMsg = `Table: ${tableName} (Téléchargement)`;
-        fullErrorMsg += `\n→ Erreur: ${error.message || 'Erreur inconnue'}`;
-        if (errorCode) fullErrorMsg += ` (Code: ${errorCode})`;
-        if (errorDetails) fullErrorMsg += `\n→ Détails: ${errorDetails}`;
-        if (errorHint) fullErrorMsg += `\n→ Suggestion: ${errorHint}`;
+        // Format error for display
+        const displayError = formatErrorForDisplay(parsedError, context);
 
-        errors.push(fullErrorMsg);
+        errors.push(displayError);
         totalFailed++;
       }
     }
@@ -238,10 +233,11 @@ export const downloadUpdatesFromServer = async (
       errors,
     };
   } catch (error: any) {
-    const errorMessage = error.message || 'Erreur inconnue lors du téléchargement';
-    logger.addError(errorMessage);
+    const parsedError = error?.code ? parseSupabaseError(error) : parseNetworkError(error);
+    const displayError = formatErrorForDisplay(parsedError, 'Téléchargement général');
+    logger.addError(displayError);
     await logger.save();
-    return { success: 0, failed: 0, errors: [errorMessage] };
+    return { success: 0, failed: 0, errors: [displayError] };
   }
 };
 
