@@ -69,12 +69,6 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
     };
 
     await db.addRecord('transactions_epargne', newTransaction);
-    // Also update the account balance
-    await db.updateRecord('comptes_epargne', compteEpargne.id_compte_epargne, {
-      solde_actuel: solde_apres_transaction,
-      updated_by: userId,
-      updated_at: new Date().toISOString()
-    });
 
     onSave();
   };
