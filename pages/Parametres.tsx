@@ -263,6 +263,7 @@ const Parametres: React.FC = () => {
                                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Clé</th>
                                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
                                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Erreur</th>
                                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Données</th>
                                     </tr>
                                 </thead>
@@ -301,6 +302,20 @@ const Parametres: React.FC = () => {
                                                     dateStyle: 'short',
                                                     timeStyle: 'short'
                                                 })}
+                                            </td>
+                                            <td className="px-4 py-3 text-sm">
+                                                {item.error ? (
+                                                    <details className="cursor-pointer">
+                                                        <summary className="text-red-600 hover:text-red-800 font-medium">Voir l'erreur</summary>
+                                                        <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded text-xs max-w-md">
+                                                            <pre className="whitespace-pre-wrap break-words text-red-800 font-mono">
+                                                                {item.error}
+                                                            </pre>
+                                                        </div>
+                                                    </details>
+                                                ) : (
+                                                    <span className="text-gray-400 text-xs">-</span>
+                                                )}
                                             </td>
                                             <td className="px-4 py-3 text-sm">
                                                 <details className="cursor-pointer">
