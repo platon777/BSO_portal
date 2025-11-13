@@ -154,6 +154,9 @@ const Parametres: React.FC = () => {
                 db.close();
                 // Delete the database
                 await Dexie.delete(db.name);
+                // Clear sync timestamps to force full download on next sync
+                localStorage.removeItem('bso_last_download_sync');
+                localStorage.removeItem('bso_last_upload_sync');
                 hideModal();
                 // Reload the page to reinitialize the database
                 window.location.reload();

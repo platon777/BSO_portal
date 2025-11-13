@@ -131,7 +131,12 @@ export class MySubClassedDexie extends Dexie {
 
 export const db = new MySubClassedDexie();
 
+// NOTE: Fonction de seed désactivée - Les données proviennent maintenant de Supabase via synchronisation
 export async function seedDatabase() {
+  console.log("Seed database disabled - Data will be synced from Supabase");
+
+  // Uncomment below to re-enable fake data seeding for testing
+  /*
   try {
     const personCount = await db.personnes.count();
     if (personCount === 0) {
@@ -183,4 +188,5 @@ export async function seedDatabase() {
         console.error("Failed to clear and re-seed database:", clearError);
     }
   }
+  */
 }
