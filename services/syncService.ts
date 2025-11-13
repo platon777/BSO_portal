@@ -182,21 +182,34 @@ export const downloadUpdatesFromServer = async (
   try {
     // Get last sync timestamp from localStorage
     const lastSyncStr = localStorage.getItem('bso_last_download_sync');
-    const lastSyncTimestamp = lastSyncStr ? new Date(parseInt(lastSyncStr)) : null;
+    let lastSyncTimestamp = lastSyncStr ? new Date(parseInt(lastSyncStr)) : null;
+
+    // Check if database is empty (force full download if so)
+    const personnesCount = await db.personnes.count();
+    const isEmptyDatabase = personnesCount === 0;
+
+    if (isEmptyDatabase && lastSyncTimestamp) {
+      console.log('[Sync] Database is empty, forcing full download');
+      lastSyncTimestamp = null; // Force full download
+    }
 
     let totalDownloaded = 0;
     let totalFailed = 0;
     const errors: string[] = [];
+
+    const downloadType = lastSyncTimestamp ? 'incrémental' : 'complet';
+    console.log(`[Sync] Starting ${downloadType} download`);
 
     // Download each table in order
     for (let tableIndex = 0; tableIndex < TABLE_ORDER.length; tableIndex++) {
       const tableName = TABLE_ORDER[tableIndex];
 
       if (onProgress) {
+        const prefix = lastSyncTimestamp ? '📥' : '📦';
         onProgress(
           tableIndex + 1,
           TABLE_ORDER.length,
-          `Téléchargement ${tableName}...`
+          `${prefix} Téléchargement ${lastSyncTimestamp ? 'incrémental' : 'complet'} - ${tableName}...`
         );
       }
 
