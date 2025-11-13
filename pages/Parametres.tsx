@@ -366,7 +366,7 @@ const Parametres: React.FC = () => {
 
             <div className="bg-white p-4 rounded-lg shadow-md">
                 <h2 className="text-lg font-bold text-gray-800 mb-4">
-                    Statistiques de l'agent {userId ? `(${userId})` : '(Non connecté)'}
+                    Statistiques de l'agent {profile ? `${profile.firstname} ${profile.name}` : '(Non connecté)'}
                 </h2>
                 {!userId && (
                     <div className="mb-4 p-3 bg-yellow-50 border-l-4 border-yellow-400 rounded-md">

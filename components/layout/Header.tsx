@@ -32,7 +32,7 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
       <div className="flex items-center space-x-4">
         <div className="flex items-center space-x-2">
             <OnlineStatusIndicator isOnline={isOnline} />
-            <span className="text-gray-700 font-medium hidden sm:block">
+            <span className="text-gray-700 font-medium text-sm sm:text-base">
               {profile ? `${profile.firstname} ${profile.name}` : 'Utilisateur'}
             </span>
         </div>
