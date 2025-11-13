@@ -171,10 +171,14 @@ const mapSupabaseToCompteCredit = (data: any): CompteCredit => {
 };
 
 const mapTransactionEpargneToSupabase = (transaction: TransactionEpargne, userId: string): any => {
+  // Exclude solde fields - they are managed by Supabase triggers
+  const { solde_apres_transaction, solde_avant_transaction, ...transactionData } = transaction;
+
   return {
-    ...transaction,
+    ...transactionData,
     created_by: userId,
-    solde_apres_transactions: transaction.solde_apres_transaction, // Note the 's' difference
+    // Do NOT send solde_apres_transactions or solde_avant_transaction
+    // These are computed by Supabase triggers
   };
 };
 
@@ -187,12 +191,14 @@ const mapSupabaseToTransactionEpargne = (data: any): TransactionEpargne => {
 };
 
 const mapTransactionCreditToSupabase = (transaction: TransactionCredit, userId: string): any => {
+  // Exclude computed fields - they are managed by Supabase triggers
+  const { solde_avant_transaction, solde_credit, ...transactionData } = transaction;
+
   return {
-    ...transaction,
+    ...transactionData,
     created_by: userId,
-    paiement_cumule: transaction.solde_avant_transaction,
-    montant_pret: transaction.montant_pret,
-    montant_restant: transaction.montant_pret ? transaction.montant_pret - transaction.solde_avant_transaction : 0,
+    // Do NOT send paiement_cumule, montant_restant, or solde_avant_transaction
+    // These are computed by Supabase triggers
   };
 };
 

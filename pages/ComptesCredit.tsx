@@ -104,6 +104,7 @@ const ComptesCredit: React.FC = () => {
                         <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">
                                 <tr>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">N° Compte</th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Client</th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Montant Prêté</th>
@@ -116,7 +117,6 @@ const ComptesCredit: React.FC = () => {
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date Création</th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Agent</th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
-                                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
@@ -124,6 +124,19 @@ const ComptesCredit: React.FC = () => {
                                     const restant = compte.montant_prete - compte.paiement_rembourse;
                                     return (
                                     <tr key={compte.id_compte_credit} className="hover:bg-gray-50">
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                            <div className="flex items-center space-x-3">
+                                                <button onClick={() => handleAddTransaction(compte)} className="text-blue-600 hover:text-blue-800" title="Nouvelle Transaction">
+                                                    <ArrowRightLeftIcon className="w-5 h-5"/>
+                                                </button>
+                                                <button onClick={() => handleEditCompte(compte)} className="text-indigo-600 hover:text-indigo-800" title="Modifier">
+                                                    <EditIcon className="w-5 h-5"/>
+                                                </button>
+                                                <button onClick={() => handleDeleteCompte(compte)} className="text-red-600 hover:text-red-800" title="Supprimer">
+                                                    <TrashIcon className="w-5 h-5"/>
+                                                </button>
+                                            </div>
+                                        </td>
                                         <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{compte.no_compte}</td>
                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{compte.personne ? `${compte.personne.prenom} ${compte.personne.nom}` : 'N/A'}</td>
                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 font-semibold">{compte.montant_prete.toFixed(2)}</td>
@@ -141,19 +154,6 @@ const ComptesCredit: React.FC = () => {
                                             <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${compte.statut === 'Actif' ? 'bg-green-100 text-green-800' : compte.statut === 'Payé' ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'}`}>
                                                 {compte.statut}
                                             </span>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                            <div className="flex items-center justify-end space-x-3">
-                                                <button onClick={() => handleAddTransaction(compte)} className="text-blue-600 hover:text-blue-800" title="Nouvelle Transaction">
-                                                    <ArrowRightLeftIcon className="w-5 h-5"/>
-                                                </button>
-                                                <button onClick={() => handleEditCompte(compte)} className="text-indigo-600 hover:text-indigo-800" title="Modifier">
-                                                    <EditIcon className="w-5 h-5"/>
-                                                </button>
-                                                <button onClick={() => handleDeleteCompte(compte)} className="text-red-600 hover:text-red-800" title="Supprimer">
-                                                    <TrashIcon className="w-5 h-5"/>
-                                                </button>
-                                            </div>
                                         </td>
                                     </tr>
                                     );
