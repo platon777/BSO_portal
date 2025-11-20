@@ -33,9 +33,9 @@ const ComptesEpargne: React.FC = () => {
             if (searchTerm) {
                 const lowercasedFilter = searchTerm.toLowerCase();
                 comptesAvecPersonne = comptesAvecPersonne.filter(c =>
-                    c.no_compte.toLowerCase().includes(lowercasedFilter) ||
-                    c.personne?.nom.toLowerCase().includes(lowercasedFilter) ||
-                    c.personne?.prenom.toLowerCase().includes(lowercasedFilter)
+                    c.no_compte?.toLowerCase().includes(lowercasedFilter) ||
+                    c.personne?.nom?.toLowerCase().includes(lowercasedFilter) ||
+                    c.personne?.prenom?.toLowerCase().includes(lowercasedFilter)
                 );
             }
             return { comptes: comptesAvecPersonne, transactions };
@@ -46,18 +46,20 @@ const ComptesEpargne: React.FC = () => {
     }, [searchTerm], { comptes: [], transactions: [] });
 
     const paginatedComptes = useMemo(() => {
+        if (!data?.comptes) return [];
         const start = (currentPageComptes - 1) * itemsPerPageComptes;
         return data.comptes.slice(start, start + itemsPerPageComptes);
-    }, [data.comptes, currentPageComptes, itemsPerPageComptes]);
+    }, [data?.comptes, currentPageComptes, itemsPerPageComptes]);
 
-    const totalPagesComptes = Math.ceil(data.comptes.length / itemsPerPageComptes);
+    const totalPagesComptes = Math.ceil((data?.comptes?.length || 0) / itemsPerPageComptes);
 
     const paginatedTransactions = useMemo(() => {
+        if (!data?.transactions) return [];
         const start = (currentPageTransactions - 1) * itemsPerPageTransactions;
         return data.transactions.slice(start, start + itemsPerPageTransactions);
-    }, [data.transactions, currentPageTransactions, itemsPerPageTransactions]);
+    }, [data?.transactions, currentPageTransactions, itemsPerPageTransactions]);
 
-    const totalPagesTransactions = Math.ceil(data.transactions.length / itemsPerPageTransactions);
+    const totalPagesTransactions = Math.ceil((data?.transactions?.length || 0) / itemsPerPageTransactions);
 
     const handleAddCompte = () => {
         showModal('Créer un compte épargne', <CompteEpargneForm onSave={hideModal} onCancel={hideModal} />);
@@ -153,7 +155,7 @@ const ComptesEpargne: React.FC = () => {
                             </tbody>
                         </table>
                     </div>
-                    <Pagination currentPage={currentPageComptes} totalPages={totalPagesComptes} onPageChange={setCurrentPageComptes} itemsPerPage={itemsPerPageComptes} totalItems={data.comptes.length} onItemsPerPageChange={(v) => { setItemsPerPageComptes(v); setCurrentPageComptes(1); }} />
+                    <Pagination currentPage={currentPageComptes} totalPages={totalPagesComptes} onPageChange={setCurrentPageComptes} itemsPerPage={itemsPerPageComptes} totalItems={data?.comptes?.length || 0} onItemsPerPageChange={(v) => { setItemsPerPageComptes(v); setCurrentPageComptes(1); }} />
                 </div>
             </div>
 
@@ -201,7 +203,7 @@ const ComptesEpargne: React.FC = () => {
                             </tbody>
                         </table>
                     </div>
-                    <Pagination currentPage={currentPageTransactions} totalPages={totalPagesTransactions} onPageChange={setCurrentPageTransactions} itemsPerPage={itemsPerPageTransactions} totalItems={data.transactions.length} onItemsPerPageChange={(v) => { setItemsPerPageTransactions(v); setCurrentPageTransactions(1); }} />
+                    <Pagination currentPage={currentPageTransactions} totalPages={totalPagesTransactions} onPageChange={setCurrentPageTransactions} itemsPerPage={itemsPerPageTransactions} totalItems={data?.transactions?.length || 0} onItemsPerPageChange={(v) => { setItemsPerPageTransactions(v); setCurrentPageTransactions(1); }} />
                 </div>
             </div>
         </div>
