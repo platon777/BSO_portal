@@ -18,33 +18,38 @@ const ComptesCredit: React.FC = () => {
     const [itemsPerPageTransactions, setItemsPerPageTransactions] = useState(10);
 
     const data = useLiveQuery(async () => {
-        const allComptes = await db.comptes_credit.toArray();
-        const personnes = await db.personnes.toArray();
-        const transactions = await db.transactions_credit.orderBy('date_transaction').reverse().toArray();
-        
-        const personnesMap = new Map(personnes.map(p => [p.id_personne, p]));
+        try {
+            const allComptes = await db.comptes_credit.toArray();
+            const personnes = await db.personnes.toArray();
+            const transactions = await db.transactions_credit.orderBy('date_transaction').reverse().toArray();
 
-        let comptesAvecPersonne: CompteCreditEnriched[] = allComptes.map(compte => ({
-            ...compte,
-            personne: personnesMap.get(compte.id_personne),
-        }));
-        
-        if (searchTerm) {
-            const lowercasedFilter = searchTerm.toLowerCase();
-            comptesAvecPersonne = comptesAvecPersonne.filter(c =>
-                c.no_compte.toLowerCase().includes(lowercasedFilter) ||
-                c.personne?.nom.toLowerCase().includes(lowercasedFilter) ||
-                c.personne?.prenom.toLowerCase().includes(lowercasedFilter)
-            );
+            const personnesMap = new Map(personnes.map(p => [p.id_personne, p]));
+
+            let comptesAvecPersonne: CompteCreditEnriched[] = allComptes.map(compte => ({
+                ...compte,
+                personne: personnesMap.get(compte.id_personne),
+            }));
+
+            if (searchTerm) {
+                const lowercasedFilter = searchTerm.toLowerCase();
+                comptesAvecPersonne = comptesAvecPersonne.filter(c =>
+                    c.no_compte.toLowerCase().includes(lowercasedFilter) ||
+                    c.personne?.nom.toLowerCase().includes(lowercasedFilter) ||
+                    c.personne?.prenom.toLowerCase().includes(lowercasedFilter)
+                );
+            }
+            return { comptes: comptesAvecPersonne, transactions };
+        } catch (error) {
+            console.error("Error fetching credit accounts:", error);
+            return { comptes: [], transactions: [] };
         }
-        return { comptes: comptesAvecPersonne, transactions };
     }, [searchTerm], { comptes: [], transactions: [] });
 
     const paginatedComptes = useMemo(() => {
         const start = (currentPageComptes - 1) * itemsPerPageComptes;
         return data.comptes.slice(start, start + itemsPerPageComptes);
     }, [data.comptes, currentPageComptes, itemsPerPageComptes]);
-    
+
     const totalPagesComptes = Math.ceil(data.comptes.length / itemsPerPageComptes);
 
     const paginatedTransactions = useMemo(() => {
@@ -58,7 +63,7 @@ const ComptesCredit: React.FC = () => {
     const handleAddCompte = () => {
         showModal('Créer un compte crédit', <CompteCreditForm onSave={hideModal} onCancel={hideModal} />);
     };
-    
+
     const handleEditCompte = (compte: CompteCreditEnriched) => {
         showModal('Modifier le compte crédit', <CompteCreditForm compte={compte} onSave={hideModal} onCancel={hideModal} />);
     };
@@ -123,39 +128,39 @@ const ComptesCredit: React.FC = () => {
                                 {paginatedComptes.map((compte) => {
                                     const restant = compte.montant_prete - compte.paiement_rembourse;
                                     return (
-                                    <tr key={compte.id_compte_credit} className="hover:bg-gray-50">
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                            <div className="flex items-center space-x-3">
-                                                <button onClick={() => handleAddTransaction(compte)} className="text-blue-600 hover:text-blue-800" title="Nouvelle Transaction">
-                                                    <ArrowRightLeftIcon className="w-5 h-5"/>
-                                                </button>
-                                                <button onClick={() => handleEditCompte(compte)} className="text-indigo-600 hover:text-indigo-800" title="Modifier">
-                                                    <EditIcon className="w-5 h-5"/>
-                                                </button>
-                                                <button onClick={() => handleDeleteCompte(compte)} className="text-red-600 hover:text-red-800" title="Supprimer">
-                                                    <TrashIcon className="w-5 h-5"/>
-                                                </button>
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{compte.no_compte}</td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{compte.personne ? `${compte.personne.prenom} ${compte.personne.nom}` : 'N/A'}</td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 font-semibold">{compte.montant_prete.toFixed(2)}</td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-green-600">{compte.paiement_rembourse.toFixed(2)}</td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-red-600 font-semibold">{restant.toFixed(2)}</td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{compte.taux_interet}%</td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{compte.paiement_journalier.toFixed(2)}</td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{compte.duree_credit_mois}</td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{compte.fonds_garantie.toFixed(2)}</td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
-                                            {new Date(compte.date_creation).toLocaleDateString('fr-FR')}
-                                        </td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500">{compte.created_by}</td>
-                                        <td className="px-4 py-3 whitespace-nowrap">
-                                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${compte.statut === 'Actif' ? 'bg-green-100 text-green-800' : compte.statut === 'Payé' ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                                                {compte.statut}
-                                            </span>
-                                        </td>
-                                    </tr>
+                                        <tr key={compte.id_compte_credit} className="hover:bg-gray-50">
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                <div className="flex items-center space-x-3">
+                                                    <button onClick={() => handleAddTransaction(compte)} className="text-blue-600 hover:text-blue-800" title="Nouvelle Transaction">
+                                                        <ArrowRightLeftIcon className="w-5 h-5" />
+                                                    </button>
+                                                    <button onClick={() => handleEditCompte(compte)} className="text-indigo-600 hover:text-indigo-800" title="Modifier">
+                                                        <EditIcon className="w-5 h-5" />
+                                                    </button>
+                                                    <button onClick={() => handleDeleteCompte(compte)} className="text-red-600 hover:text-red-800" title="Supprimer">
+                                                        <TrashIcon className="w-5 h-5" />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{compte.no_compte}</td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{compte.personne ? `${compte.personne.prenom} ${compte.personne.nom}` : 'N/A'}</td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 font-semibold">{compte.montant_prete.toFixed(2)}</td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-green-600">{compte.paiement_rembourse.toFixed(2)}</td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-red-600 font-semibold">{restant.toFixed(2)}</td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{compte.taux_interet}%</td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{compte.paiement_journalier.toFixed(2)}</td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{compte.duree_credit_mois}</td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{compte.fonds_garantie.toFixed(2)}</td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                                                {new Date(compte.date_creation).toLocaleDateString('fr-FR')}
+                                            </td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500">{compte.created_by}</td>
+                                            <td className="px-4 py-3 whitespace-nowrap">
+                                                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${compte.statut === 'Actif' ? 'bg-green-100 text-green-800' : compte.statut === 'Payé' ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                                    {compte.statut}
+                                                </span>
+                                            </td>
+                                        </tr>
                                     );
                                 })}
                             </tbody>
@@ -166,10 +171,10 @@ const ComptesCredit: React.FC = () => {
             </div>
 
             <div>
-                 <h2 className="text-xl font-bold text-gray-800 mb-4">Dernières Transactions Crédit</h2>
-                 <div className="bg-white shadow-md rounded-lg overflow-hidden">
+                <h2 className="text-xl font-bold text-gray-800 mb-4">Dernières Transactions Crédit</h2>
+                <div className="bg-white shadow-md rounded-lg overflow-hidden">
                     <div className="overflow-x-auto">
-                         <table className="min-w-full divide-y divide-gray-200">
+                        <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">
                                 <tr>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date & Heure</th>
@@ -181,35 +186,35 @@ const ComptesCredit: React.FC = () => {
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Agent</th>
                                 </tr>
                             </thead>
-                             <tbody className="bg-white divide-y divide-gray-200">
+                            <tbody className="bg-white divide-y divide-gray-200">
                                 {paginatedTransactions.map((tx) => {
                                     const typeColors = { 'Paiement': 'bg-green-100 text-green-800', 'Penalite': 'bg-red-100 text-red-800', 'Garantie': 'bg-blue-100 text-blue-800' };
                                     return (
-                                    <tr key={tx.id_transaction_credit} className="hover:bg-gray-50">
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
-                                            {new Date(tx.date_transaction).toLocaleString('fr-FR', {
-                                                dateStyle: 'short',
-                                                timeStyle: 'short'
-                                            })}
-                                        </td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{tx.no_compte}</td>
-                                        <td className="px-4 py-3 whitespace-nowrap">
-                                            <span className={`px-2 py-1 text-xs font-semibold rounded ${typeColors[tx.type_transaction]}`}>
-                                                {tx.type_transaction}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-gray-900">{tx.montant.toFixed(2)}</td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{tx.solde_avant_transaction.toFixed(2)}</td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{tx.versement_declare ? tx.versement_declare.toFixed(2) : '-'}</td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500">{tx.created_by}</td>
-                                    </tr>
+                                        <tr key={tx.id_transaction_credit} className="hover:bg-gray-50">
+                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                                                {new Date(tx.date_transaction).toLocaleString('fr-FR', {
+                                                    dateStyle: 'short',
+                                                    timeStyle: 'short'
+                                                })}
+                                            </td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{tx.no_compte}</td>
+                                            <td className="px-4 py-3 whitespace-nowrap">
+                                                <span className={`px-2 py-1 text-xs font-semibold rounded ${typeColors[tx.type_transaction]}`}>
+                                                    {tx.type_transaction}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-gray-900">{tx.montant.toFixed(2)}</td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{tx.solde_avant_transaction.toFixed(2)}</td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{tx.versement_declare ? tx.versement_declare.toFixed(2) : '-'}</td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500">{tx.created_by}</td>
+                                        </tr>
                                     );
                                 })}
                             </tbody>
                         </table>
                     </div>
                     <Pagination currentPage={currentPageTransactions} totalPages={totalPagesTransactions} onPageChange={setCurrentPageTransactions} itemsPerPage={itemsPerPageTransactions} totalItems={data.transactions.length} onItemsPerPageChange={(v) => { setItemsPerPageTransactions(v); setCurrentPageTransactions(1); }} />
-                 </div>
+                </div>
             </div>
 
         </div>

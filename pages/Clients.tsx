@@ -15,14 +15,19 @@ const Clients: React.FC = () => {
     const [itemsPerPage, setItemsPerPage] = useState(10);
 
     const clients = useLiveQuery(async () => {
-        if (searchTerm) {
-            return await db.personnes
-                .where('nom').startsWithIgnoreCase(searchTerm)
-                .or('prenom').startsWithIgnoreCase(searchTerm)
-                .or('code_client').startsWithIgnoreCase(searchTerm)
-                .toArray();
+        try {
+            if (searchTerm) {
+                return await db.personnes
+                    .where('nom').startsWithIgnoreCase(searchTerm)
+                    .or('prenom').startsWithIgnoreCase(searchTerm)
+                    .or('code_client').startsWithIgnoreCase(searchTerm)
+                    .toArray();
+            }
+            return await db.personnes.toArray();
+        } catch (error) {
+            console.error("Error fetching clients:", error);
+            return [];
         }
-        return await db.personnes.toArray();
     }, [searchTerm], []);
 
     const paginatedClients = useMemo(() => {
@@ -117,8 +122,8 @@ const Clients: React.FC = () => {
                                     </td>
                                     <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500">{client.created_by}</td>
                                     <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium space-x-2">
-                                        <button onClick={() => handleEditClient(client)} className="text-indigo-600 hover:text-indigo-900"><EditIcon className="w-5 h-5"/></button>
-                                        <button onClick={() => handleDeleteClient(client)} className="text-red-600 hover:text-red-900"><TrashIcon className="w-5 h-5"/></button>
+                                        <button onClick={() => handleEditClient(client)} className="text-indigo-600 hover:text-indigo-900"><EditIcon className="w-5 h-5" /></button>
+                                        <button onClick={() => handleDeleteClient(client)} className="text-red-600 hover:text-red-900"><TrashIcon className="w-5 h-5" /></button>
                                     </td>
                                 </tr>
                             ))}
