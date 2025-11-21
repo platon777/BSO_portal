@@ -23,6 +23,8 @@ export const isOnline = (): boolean => {
 
 // Helper to handle network errors gracefully
 export const handleSupabaseError = (error: any): { message: string; code?: string } => {
+  console.error('Supabase Error:', error);
+
   if (!isOnline()) {
     return {
       message: 'Vous êtes hors ligne. Veuillez vérifier votre connexion Internet.',
@@ -30,15 +32,93 @@ export const handleSupabaseError = (error: any): { message: string; code?: strin
     };
   }
 
+  // Handle timeout errors
+  if (error?.name === 'TimeoutError' || error?.message?.includes('timeout')) {
+    return {
+      message: 'La requête a expiré. Vérifiez votre connexion Internet.',
+      code: 'TIMEOUT',
+    };
+  }
+
+  // Handle network errors
+  if (error?.message?.includes('fetch') || error?.message?.includes('network')) {
+    return {
+      message: 'Erreur de connexion au serveur. Vérifiez votre connexion Internet.',
+      code: 'NETWORK_ERROR',
+    };
+  }
+
+  // Map common Supabase error messages to French
+  const errorMessage = error?.message || '';
+  const errorCode = error?.code || error?.status || '';
+
+  // Authentication errors
+  if (errorMessage.includes('User already registered') || errorMessage.includes('already been registered')) {
+    return {
+      message: 'Cet email est déjà enregistré. Veuillez vous connecter ou utiliser un autre email.',
+      code: errorCode,
+    };
+  }
+
+  if (errorMessage.includes('Invalid login credentials') || errorMessage.includes('Invalid credentials')) {
+    return {
+      message: 'Email ou mot de passe incorrect. Veuillez réessayer.',
+      code: errorCode,
+    };
+  }
+
+  if (errorMessage.includes('Email not confirmed')) {
+    return {
+      message: 'Veuillez confirmer votre email avant de vous connecter.',
+      code: errorCode,
+    };
+  }
+
+  if (errorMessage.includes('Password should be at least')) {
+    return {
+      message: 'Le mot de passe doit contenir au moins 6 caractères.',
+      code: errorCode,
+    };
+  }
+
+  if (errorMessage.includes('Unable to validate email address')) {
+    return {
+      message: 'Adresse email invalide. Veuillez vérifier votre email.',
+      code: errorCode,
+    };
+  }
+
+  if (errorMessage.includes('Email rate limit exceeded')) {
+    return {
+      message: 'Trop de tentatives. Veuillez réessayer dans quelques minutes.',
+      code: errorCode,
+    };
+  }
+
+  if (errorMessage.includes('Signup disabled')) {
+    return {
+      message: 'Les inscriptions sont temporairement désactivées.',
+      code: errorCode,
+    };
+  }
+
+  if (errorMessage.includes('Database error') || errorMessage.includes('relation') || errorMessage.includes('does not exist')) {
+    return {
+      message: 'Erreur de base de données. Veuillez contacter l\'administrateur.',
+      code: errorCode,
+    };
+  }
+
+  // Return the original error message if no match found
   if (error?.message) {
     return {
       message: error.message,
-      code: error.code || error.status,
+      code: errorCode,
     };
   }
 
   return {
-    message: 'Une erreur inconnue s\'est produite',
+    message: 'Une erreur inconnue s\'est produite. Veuillez réessayer.',
     code: 'UNKNOWN',
   };
 };

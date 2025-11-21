@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../stores/authStore';
 import { useNavigate } from '../App';
+import toast from 'react-hot-toast';
 
 const Signup: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -58,11 +59,13 @@ const Signup: React.FC = () => {
 
     if (!result.success) {
       setError(result.error || 'Échec de la création du compte');
+      toast.error(result.error || 'Échec de la création du compte');
       setIsLoading(false);
       return;
     }
 
     // Success - will be redirected by useEffect
+    toast.success('Compte créé avec succès ! Bienvenue.');
     setIsLoading(false);
   };
 
