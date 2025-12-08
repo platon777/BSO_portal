@@ -28,3 +28,20 @@ export interface AuthError {
   message: string;
   code?: string;
 }
+
+export interface DeviceSession {
+  id: string;
+  user_id: string;
+  device_fingerprint: string;
+  device_info: {
+    userAgent: string;
+    screenWidth: number;
+    screenHeight: number;
+    timezone: string;
+    language: string;
+    platform: string;
+  };
+  last_active: string;
+  created_at: string;
+  is_active: boolean;
+}

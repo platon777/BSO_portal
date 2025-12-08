@@ -180,26 +180,48 @@ const Parametres: React.FC = () => {
     const handleUpdateApp = () => {
         const confirmUpdate = async () => {
             try {
-                // Unregister all service workers
-                const registrations = await navigator.serviceWorker.getRegistrations();
-                for (const registration of registrations) {
-                    await registration.unregister();
-                }
-
-                // Clear all caches
-                const cacheNames = await caches.keys();
-                await Promise.all(cacheNames.map(cacheName => caches.delete(cacheName)));
-
                 hideModal();
 
-                // Show success message
-                alert('✅ Mise à jour effectuée ! L\'application va se recharger pour appliquer les changements.');
+                // Vérifier si Service Worker est disponible
+                if ('serviceWorker' in navigator) {
+                    try {
+                        const registrations = await navigator.serviceWorker.getRegistrations();
+                        console.log(`[Update] Found ${registrations.length} service worker(s)`);
+                        for (const registration of registrations) {
+                            const success = await registration.unregister();
+                            console.log(`[Update] Unregistered service worker: ${success}`);
+                        }
+                    } catch (swError) {
+                        console.warn('[Update] Service Worker unregister failed:', swError);
+                        // Continue anyway
+                    }
+                }
 
-                // Reload to get the latest version
-                window.location.reload();
+                // Vérifier si Cache API est disponible
+                if ('caches' in window) {
+                    try {
+                        const cacheNames = await caches.keys();
+                        console.log(`[Update] Found ${cacheNames.length} cache(s)`);
+                        await Promise.all(cacheNames.map(cacheName => {
+                            console.log(`[Update] Deleting cache: ${cacheName}`);
+                            return caches.delete(cacheName);
+                        }));
+                    } catch (cacheError) {
+                        console.warn('[Update] Cache deletion failed:', cacheError);
+                        // Continue anyway
+                    }
+                }
+
+                // Show success message
+                toast.success('Mise à jour effectuée ! L\'application va se recharger.', { duration: 3000 });
+
+                // Reload to get the latest version after a short delay
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
             } catch (error) {
-                console.error('Error updating app:', error);
-                alert('Erreur lors de la mise à jour de l\'application');
+                console.error('[Update] Error updating app:', error);
+                toast.error('Erreur lors de la mise à jour de l\'application');
             }
         };
 

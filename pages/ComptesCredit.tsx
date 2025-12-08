@@ -8,6 +8,7 @@ import TransactionCreditForm from '../components/modals/TransactionCreditForm';
 import ConfirmationModal from '../components/modals/ConfirmationModal';
 import { PlusIcon, EditIcon, TrashIcon, ArrowRightLeftIcon } from '../components/icons/Icons';
 import Pagination from '../components/common/Pagination';
+import SecureWrapper from '../components/common/SecureWrapper';
 
 const ComptesCredit: React.FC = () => {
     const { showModal, hideModal } = useModal();
@@ -80,7 +81,8 @@ const ComptesCredit: React.FC = () => {
     };
 
     return (
-        <div className="space-y-6">
+        <SecureWrapper>
+            <div className="space-y-6">
             <div>
                 <div className="flex justify-between items-center mb-4">
                     <h1 className="text-2xl font-bold text-gray-800">Comptes de Crédit</h1>
@@ -211,8 +213,8 @@ const ComptesCredit: React.FC = () => {
                     <Pagination currentPage={currentPageTransactions} totalPages={totalPagesTransactions} onPageChange={setCurrentPageTransactions} itemsPerPage={itemsPerPageTransactions} totalItems={data.transactions.length} onItemsPerPageChange={(v) => { setItemsPerPageTransactions(v); setCurrentPageTransactions(1); }} />
                  </div>
             </div>
-
         </div>
+        </SecureWrapper>
     );
 };
 

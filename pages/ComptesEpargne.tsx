@@ -8,6 +8,7 @@ import TransactionEpargneForm from '../components/modals/TransactionEpargneForm'
 import ConfirmationModal from '../components/modals/ConfirmationModal';
 import { PlusIcon, EditIcon, TrashIcon, ArrowRightLeftIcon } from '../components/icons/Icons';
 import Pagination from '../components/common/Pagination';
+import SecureWrapper from '../components/common/SecureWrapper';
 
 const ComptesEpargne: React.FC = () => {
     const { showModal, hideModal } = useModal();
@@ -79,7 +80,8 @@ const ComptesEpargne: React.FC = () => {
     };
 
     return (
-        <div className="space-y-6">
+        <SecureWrapper>
+            <div className="space-y-6">
             <div>
                 <div className="flex justify-between items-center mb-4">
                     <h1 className="text-2xl font-bold text-gray-800">Comptes d'Épargne</h1>
@@ -199,7 +201,8 @@ const ComptesEpargne: React.FC = () => {
                     <Pagination currentPage={currentPageTransactions} totalPages={totalPagesTransactions} onPageChange={setCurrentPageTransactions} itemsPerPage={itemsPerPageTransactions} totalItems={data.transactions.length} onItemsPerPageChange={(v) => { setItemsPerPageTransactions(v); setCurrentPageTransactions(1); }} />
                  </div>
             </div>
-        </div>
+            </div>
+        </SecureWrapper>
     );
 };
 export default ComptesEpargne;
