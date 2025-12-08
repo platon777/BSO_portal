@@ -26,6 +26,8 @@ export const register = async (
   lastname: string
 ): Promise<{ user: User; profile: UserProfile } | AuthError> => {
   try {
+    console.log('Attempting registration for:', email);
+
     // Offline-first: block registration when offline to avoid long waits
     if (!isOnlineSupabase()) {
       return { message: 'Vous êtes hors ligne. Impossible de créer un compte.' };
@@ -46,12 +48,16 @@ export const register = async (
     );
 
     if (error) {
+      console.error('Registration error:', error);
       return handleSupabaseError(error);
     }
 
     if (!data.user) {
+      console.error('Registration failed: No user data returned');
       return { message: 'Échec de la création du compte' };
     }
+
+    console.log('User created successfully:', data.user.id);
 
     // 2. Create profile in database
     const { error: profileError } = await supabase
@@ -92,8 +98,10 @@ export const register = async (
     // Store for offline access
     storeOfflineAuthData(data.user, profile);
 
+    console.log('Registration completed successfully');
     return { user: data.user, profile };
   } catch (error: any) {
+    console.error('Registration catch error:', error);
     return handleSupabaseError(error);
   }
 };
@@ -103,6 +111,8 @@ export const register = async (
  */
 export const login = async (credentials: LoginCredentials): Promise<{ user: User; profile: UserProfile; hadPreviousSession?: boolean } | AuthError> => {
   try {
+    console.log('Attempting login for:', credentials.email);
+
     // Offline-first: fail fast offline (UI peut basculer en mode hors ligne)
     if (!isOnlineSupabase()) {
       return { message: 'Vous êtes hors ligne. Connectez-vous lorsque la connexion est disponible.' };
@@ -114,17 +124,22 @@ export const login = async (credentials: LoginCredentials): Promise<{ user: User
     }), 10000);
 
     if (error) {
+      console.error('Login error:', error);
       return handleSupabaseError(error);
     }
 
     if (!data.user) {
+      console.error('Login failed: No user data returned');
       return { message: 'Échec de la connexion - utilisateur non trouvé' };
     }
+
+    console.log('User logged in successfully:', data.user.id);
 
     // Fetch user profile from database
     const profile = await fetchUserProfile(data.user.id);
 
     if ('message' in profile) {
+      console.error('Profile fetch failed:', profile.message);
       return profile; // Error occurred
     }
 
@@ -141,8 +156,10 @@ export const login = async (credentials: LoginCredentials): Promise<{ user: User
     // Store for offline access
     storeOfflineAuthData(data.user, profile);
 
+    console.log('Login completed successfully');
     return { user: data.user, profile, hadPreviousSession: existingSession };
   } catch (error: any) {
+    console.error('Login catch error:', error);
     return handleSupabaseError(error);
   }
 };

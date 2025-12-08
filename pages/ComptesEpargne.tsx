@@ -19,52 +19,59 @@ const ComptesEpargne: React.FC = () => {
     const [itemsPerPageTransactions, setItemsPerPageTransactions] = useState(10);
 
     const data = useLiveQuery(async () => {
-        const allComptes = await db.comptes_epargne.toArray();
-        const personnes = await db.personnes.toArray();
-        const transactions = await db.transactions_epargne.orderBy('date_transaction').reverse().toArray();
-        
-        const personnesMap = new Map(personnes.map(p => [p.id_personne, p]));
+        try {
+            const allComptes = await db.comptes_epargne.toArray();
+            const personnes = await db.personnes.toArray();
+            const transactions = await db.transactions_epargne.orderBy('date_transaction').reverse().toArray();
 
-        let comptesAvecPersonne: CompteEpargneAvecPersonne[] = allComptes.map(compte => ({
-            ...compte,
-            personne: personnesMap.get(compte.id_personne),
-        }));
+            const personnesMap = new Map(personnes.map(p => [p.id_personne, p]));
 
-        if (searchTerm) {
-            const lowercasedFilter = searchTerm.toLowerCase();
-            comptesAvecPersonne = comptesAvecPersonne.filter(c =>
-                c.no_compte.toLowerCase().includes(lowercasedFilter) ||
-                c.personne?.nom.toLowerCase().includes(lowercasedFilter) ||
-                c.personne?.prenom.toLowerCase().includes(lowercasedFilter)
-            );
+            let comptesAvecPersonne: CompteEpargneAvecPersonne[] = allComptes.map(compte => ({
+                ...compte,
+                personne: personnesMap.get(compte.id_personne),
+            }));
+
+            if (searchTerm) {
+                const lowercasedFilter = searchTerm.toLowerCase();
+                comptesAvecPersonne = comptesAvecPersonne.filter(c =>
+                    c.no_compte?.toLowerCase().includes(lowercasedFilter) ||
+                    c.personne?.nom?.toLowerCase().includes(lowercasedFilter) ||
+                    c.personne?.prenom?.toLowerCase().includes(lowercasedFilter)
+                );
+            }
+            return { comptes: comptesAvecPersonne, transactions };
+        } catch (error) {
+            console.error("Error fetching savings accounts:", error);
+            return { comptes: [], transactions: [] };
         }
-        return { comptes: comptesAvecPersonne, transactions };
     }, [searchTerm], { comptes: [], transactions: [] });
 
     const paginatedComptes = useMemo(() => {
+        if (!data?.comptes) return [];
         const start = (currentPageComptes - 1) * itemsPerPageComptes;
         return data.comptes.slice(start, start + itemsPerPageComptes);
-    }, [data.comptes, currentPageComptes, itemsPerPageComptes]);
-    
-    const totalPagesComptes = Math.ceil(data.comptes.length / itemsPerPageComptes);
+    }, [data?.comptes, currentPageComptes, itemsPerPageComptes]);
+
+    const totalPagesComptes = Math.ceil((data?.comptes?.length || 0) / itemsPerPageComptes);
 
     const paginatedTransactions = useMemo(() => {
+        if (!data?.transactions) return [];
         const start = (currentPageTransactions - 1) * itemsPerPageTransactions;
         return data.transactions.slice(start, start + itemsPerPageTransactions);
-    }, [data.transactions, currentPageTransactions, itemsPerPageTransactions]);
-    
-    const totalPagesTransactions = Math.ceil(data.transactions.length / itemsPerPageTransactions);
+    }, [data?.transactions, currentPageTransactions, itemsPerPageTransactions]);
+
+    const totalPagesTransactions = Math.ceil((data?.transactions?.length || 0) / itemsPerPageTransactions);
 
     const handleAddCompte = () => {
         showModal('Créer un compte épargne', <CompteEpargneForm onSave={hideModal} onCancel={hideModal} />);
     };
-    
+
     const handleEditCompte = (compte: CompteEpargneAvecPersonne) => {
         showModal('Modifier le compte épargne', <CompteEpargneForm compte={compte} onSave={hideModal} onCancel={hideModal} />);
     };
 
     const handleDeleteCompte = (compte: CompteEpargneAvecPersonne) => {
-        showModal('Confirmer la suppression', <ConfirmationModal 
+        showModal('Confirmer la suppression', <ConfirmationModal
             title="Supprimer Compte Épargne"
             message={`Voulez-vous vraiment supprimer le compte ${compte.no_compte} ? Ceci supprimera également tous les comptes de crédit et transactions associés.`}
             onConfirm={async () => {
@@ -121,13 +128,13 @@ const ComptesEpargne: React.FC = () => {
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                             <div className="flex items-center space-x-3">
                                                 <button onClick={() => handleAddTransaction(compte)} className="text-blue-600 hover:text-blue-800" title="Nouvelle Transaction">
-                                                    <ArrowRightLeftIcon className="w-5 h-5"/>
+                                                    <ArrowRightLeftIcon className="w-5 h-5" />
                                                 </button>
                                                 <button onClick={() => handleEditCompte(compte)} className="text-indigo-600 hover:text-indigo-800" title="Modifier">
-                                                    <EditIcon className="w-5 h-5"/>
+                                                    <EditIcon className="w-5 h-5" />
                                                 </button>
                                                 <button onClick={() => handleDeleteCompte(compte)} className="text-red-600 hover:text-red-800" title="Supprimer">
-                                                    <TrashIcon className="w-5 h-5"/>
+                                                    <TrashIcon className="w-5 h-5" />
                                                 </button>
                                             </div>
                                         </td>
@@ -150,15 +157,15 @@ const ComptesEpargne: React.FC = () => {
                             </tbody>
                         </table>
                     </div>
-                     <Pagination currentPage={currentPageComptes} totalPages={totalPagesComptes} onPageChange={setCurrentPageComptes} itemsPerPage={itemsPerPageComptes} totalItems={data.comptes.length} onItemsPerPageChange={(v) => { setItemsPerPageComptes(v); setCurrentPageComptes(1); }} />
+                    <Pagination currentPage={currentPageComptes} totalPages={totalPagesComptes} onPageChange={setCurrentPageComptes} itemsPerPage={itemsPerPageComptes} totalItems={data?.comptes?.length || 0} onItemsPerPageChange={(v) => { setItemsPerPageComptes(v); setCurrentPageComptes(1); }} />
                 </div>
             </div>
 
             <div>
-                 <h2 className="text-xl font-bold text-gray-800 mb-4">Dernières Transactions Épargne</h2>
-                 <div className="bg-white shadow-md rounded-lg overflow-hidden">
+                <h2 className="text-xl font-bold text-gray-800 mb-4">Dernières Transactions Épargne</h2>
+                <div className="bg-white shadow-md rounded-lg overflow-hidden">
                     <div className="overflow-x-auto">
-                         <table className="min-w-full divide-y divide-gray-200">
+                        <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">
                                 <tr>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date & Heure</th>
@@ -170,36 +177,36 @@ const ComptesEpargne: React.FC = () => {
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Agent</th>
                                 </tr>
                             </thead>
-                             <tbody className="bg-white divide-y divide-gray-200">
+                            <tbody className="bg-white divide-y divide-gray-200">
                                 {paginatedTransactions.map((tx) => {
                                     const typeLabels: Record<string, string> = { 'D': 'Dépôt', 'R': 'Retrait', 'FL': 'Frais Livret', 'S': 'Frais Service' };
                                     const typeColors: Record<string, string> = { 'D': 'bg-green-100 text-green-800', 'R': 'bg-red-100 text-red-800', 'FL': 'bg-orange-100 text-orange-800', 'S': 'bg-yellow-100 text-yellow-800' };
                                     return (
-                                    <tr key={tx.id_transaction_epargne} className="hover:bg-gray-50">
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
-                                            {tx.date_transaction ? new Date(tx.date_transaction).toLocaleString('fr-FR', {
-                                                dateStyle: 'short',
-                                                timeStyle: 'short'
-                                            }) : '-'}
-                                        </td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{tx.no_compte || '-'}</td>
-                                        <td className="px-4 py-3 whitespace-nowrap">
-                                            <span className={`px-2 py-1 text-xs font-semibold rounded ${typeColors[tx.type_transaction] || 'bg-gray-100 text-gray-800'}`}>
-                                                {typeLabels[tx.type_transaction] || tx.type_transaction}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-gray-900">{(tx.montant ?? 0).toFixed(2)}</td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{(tx.solde_avant_transaction ?? 0).toFixed(2)}</td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{(tx.solde_apres_transaction ?? 0).toFixed(2)}</td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500">{tx.created_by || '-'}</td>
-                                    </tr>
+                                        <tr key={tx.id_transaction_epargne} className="hover:bg-gray-50">
+                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                                                {tx.date_transaction ? new Date(tx.date_transaction).toLocaleString('fr-FR', {
+                                                    dateStyle: 'short',
+                                                    timeStyle: 'short'
+                                                }) : '-'}
+                                            </td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{tx.no_compte || '-'}</td>
+                                            <td className="px-4 py-3 whitespace-nowrap">
+                                                <span className={`px-2 py-1 text-xs font-semibold rounded ${typeColors[tx.type_transaction] || 'bg-gray-100 text-gray-800'}`}>
+                                                    {typeLabels[tx.type_transaction] || tx.type_transaction}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-gray-900">{(tx.montant ?? 0).toFixed(2)}</td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{(tx.solde_avant_transaction ?? 0).toFixed(2)}</td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{(tx.solde_apres_transaction ?? 0).toFixed(2)}</td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500">{tx.created_by || '-'}</td>
+                                        </tr>
                                     );
                                 })}
                             </tbody>
                         </table>
                     </div>
-                    <Pagination currentPage={currentPageTransactions} totalPages={totalPagesTransactions} onPageChange={setCurrentPageTransactions} itemsPerPage={itemsPerPageTransactions} totalItems={data.transactions.length} onItemsPerPageChange={(v) => { setItemsPerPageTransactions(v); setCurrentPageTransactions(1); }} />
-                 </div>
+                    <Pagination currentPage={currentPageTransactions} totalPages={totalPagesTransactions} onPageChange={setCurrentPageTransactions} itemsPerPage={itemsPerPageTransactions} totalItems={data?.transactions?.length || 0} onItemsPerPageChange={(v) => { setItemsPerPageTransactions(v); setCurrentPageTransactions(1); }} />
+                </div>
             </div>
             </div>
         </SecureWrapper>

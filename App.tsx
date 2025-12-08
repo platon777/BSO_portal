@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useEffect } from 'react';
 import Sidebar from './components/layout/Sidebar';
 import MobileNav from './components/layout/MobileNav';
@@ -15,6 +14,7 @@ import ModalRoot from './components/common/ModalRoot';
 import OfflineIndicator from './components/common/OfflineIndicator';
 import { useAuthStore } from './stores/authStore';
 import { Toaster } from 'react-hot-toast';
+import ErrorBoundary from './components/common/ErrorBoundary';
 
 type Page = 'dashboard' | 'clients' | 'epargne' | 'credit' | 'recouvrement' | 'rapports' | 'parametres' | 'login' | 'signup';
 
@@ -22,7 +22,7 @@ type Page = 'dashboard' | 'clients' | 'epargne' | 'credit' | 'recouvrement' | 'r
 let navigateFn: ((page: Page) => void) | null = null;
 
 export const useNavigate = () => {
-  return navigateFn || (() => {});
+  return navigateFn || (() => { });
 };
 
 const App: React.FC = () => {
@@ -76,7 +76,7 @@ const App: React.FC = () => {
         return <div className="p-4 sm:p-6 text-gray-700">Page '{currentPage}' coming soon.</div>;
     }
   };
-  
+
   const handleSetPage = useCallback((page: Page) => {
     setCurrentPage(page);
     setSidebarOpen(false); // Close sidebar on navigation
@@ -116,32 +116,36 @@ const App: React.FC = () => {
   // Show login/signup page if not authenticated
   if (!isAuthenticated && (currentPage === 'login' || currentPage === 'signup')) {
     return (
-      <ModalProvider>
-        <Toaster position="top-right" />
-        {currentPage === 'login' ? <Login /> : <Signup />}
-        <ModalRoot />
-      </ModalProvider>
+      <ErrorBoundary>
+        <ModalProvider>
+          <Toaster position="top-right" />
+          {currentPage === 'login' ? <Login /> : <Signup />}
+          <ModalRoot />
+        </ModalProvider>
+      </ErrorBoundary>
     );
   }
 
   return (
-    <ModalProvider>
-      <Toaster position="top-right" />
-      <div className="flex h-screen bg-gray-100 font-sans">
-        <Sidebar currentPage={currentPage} setCurrentPage={handleSetPage} isOpen={isSidebarOpen} setOpen={setSidebarOpen} />
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <Header toggleSidebar={() => setSidebarOpen(prev => !prev)} />
-          <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 pb-20 md:pb-4">
-            <div className="container mx-auto px-4 sm:px-6 py-4">
-              {renderPage()}
-            </div>
-          </main>
+    <ErrorBoundary>
+      <ModalProvider>
+        <Toaster position="top-right" />
+        <div className="flex h-screen bg-gray-100 font-sans">
+          <Sidebar currentPage={currentPage} setCurrentPage={handleSetPage} isOpen={isSidebarOpen} setOpen={setSidebarOpen} />
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <Header toggleSidebar={() => setSidebarOpen(prev => !prev)} />
+            <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 pb-20 md:pb-4">
+              <div className="container mx-auto px-4 sm:px-6 py-4">
+                {renderPage()}
+              </div>
+            </main>
+          </div>
+          <MobileNav currentPage={currentPage} setCurrentPage={handleSetPage} />
         </div>
-        <MobileNav currentPage={currentPage} setCurrentPage={handleSetPage} />
-      </div>
-      <ModalRoot />
-      <OfflineIndicator />
-    </ModalProvider>
+        <ModalRoot />
+        <OfflineIndicator />
+      </ModalProvider>
+    </ErrorBoundary>
   );
 };
 

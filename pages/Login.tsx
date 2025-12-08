@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../stores/authStore';
 import { useNavigate } from '../App';
+import toast from 'react-hot-toast';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -42,11 +43,13 @@ const Login: React.FC = () => {
 
     if (!result.success) {
       setError(result.error || 'Échec de la connexion');
+      toast.error(result.error || 'Échec de la connexion');
       setIsLoading(false);
       return;
     }
 
     // Success - will be redirected by useEffect
+    toast.success('Connexion réussie ! Bienvenue.');
     setIsLoading(false);
   };
 
