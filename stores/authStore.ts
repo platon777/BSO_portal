@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { User } from '@supabase/supabase-js';
 import { UserProfile } from '../types/auth';
 import * as authService from '../services/supabaseAuth';
+import * as sessionManager from '../services/sessionManager';
+import toast from 'react-hot-toast';
 
 interface AuthStore {
   user: User | null;
@@ -9,6 +11,7 @@ interface AuthStore {
   isAuthenticated: boolean;
   isOffline: boolean;
   isLoading: boolean;
+  sessionValidationInterval: NodeJS.Timeout | null;
 
   // Actions
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
@@ -16,6 +19,7 @@ interface AuthStore {
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   setOfflineMode: (offline: boolean) => void;
+  validateSession: () => Promise<void>;
   initialize: () => Promise<void>;
 }
 
@@ -25,6 +29,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   isAuthenticated: false,
   isOffline: !navigator.onLine,
   isLoading: true,
+  sessionValidationInterval: null,
 
   /**
    * Login user
@@ -45,6 +50,17 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       isAuthenticated: true,
       isLoading: false,
     });
+
+    // Afficher une notification si un autre appareil a été déconnecté
+    if (result.hadPreviousSession) {
+      toast.success(
+        'Connexion réussie. Votre session précédente a été déconnectée.',
+        { duration: 5000 }
+      );
+    }
+
+    // Démarrer la validation de session
+    get().validateSession();
 
     return { success: true };
   },
@@ -76,6 +92,13 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
    * Logout user
    */
   logout: async () => {
+    // Effacer l'intervalle de validation de session
+    const interval = get().sessionValidationInterval;
+    if (interval) {
+      clearInterval(interval);
+      set({ sessionValidationInterval: null });
+    }
+
     await authService.logout();
     set({
       user: null,
@@ -109,6 +132,52 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   },
 
   /**
+   * Validate session and set up periodic validation
+   */
+  validateSession: async () => {
+    const user = get().user;
+    if (!user) return;
+
+    // Effacer l'intervalle existant
+    const existingInterval = get().sessionValidationInterval;
+    if (existingInterval) clearInterval(existingInterval);
+
+    // Valider immédiatement
+    const isValid = await sessionManager.validateCurrentSession(user.id);
+    if (!isValid && get().isAuthenticated) {
+      toast.error(
+        'Votre session a été déconnectée car vous vous êtes connecté depuis un autre appareil.',
+        { duration: 6000 }
+      );
+      get().logout();
+      return;
+    }
+
+    // Mettre en place une validation périodique (toutes les 30 secondes)
+    const interval = setInterval(async () => {
+      const currentUser = get().user;
+      if (!currentUser || !get().isAuthenticated) {
+        clearInterval(interval);
+        set({ sessionValidationInterval: null });
+        return;
+      }
+
+      const isStillValid = await sessionManager.validateCurrentSession(currentUser.id);
+      if (!isStillValid) {
+        toast.error(
+          'Votre session a été déconnectée car vous vous êtes connecté depuis un autre appareil.',
+          { duration: 6000 }
+        );
+        clearInterval(interval);
+        set({ sessionValidationInterval: null });
+        get().logout();
+      }
+    }, 30000);
+
+    set({ sessionValidationInterval: interval });
+  },
+
+  /**
    * Initialize auth state on app load
    */
   initialize: async () => {
@@ -124,6 +193,11 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       isOffline: !navigator.onLine,
       isLoading: false,
     });
+
+    // Démarrer la validation de session si authentifié
+    if (user && profile) {
+      get().validateSession();
+    }
 
     // Listen to auth changes
     authService.onAuthStateChange(async (user) => {

@@ -2,6 +2,7 @@ import { supabase, handleSupabaseError, isOnline as isOnlineSupabase } from './s
 import { LoginCredentials, UserProfile, AuthError } from '../types/auth';
 import { User } from '@supabase/supabase-js';
 import { executeWithTimeout } from './networkMonitor';
+import * as sessionManager from './sessionManager';
 
 /**
  * Authentication service for Supabase
@@ -108,7 +109,7 @@ export const register = async (
 /**
  * Login with email and password
  */
-export const login = async (credentials: LoginCredentials): Promise<{ user: User; profile: UserProfile } | AuthError> => {
+export const login = async (credentials: LoginCredentials): Promise<{ user: User; profile: UserProfile; hadPreviousSession?: boolean } | AuthError> => {
   try {
     console.log('Attempting login for:', credentials.email);
 
@@ -142,11 +143,21 @@ export const login = async (credentials: LoginCredentials): Promise<{ user: User
       return profile; // Error occurred
     }
 
+    // Gestion des sessions - vérifier la session existante
+    const existingSession = await sessionManager.checkExistingSession(data.user.id);
+
+    // Créer une nouvelle session (ceci invalidera l'ancienne)
+    const sessionCreated = await sessionManager.createActiveSession(data.user.id);
+
+    if (!sessionCreated) {
+      console.warn('[Auth] Failed to create session - continuing anyway');
+    }
+
     // Store for offline access
     storeOfflineAuthData(data.user, profile);
 
     console.log('Login completed successfully');
-    return { user: data.user, profile };
+    return { user: data.user, profile, hadPreviousSession: existingSession };
   } catch (error: any) {
     console.error('Login catch error:', error);
     return handleSupabaseError(error);
@@ -158,9 +169,15 @@ export const login = async (credentials: LoginCredentials): Promise<{ user: User
  */
 export const logout = async (): Promise<void | AuthError> => {
   try {
+    // Récupérer l'ID utilisateur avant la déconnexion
+    const { data: { user } } = await supabase.auth.getUser();
+
     // Si hors ligne, on efface localement sans appeler le réseau
     if (!isOnlineSupabase()) {
       clearOfflineAuthData();
+      if (user) {
+        await sessionManager.cleanupSession(user.id);
+      }
       return;
     }
 
@@ -168,6 +185,11 @@ export const logout = async (): Promise<void | AuthError> => {
 
     if (error) {
       return handleSupabaseError(error);
+    }
+
+    // Nettoyer la session
+    if (user) {
+      await sessionManager.cleanupSession(user.id);
     }
 
     // Clear offline storage
