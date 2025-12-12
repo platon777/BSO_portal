@@ -27,7 +27,6 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
       setFormData({
           solde_actuel: 0,
           fonds_garantie: 0,
-          statut: 'Actif',
       });
     }
   }, [compte]);
@@ -83,7 +82,7 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
           no_compte: generateCustomCode(selectedClient.code_client),
           solde_actuel: formData.solde_actuel || 0,
           fonds_garantie: formData.fonds_garantie || 0,
-          statut: formData.statut || 'Actif',
+          statut: 'Actif', // Default value, managed locally
           date_creation: new Date().toISOString(),
           created_by: userId,
           created_at: new Date().toISOString(),
@@ -114,7 +113,7 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
                 required
             />
         </div>
-        
+
         {compte && <Input label="Numéro de Compte" name="no_compte" value={formData.no_compte || ''} readOnly disabled />}
         <Input label="Succursale" name="succursale" value={formData.succursale || ''} onChange={handleChange} />
         <Input type="number" label="Durée (mois)" name="duree" value={formData.duree || ''} onChange={handleChange} />
@@ -122,14 +121,18 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
         <Input type="number" label="Solde Initial" name="solde_actuel" value={formData.solde_actuel || ''} onChange={handleChange} disabled={!!compte} step="0.01" />
         <Input type="number" label="Fonds de Garantie" name="fonds_garantie" value={formData.fonds_garantie || ''} onChange={handleChange} step="0.01" />
         <Input label="Personne Autorisée" name="person_allowed" value={formData.person_allowed || ''} onChange={handleChange} className="md:col-span-2"/>
-        <Input label="Pièce d'Ident. Autorisée" name="piece_identification_allowed" value={formData.piece_identification_allowed || ''} onChange={handleChange} />
-        <Input label="NIF/CIN Autorisé" name="nif_cin_allowed" value={formData.nif_cin_allowed || ''} onChange={handleChange} />
-        <Input label="Photo Autorisée (URL)" name="photo_allowed" value={formData.photo_allowed || ''} onChange={handleChange} className="md:col-span-2"/>
-        <Select label="Statut" name="statut" value={formData.statut || 'Actif'} onChange={handleChange} className="md:col-span-2">
-            <option value="Actif">Actif</option>
-            <option value="Inactif">Inactif</option>
-            <option value="Fermé">Fermé</option>
+
+        <Select label="Pièce d'Identification Autorisée" name="piece_identification_allowed" value={formData.piece_identification_allowed || ''} onChange={handleChange}>
+            <option value="">Sélectionner...</option>
+            <option value="NIF">NIF</option>
+            <option value="CIN">CIN</option>
+            <option value="Passeport">Passeport</option>
         </Select>
+
+        <Input label="NIF/CIN Autorisé" name="nif_cin_allowed" value={formData.nif_cin_allowed || ''} onChange={handleChange} />
+
+        {/* Photo upload - Hidden for now, will be implemented later */}
+        {/* <Input label="Photo Autorisée (URL)" name="photo_allowed" value={formData.photo_allowed || ''} onChange={handleChange} className="md:col-span-2"/> */}
       </div>
 
       <div className="pt-4 flex justify-end space-x-2">
