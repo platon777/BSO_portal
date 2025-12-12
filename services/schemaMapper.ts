@@ -97,11 +97,15 @@ export const mapSupabaseToLocal = (tableName: string, data: any): TableData => {
 // ===== TABLE-SPECIFIC MAPPERS =====
 
 const mapPersonneToSupabase = (personne: Personne, userId: string): any => {
+  // Exclude fields that don't exist in Supabase schema
+  const { id_plan, montant, ...personneData } = personne;
+
   return {
-    ...personne,
+    ...personneData,
     created_by: personne.created_by ? parseInt(String(personne.created_by)) : null,
     updated_by: personne.updated_by ? parseInt(String(personne.updated_by)) : null,
     piece_identification: personne.piece_identification ? getIdentificationTypeId(personne.piece_identification) : null,
+    // Do NOT send id_plan or montant - these don't exist in Supabase schema
   };
 };
 
@@ -111,16 +115,22 @@ const mapSupabaseToPersonne = (data: any): Personne => {
     created_by: data.created_by ? String(data.created_by) : '',
     updated_by: data.updated_by ? String(data.updated_by) : undefined,
     piece_identification: data.piece_identification || '',
+    id_plan: undefined, // Not in Supabase schema
+    montant: undefined, // Not in Supabase schema
   };
 };
 
 const mapCompteEpargneToSupabase = (compte: CompteEpargne, userId: string): any => {
+  // Exclude fields that don't exist in Supabase schema or are managed automatically
+  const { statut, solde_actuel, ...compteData } = compte;
+
   return {
-    ...compte,
+    ...compteData,
     created_by: userId,
     updated_by: userId,
     succursale: compte.succursale ? parseInt(String(compte.succursale)) : null,
     piece_identification_allowed: compte.piece_identification_allowed ? parseInt(String(compte.piece_identification_allowed)) : null,
+    // Do NOT send statut or solde_actuel - these are managed by Supabase
   };
 };
 
@@ -131,20 +141,26 @@ const mapSupabaseToCompteEpargne = (data: any): CompteEpargne => {
     updated_by: data.updated_by || undefined,
     succursale: data.succursale ? String(data.succursale) : undefined,
     piece_identification_allowed: data.piece_identification_allowed ? String(data.piece_identification_allowed) : undefined,
+    statut: 'Actif', // Default status, not in Supabase schema
+    solde_actuel: data.solde_actuel || 0, // Ensure we have a value
   };
 };
 
 const mapCompteCreditToSupabase = (compte: CompteCredit, userId: string): any => {
+  // Exclude computed fields that are managed by Supabase triggers/functions
+  // and fields that don't exist in Supabase schema
+  const { paiement_rembourse, statut, ...compteData } = compte;
+
   return {
-    ...compte,
+    ...compteData,
     created_by: userId,
     updated_by: userId,
     collecteur: null, // Field not in local schema
     cycle: compte.no_compte || null,
     date_debut: compte.date_creation || null,
     date_fin: null,
-    montant_final: compte.montant_prete + (compte.montant_prete * compte.taux_interet / 100),
-    montant_restant: compte.montant_prete - compte.paiement_rembourse,
+    // Do NOT send paiement_rembourse, montant_final, montant_restant, or statut
+    // These are computed/managed by Supabase automatically
   };
 };
 
@@ -164,9 +180,9 @@ const mapSupabaseToCompteCredit = (data: any): CompteCredit => {
     created_at: data.created_at,
     created_by: data.created_by || '',
     updated_by: data.updated_by || undefined,
-    paiement_rembourse: data.paiement_cumule || 0,
+    paiement_rembourse: data.paiement_cumule || 0, // Map from Supabase paiement_cumule
     updated_at: data.updated_at || undefined,
-    statut: data.statut || 'Actif',
+    statut: 'Actif', // Default status, not in Supabase schema
   };
 };
 
