@@ -8,12 +8,23 @@ import ConfirmationModal from '../components/modals/ConfirmationModal';
 import { PlusIcon, EditIcon, TrashIcon } from '../components/icons/Icons';
 import Pagination from '../components/common/Pagination';
 import SecureWrapper from '../components/common/SecureWrapper';
+import { useAuthStore } from '../stores/authStore';
 
 const Clients: React.FC = () => {
     const { showModal, hideModal } = useModal();
+    const { profile } = useAuthStore();
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
+
+    // Helper function to display agent name
+    const getAgentName = (userId: string | undefined) => {
+        if (!userId) return '-';
+        if (profile?.user_id === userId) {
+            return `${profile.firstname} ${profile.name}`;
+        }
+        return 'Agent';
+    };
 
     const clients = useLiveQuery(async () => {
         if (searchTerm) {
@@ -117,7 +128,7 @@ const Clients: React.FC = () => {
                                                 {client.statut}
                                             </span>
                                         </td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500">{client.created_by}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{getAgentName(client.created_by)}</td>
                                         <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium space-x-2">
                                             <button onClick={() => handleEditClient(client)} className="text-indigo-600 hover:text-indigo-900"><EditIcon className="w-5 h-5"/></button>
                                             <button onClick={() => handleDeleteClient(client)} className="text-red-600 hover:text-red-900"><TrashIcon className="w-5 h-5"/></button>

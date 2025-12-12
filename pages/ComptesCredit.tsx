@@ -9,14 +9,25 @@ import ConfirmationModal from '../components/modals/ConfirmationModal';
 import { PlusIcon, EditIcon, TrashIcon, ArrowRightLeftIcon } from '../components/icons/Icons';
 import Pagination from '../components/common/Pagination';
 import SecureWrapper from '../components/common/SecureWrapper';
+import { useAuthStore } from '../stores/authStore';
 
 const ComptesCredit: React.FC = () => {
     const { showModal, hideModal } = useModal();
+    const { profile } = useAuthStore();
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPageComptes, setCurrentPageComptes] = useState(1);
     const [itemsPerPageComptes, setItemsPerPageComptes] = useState(10);
     const [currentPageTransactions, setCurrentPageTransactions] = useState(1);
     const [itemsPerPageTransactions, setItemsPerPageTransactions] = useState(10);
+
+    // Helper function to display agent name
+    const getAgentName = (userId: string | undefined) => {
+        if (!userId) return '-';
+        if (profile?.user_id === userId) {
+            return `${profile.firstname} ${profile.name}`;
+        }
+        return 'Agent';
+    };
 
     const data = useLiveQuery(async () => {
         try {
@@ -158,7 +169,7 @@ const ComptesCredit: React.FC = () => {
                                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
                                                 {new Date(compte.date_creation).toLocaleDateString('fr-FR')}
                                             </td>
-                                            <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500">{compte.created_by}</td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{getAgentName(compte.created_by)}</td>
                                             <td className="px-4 py-3 whitespace-nowrap">
                                                 <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${compte.statut === 'Actif' ? 'bg-green-100 text-green-800' : compte.statut === 'Payé' ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'}`}>
                                                     {compte.statut}
@@ -210,7 +221,7 @@ const ComptesCredit: React.FC = () => {
                                             <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-gray-900">{tx.montant.toFixed(2)}</td>
                                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{tx.solde_avant_transaction.toFixed(2)}</td>
                                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{tx.versement_declare ? tx.versement_declare.toFixed(2) : '-'}</td>
-                                            <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500">{tx.created_by}</td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{getAgentName(tx.created_by)}</td>
                                         </tr>
                                     );
                                 })}
