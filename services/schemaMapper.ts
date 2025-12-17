@@ -122,7 +122,7 @@ const mapSupabaseToPersonne = (data: any): Personne => {
 
 const mapCompteEpargneToSupabase = (compte: CompteEpargne, userId: string): any => {
   // Exclude fields that don't exist in Supabase schema or are managed automatically
-  const { statut, solde_actuel, ...compteData } = compte;
+  const { statut, solde_actuel, personne, ...compteData } = compte as any;
 
   return {
     ...compteData,
@@ -149,7 +149,7 @@ const mapSupabaseToCompteEpargne = (data: any): CompteEpargne => {
 const mapCompteCreditToSupabase = (compte: CompteCredit, userId: string): any => {
   // Exclude computed fields that are managed by Supabase triggers/functions
   // and fields that don't exist in Supabase schema
-  const { paiement_rembourse, statut, ...compteData } = compte;
+  const { paiement_rembourse, statut, personne, ...compteData } = compte as any;
 
   return {
     ...compteData,
@@ -188,7 +188,7 @@ const mapSupabaseToCompteCredit = (data: any): CompteCredit => {
 
 const mapTransactionEpargneToSupabase = (transaction: TransactionEpargne, userId: string): any => {
   // Exclude solde fields - they are managed by Supabase triggers
-  const { solde_apres_transaction, solde_avant_transaction, ...transactionData } = transaction;
+  const { solde_apres_transaction, solde_avant_transaction, id_personne, ...transactionData } = transaction as any;
 
   return {
     ...transactionData,
@@ -208,7 +208,7 @@ const mapSupabaseToTransactionEpargne = (data: any): TransactionEpargne => {
 
 const mapTransactionCreditToSupabase = (transaction: TransactionCredit, userId: string): any => {
   // Exclude computed fields - they are managed by Supabase triggers
-  const { solde_avant_transaction, solde_credit, ...transactionData } = transaction;
+  const { solde_avant_transaction, solde_credit, id_personne, ...transactionData } = transaction as any;
 
   return {
     ...transactionData,
