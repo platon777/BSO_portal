@@ -1,5 +1,10 @@
 import { User } from '@supabase/supabase-js';
 
+export enum UserRole {
+  ADMIN = 1,
+  AGENT = 3,
+}
+
 export interface UserProfile {
   id: number;
   user_id: string;

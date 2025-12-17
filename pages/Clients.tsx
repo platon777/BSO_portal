@@ -5,10 +5,14 @@ import { Personne } from '../types';
 import { useModal } from '../contexts/ModalContext';
 import ClientForm from '../components/modals/ClientForm';
 import ConfirmationModal from '../components/modals/ConfirmationModal';
-import { PlusIcon, EditIcon, TrashIcon } from '../components/icons/Icons';
+import { PlusIcon, EditIcon, TrashIcon, KeyIcon } from '../components/icons/Icons';
 import Pagination from '../components/common/Pagination';
 import SecureWrapper from '../components/common/SecureWrapper';
 import { useAuthStore } from '../stores/authStore';
+import { accessService } from '../services/accessService';
+import { UserRole } from '../types/auth';
+import AccessGrantModal from '../components/modals/AccessGrantModal';
+import toast from 'react-hot-toast';
 
 const Clients: React.FC = () => {
     const { showModal, hideModal } = useModal();
@@ -49,11 +53,25 @@ const Clients: React.FC = () => {
         showModal('Ajouter un client', <ClientForm onSave={hideModal} onCancel={hideModal} />);
     };
 
-    const handleEditClient = (client: Personne) => {
+    const handleEditClient = async (client: Personne) => {
+        const hasAccess = await accessService.hasAccess(client.id_personne);
+        if (!hasAccess) {
+            toast.error("Accès refusé. Demandez un accès temporaire à un administrateur.");
+            return;
+        }
         showModal('Modifier le client', <ClientForm client={client} onSave={hideModal} onCancel={hideModal} />);
     };
 
-    const handleDeleteClient = (client: Personne) => {
+    const handleGrantAccess = (client: Personne) => {
+        showModal('Accorder accès', <AccessGrantModal clientId={client.id_personne} clientName={client.prenom + ' ' + client.nom} onClose={hideModal} />);
+    };
+
+    const handleDeleteClient = async (client: Personne) => {
+        const hasAccess = await accessService.hasAccess(client.id_personne);
+        if (!hasAccess) {
+            toast.error("Accès refusé. Demandez un accès temporaire à un administrateur.");
+            return;
+        }
         const confirmDelete = async () => {
             await db.deletePersonCascade(client.id_personne);
             hideModal();
@@ -130,8 +148,13 @@ const Clients: React.FC = () => {
                                         </td>
                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{getAgentName(client.created_by)}</td>
                                         <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium space-x-2">
-                                            <button onClick={() => handleEditClient(client)} className="text-indigo-600 hover:text-indigo-900"><EditIcon className="w-5 h-5"/></button>
-                                            <button onClick={() => handleDeleteClient(client)} className="text-red-600 hover:text-red-900"><TrashIcon className="w-5 h-5"/></button>
+                                            <button onClick={() => handleEditClient(client)} className="text-indigo-600 hover:text-indigo-900"><EditIcon className="w-5 h-5" /></button>
+                                            <button onClick={() => handleDeleteClient(client)} className="text-red-600 hover:text-red-900"><TrashIcon className="w-5 h-5" /></button>
+                                            {profile?.role === UserRole.ADMIN && (
+                                                <button onClick={() => handleGrantAccess(client)} className="text-yellow-600 hover:text-yellow-900" title="Accorder accès temporaire">
+                                                    <KeyIcon className="w-5 h-5" />
+                                                </button>
+                                            )}
                                         </td>
                                     </tr>
                                 ))}

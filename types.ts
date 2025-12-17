@@ -117,9 +117,18 @@ export interface SyncQueueItem {
 
 // For enriched data queries
 export interface CompteEpargneAvecPersonne extends CompteEpargne {
-    personne?: Personne;
+  personne?: Personne;
 }
 
 export interface CompteCreditEnriched extends CompteCredit {
-    personne?: Personne;
+  personne?: Personne;
+}
+
+// Enriched transactions with client ID for access control
+export interface TransactionEpargneEnriched extends TransactionEpargne {
+  id_personne?: string;
+}
+
+export interface TransactionCreditEnriched extends TransactionCredit {
+  id_personne?: string;
 }
