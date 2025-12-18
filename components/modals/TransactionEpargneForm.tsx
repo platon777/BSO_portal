@@ -7,16 +7,17 @@ import { useAuthStore } from '../../stores/authStore';
 
 interface TransactionEpargneFormProps {
   compteEpargne: CompteEpargneAvecPersonne;
+  transaction?: TransactionEpargne;
   onSave: () => void;
   onCancel: () => void;
 }
 
-const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteEpargne, onSave, onCancel }) => {
+const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteEpargne, transaction, onSave, onCancel }) => {
   const { profile } = useAuthStore();
-  const [formData, setFormData] = useState<Partial<TransactionEpargne>>({
-      id_compte_epargne: compteEpargne.id_compte_epargne,
-      no_compte: compteEpargne.no_compte,
-      solde_avant_transaction: compteEpargne.solde_actuel,
+  const [formData, setFormData] = useState<Partial<TransactionEpargne>>(transaction || {
+    id_compte_epargne: compteEpargne.id_compte_epargne,
+    no_compte: compteEpargne.no_compte,
+    solde_avant_transaction: compteEpargne.solde_actuel,
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -39,24 +40,33 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
     const montant = formData.montant || 0;
 
     if (formData.type_transaction === 'D') {
-        solde_apres_transaction += montant;
+      solde_apres_transaction += montant;
     } else if (formData.type_transaction === 'R') {
-        solde_apres_transaction -= montant;
-        // Validate that withdrawal doesn't result in negative balance
-        if (solde_apres_transaction < 0) {
-            alert(`Solde insuffisant pour ce retrait. Solde disponible: ${formData.solde_avant_transaction || 0}`);
-            return;
-        }
+      solde_apres_transaction -= montant;
+      // Validate that withdrawal doesn't result in negative balance
+      if (solde_apres_transaction < 0) {
+        alert(`Solde insuffisant pour ce retrait. Solde disponible: ${formData.solde_avant_transaction || 0}`);
+        return;
+      }
     } else if (formData.type_transaction === 'FL' || formData.type_transaction === 'S') {
-        solde_apres_transaction -= montant;
-        // Validate that fees don't result in negative balance
-        if (solde_apres_transaction < 0) {
-            alert(`Solde insuffisant pour ces frais. Solde disponible: ${formData.solde_avant_transaction || 0}`);
-            return;
-        }
+      solde_apres_transaction -= montant;
+      // Validate that fees don't result in negative balance
+      if (solde_apres_transaction < 0) {
+        alert(`Solde insuffisant pour ces frais. Solde disponible: ${formData.solde_avant_transaction || 0}`);
+        return;
+      }
     }
 
-    const newTransaction: Omit<TransactionEpargne, 'id_transaction_epargne'> = {
+    if (transaction && transaction.id_transaction_epargne) {
+      // Update existing transaction
+      await db.updateRecord('transactions_epargne', transaction.id_transaction_epargne, {
+        ...formData,
+        solde_apres_transaction,
+        updated_at: new Date().toISOString()
+      });
+    } else {
+      // Create new transaction
+      const newTransaction: Omit<TransactionEpargne, 'id_transaction_epargne'> = {
         id_compte_epargne: formData.id_compte_epargne!,
         no_compte: formData.no_compte!,
         type_transaction: formData.type_transaction!,
@@ -66,9 +76,10 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
         created_by: userId,
         created_at: new Date().toISOString(),
         solde_apres_transaction
-    };
+      };
 
-    await db.addRecord('transactions_epargne', newTransaction);
+      await db.addRecord('transactions_epargne', newTransaction);
+    }
 
     onSave();
   };
@@ -88,7 +99,7 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
 
       <Input type="number" label="Montant" name="montant" value={formData.montant || ''} onChange={handleChange} required />
       <Input type="number" label="Solde Déclaré" name="solde_declare" value={formData.solde_declare || ''} onChange={handleChange} />
-      
+
       <div className="pt-4 flex justify-end space-x-2">
         <button type="button" onClick={onCancel} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200">Annuler</button>
         <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">Enregistrer</button>

@@ -1,7 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../services/database';
-import { CompteCreditEnriched, TransactionCreditEnriched } from '../types';
+import { CompteCreditEnriched, TransactionCreditEnriched, TransactionCredit } from '../types';
 import { useModal } from '../contexts/ModalContext';
 import CompteCreditForm from '../components/modals/CompteCreditForm';
 import TransactionCreditForm from '../components/modals/TransactionCreditForm';
@@ -11,9 +11,10 @@ import Pagination from '../components/common/Pagination';
 import SecureWrapper from '../components/common/SecureWrapper';
 import { useAuthStore } from '../stores/authStore';
 import { accessService } from '../services/accessService';
-import { UserRole } from '../types/auth';
+import { UserRole, UserProfile } from '../types/auth';
 import AccessGrantModal from '../components/modals/AccessGrantModal';
 import toast from 'react-hot-toast';
+import * as authService from '../services/supabaseAuth';
 
 const ComptesCredit: React.FC = () => {
     const { showModal, hideModal } = useModal();
@@ -23,14 +24,27 @@ const ComptesCredit: React.FC = () => {
     const [itemsPerPageComptes, setItemsPerPageComptes] = useState(10);
     const [currentPageTransactions, setCurrentPageTransactions] = useState(1);
     const [itemsPerPageTransactions, setItemsPerPageTransactions] = useState(10);
+    const [profilesMap, setProfilesMap] = useState<Map<string, string>>(new Map());
+
+    // Fetch all profiles to display agent names
+    useEffect(() => {
+        const loadProfiles = async () => {
+            const result = await authService.fetchAllProfiles();
+            if (!('message' in result)) {
+                const map = new Map<string, string>();
+                result.forEach((p: UserProfile) => {
+                    map.set(p.user_id, `${p.firstname} ${p.name}`);
+                });
+                setProfilesMap(map);
+            }
+        };
+        loadProfiles();
+    }, []);
 
     // Helper function to display agent name
     const getAgentName = (userId: string | undefined) => {
         if (!userId) return '-';
-        if (profile?.user_id === userId) {
-            return `${profile.firstname} ${profile.name}`;
-        }
-        return 'Agent';
+        return profilesMap.get(userId) || 'Agent';
     };
 
     const data = useLiveQuery(async () => {
@@ -129,6 +143,27 @@ const ComptesCredit: React.FC = () => {
 
     const handleAddTransaction = (compte: CompteCreditEnriched) => {
         showModal(`Transaction pour ${compte.no_compte}`, <TransactionCreditForm compteCredit={compte} onSave={hideModal} onCancel={hideModal} />);
+    };
+
+    const handleEditTransaction = async (tx: TransactionCreditEnriched) => {
+        if (!tx.id_personne) {
+            toast.error("Impossible de vérifier l'accès");
+            return;
+        }
+        const hasAccess = await accessService.hasAccess(tx.id_personne);
+        if (!hasAccess) {
+            toast.error("Accès refusé. Demandez un accès temporaire à un administrateur.");
+            return;
+        }
+
+        // Find the account for this transaction
+        const compte = data.comptes.find(c => c.id_compte_credit === tx.id_compte_credit);
+        if (!compte) {
+            toast.error("Compte introuvable");
+            return;
+        }
+
+        showModal(`Modifier Transaction`, <TransactionCreditForm compteCredit={compte} transaction={tx as TransactionCredit} onSave={hideModal} onCancel={hideModal} />);
     };
 
     const handleDeleteTransaction = async (tx: TransactionCreditEnriched) => {
@@ -268,6 +303,9 @@ const ComptesCredit: React.FC = () => {
                                             <tr key={tx.id_transaction_credit} className="hover:bg-gray-50">
                                                 <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">
                                                     <div className="flex items-center space-x-2">
+                                                        <button onClick={() => handleEditTransaction(tx)} className="text-indigo-600 hover:text-indigo-900" title="Modifier">
+                                                            <EditIcon className="w-4 h-4" />
+                                                        </button>
                                                         <button onClick={() => handleDeleteTransaction(tx)} className="text-red-600 hover:text-red-900" title="Supprimer">
                                                             <TrashIcon className="w-4 h-4" />
                                                         </button>

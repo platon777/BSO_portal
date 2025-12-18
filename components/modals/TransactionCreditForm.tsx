@@ -7,13 +7,14 @@ import { useAuthStore } from '../../stores/authStore';
 
 interface TransactionCreditFormProps {
   compteCredit: CompteCreditEnriched;
+  transaction?: TransactionCredit;
   onSave: () => void;
   onCancel: () => void;
 }
 
-const TransactionCreditForm: React.FC<TransactionCreditFormProps> = ({ compteCredit, onSave, onCancel }) => {
+const TransactionCreditForm: React.FC<TransactionCreditFormProps> = ({ compteCredit, transaction, onSave, onCancel }) => {
   const { profile } = useAuthStore();
-  const [formData, setFormData] = useState<Partial<TransactionCredit>>({
+  const [formData, setFormData] = useState<Partial<TransactionCredit>>(transaction || {
     id_compte_credit: compteCredit.id_compte_credit,
     no_compte: compteCredit.no_compte,
     solde_avant_transaction: (compteCredit.montant_prete - compteCredit.paiement_rembourse),
@@ -35,18 +36,28 @@ const TransactionCreditForm: React.FC<TransactionCreditFormProps> = ({ compteCre
       return;
     }
 
-    const newTransaction: Omit<TransactionCredit, 'id_transaction_credit'> = {
-      id_compte_credit: formData.id_compte_credit!,
-      no_compte: formData.no_compte!,
-      solde_avant_transaction: formData.solde_avant_transaction!,
-      type_transaction: formData.type_transaction!,
-      montant: formData.montant!,
-      date_transaction: new Date().toISOString(),
-      created_by: userId,
-      created_at: new Date().toISOString(),
-    };
+    if (transaction && transaction.id_transaction_credit) {
+      // Update existing transaction
+      await db.updateRecord('transactions_credit', transaction.id_transaction_credit, {
+        ...formData,
+        updated_at: new Date().toISOString()
+      });
+    } else {
+      // Create new transaction
+      const newTransaction: Omit<TransactionCredit, 'id_transaction_credit'> = {
+        id_compte_credit: formData.id_compte_credit!,
+        no_compte: formData.no_compte!,
+        solde_avant_transaction: formData.solde_avant_transaction!,
+        type_transaction: formData.type_transaction!,
+        montant: formData.montant!,
+        date_transaction: new Date().toISOString(),
+        created_by: userId,
+        created_at: new Date().toISOString(),
+        versement_declare: formData.versement_declare
+      };
 
-    await db.addRecord('transactions_credit', newTransaction);
+      await db.addRecord('transactions_credit', newTransaction);
+    }
 
     onSave();
   };
@@ -65,7 +76,7 @@ const TransactionCreditForm: React.FC<TransactionCreditFormProps> = ({ compteCre
 
       <Input type="number" label="Montant" name="montant" value={formData.montant || ''} onChange={handleChange} required />
       <Input type="number" label="Versement Déclaré" name="versement_declare" value={formData.versement_declare || ''} onChange={handleChange} />
-      
+
       <div className="pt-4 flex justify-end space-x-2">
         <button type="button" onClick={onCancel} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200">Annuler</button>
         <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">Enregistrer</button>

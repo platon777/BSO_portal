@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../services/database';
 import { Personne } from '../types';
@@ -10,9 +10,10 @@ import Pagination from '../components/common/Pagination';
 import SecureWrapper from '../components/common/SecureWrapper';
 import { useAuthStore } from '../stores/authStore';
 import { accessService } from '../services/accessService';
-import { UserRole } from '../types/auth';
+import { UserRole, UserProfile } from '../types/auth';
 import AccessGrantModal from '../components/modals/AccessGrantModal';
 import toast from 'react-hot-toast';
+import * as authService from '../services/supabaseAuth';
 
 const Clients: React.FC = () => {
     const { showModal, hideModal } = useModal();
@@ -20,14 +21,27 @@ const Clients: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
+    const [profilesMap, setProfilesMap] = useState<Map<string, string>>(new Map());
+
+    // Fetch all profiles to display agent names
+    useEffect(() => {
+        const loadProfiles = async () => {
+            const result = await authService.fetchAllProfiles();
+            if (!('message' in result)) {
+                const map = new Map<string, string>();
+                result.forEach((p: UserProfile) => {
+                    map.set(p.user_id, `${p.firstname} ${p.name}`);
+                });
+                setProfilesMap(map);
+            }
+        };
+        loadProfiles();
+    }, []);
 
     // Helper function to display agent name
     const getAgentName = (userId: string | undefined) => {
         if (!userId) return '-';
-        if (profile?.user_id === userId) {
-            return `${profile.firstname} ${profile.name}`;
-        }
-        return 'Agent';
+        return profilesMap.get(userId) || 'Agent';
     };
 
     const clients = useLiveQuery(async () => {

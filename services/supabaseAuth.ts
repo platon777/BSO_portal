@@ -285,6 +285,28 @@ export const fetchUserProfile = async (userId: string): Promise<UserProfile | Au
 };
 
 /**
+ * Fetch all user profiles from Supabase
+ */
+export const fetchAllProfiles = async (): Promise<UserProfile[] | AuthError> => {
+  try {
+    if (!isOnlineSupabase()) {
+      return { message: 'Hors ligne' };
+    }
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*');
+
+    if (error) {
+      return handleSupabaseError(error);
+    }
+
+    return data as UserProfile[];
+  } catch (error: any) {
+    return handleSupabaseError(error);
+  }
+};
+
+/**
  * Refresh user session
  */
 export const refreshSession = async () => {
