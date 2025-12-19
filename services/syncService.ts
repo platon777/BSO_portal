@@ -294,7 +294,12 @@ export const retryFailedSyncItems = async (
   }
 };
 
-// ===== HELPER FUNCTIONS =====
+/**
+ * Remove an item from the sync queue
+ */
+export const removeFromSyncQueue = async (id: number): Promise<void> => {
+  await db.syncQueue.delete(id);
+};
 
 /**
  * Upload a single sync item to Supabase

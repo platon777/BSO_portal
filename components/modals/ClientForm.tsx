@@ -5,6 +5,7 @@ import Select from '../common/Select';
 import { db } from '../../services/database';
 import { generateUserCode } from '../../services/codeGenerator';
 import { useAuthStore } from '../../stores/authStore';
+import toast from 'react-hot-toast';
 
 interface ClientFormProps {
   client?: Personne;
@@ -54,7 +55,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSave, onCancel }) => 
       if (formData.nif_cin && formData.nif_cin.toLowerCase() !== 'nan' && formData.nif_cin.trim() !== '') {
         const existingNif = await db.personnes.where('nif_cin').equals(formData.nif_cin).first();
         if (existingNif && existingNif.id_personne !== client?.id_personne) {
-          alert(`Un client avec ce NIF/CIN existe déjà : ${existingNif.prenom} ${existingNif.nom}`);
+          toast.error(`Un client avec ce NIF/CIN existe déjà : ${existingNif.prenom} ${existingNif.nom}`);
           return;
         }
       }
@@ -63,7 +64,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSave, onCancel }) => 
       if (formData.numero_telephone) {
         const existingPhone = await db.personnes.where('numero_telephone').equals(formData.numero_telephone).first();
         if (existingPhone && existingPhone.id_personne !== client?.id_personne) {
-          alert(`Un client avec ce numéro de téléphone existe déjà : ${existingPhone.prenom} ${existingPhone.nom}`);
+          toast.error(`Un client avec ce numéro de téléphone existe déjà : ${existingPhone.prenom} ${existingPhone.nom}`);
           return;
         }
       }

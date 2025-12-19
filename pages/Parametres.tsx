@@ -8,7 +8,7 @@ import { db } from '../services/database';
 import { useModal } from '../contexts/ModalContext';
 import ConfirmationModal from '../components/modals/ConfirmationModal';
 import SyncProgressModal from '../components/modals/SyncProgressModal';
-import { uploadPendingChanges, downloadUpdatesFromServer, retryFailedSyncItems } from '../services/syncService';
+import { uploadPendingChanges, downloadUpdatesFromServer, retryFailedSyncItems, removeFromSyncQueue } from '../services/syncService';
 import { useAuthStore } from '../stores/authStore';
 import toast from 'react-hot-toast';
 import Dexie from 'dexie';
@@ -147,6 +147,29 @@ const Parametres: React.FC = () => {
         }
     };
 
+    const handleRemoveFromQueue = (item: SyncQueueItem) => {
+        const confirmDelete = async () => {
+            try {
+                await removeFromSyncQueue(item.id!);
+                hideModal();
+                toast.success('Élément supprimé de la file de synchronisation.');
+            } catch (error) {
+                console.error('Error removing from sync queue:', error);
+                toast.error('Erreur lors de la suppression de l\'élément.');
+            }
+        };
+
+        showModal(
+            'Confirmer la suppression',
+            <ConfirmationModal
+                title="Supprimer de la file"
+                message={`Êtes-vous sûr de vouloir supprimer cette action (${item.action} sur ${item.table}) de la file de synchronisation ? Cette action ne sera JAMAIS envoyée au serveur.`}
+                onConfirm={confirmDelete}
+                onCancel={hideModal}
+            />
+        );
+    };
+
     const handleClearDatabase = () => {
         const confirmClear = async () => {
             try {
@@ -247,7 +270,7 @@ const Parametres: React.FC = () => {
             <div className="bg-white p-4 rounded-lg shadow-md mb-6">
                 <h2 className="text-lg font-bold text-gray-800 mb-4">Actions de Synchronisation</h2>
                 <div className="flex flex-wrap gap-4">
-                     <button onClick={handleSync} className="flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">
+                    <button onClick={handleSync} className="flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">
                         <RefreshCwIcon className="w-4 h-4 mr-2" />
                         Synchroniser
                     </button>
@@ -255,19 +278,19 @@ const Parametres: React.FC = () => {
                         <DownloadCloudIcon className="w-4 h-4 mr-2" />
                         Forcer Téléchargement
                     </button>
-                     <button onClick={handleRetryFailed} className="flex items-center px-4 py-2 text-sm font-medium text-white bg-orange-500 rounded-md hover:bg-orange-600 disabled:bg-gray-400" disabled={!unsyncedItems?.some(i => i.status === 'failed')}>
+                    <button onClick={handleRetryFailed} className="flex items-center px-4 py-2 text-sm font-medium text-white bg-orange-500 rounded-md hover:bg-orange-600 disabled:bg-gray-400" disabled={!unsyncedItems?.some(i => i.status === 'failed')}>
                         <RotateCcwIcon className="w-4 h-4 mr-2" />
                         Réessayer échecs
                     </button>
                 </div>
-                 <div className="mt-4">
+                <div className="mt-4">
                     <h3 className="text-md font-semibold text-gray-700">État de la synchronisation</h3>
                     <div className="flex items-center mt-2 p-3 bg-gray-50 rounded-md">
                         {unsyncedItems?.length === 0 ? (
                             <p className="text-green-600 font-medium">Toutes les données sont synchronisées.</p>
                         ) : (
                             <div className="flex items-center text-yellow-600">
-                                <AlertTriangleIcon className="w-5 h-5 mr-2"/>
+                                <AlertTriangleIcon className="w-5 h-5 mr-2" />
                                 <p className="font-medium">{unsyncedItems?.length} élément(s) en attente de synchronisation.</p>
                             </div>
                         )}
@@ -290,6 +313,7 @@ const Parametres: React.FC = () => {
                                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
                                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Erreur</th>
                                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Données</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
@@ -302,11 +326,10 @@ const Parametres: React.FC = () => {
                                                 </span>
                                             </td>
                                             <td className="px-4 py-3 text-sm">
-                                                <span className={`px-2 py-1 text-xs font-semibold rounded ${
-                                                    item.action === 'add' ? 'bg-green-100 text-green-800' :
-                                                    item.action === 'update' ? 'bg-yellow-100 text-yellow-800' :
-                                                    'bg-red-100 text-red-800'
-                                                }`}>
+                                                <span className={`px-2 py-1 text-xs font-semibold rounded ${item.action === 'add' ? 'bg-green-100 text-green-800' :
+                                                        item.action === 'update' ? 'bg-yellow-100 text-yellow-800' :
+                                                            'bg-red-100 text-red-800'
+                                                    }`}>
                                                     {item.action === 'add' ? 'Ajout' : item.action === 'update' ? 'Modification' : 'Suppression'}
                                                 </span>
                                             </td>
@@ -314,11 +337,10 @@ const Parametres: React.FC = () => {
                                                 {item.pk.substring(0, 8)}...
                                             </td>
                                             <td className="px-4 py-3 text-sm">
-                                                <span className={`px-2 py-1 text-xs font-semibold rounded ${
-                                                    item.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                                                    item.status === 'completed' ? 'bg-green-100 text-green-800' :
-                                                    'bg-red-100 text-red-800'
-                                                }`}>
+                                                <span className={`px-2 py-1 text-xs font-semibold rounded ${item.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                                        item.status === 'completed' ? 'bg-green-100 text-green-800' :
+                                                            'bg-red-100 text-red-800'
+                                                    }`}>
                                                     {item.status === 'pending' ? 'En attente' : item.status === 'completed' ? 'Complété' : 'Échec'}
                                                 </span>
                                             </td>
@@ -349,6 +371,15 @@ const Parametres: React.FC = () => {
                                                         {JSON.stringify(item.data, null, 2)}
                                                     </pre>
                                                 </details>
+                                            </td>
+                                            <td className="px-4 py-3 text-sm">
+                                                <button
+                                                    onClick={() => handleRemoveFromQueue(item)}
+                                                    className="p-1.5 text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                                                    title="Supprimer de la file"
+                                                >
+                                                    <TrashIcon className="w-4 h-4" />
+                                                </button>
                                             </td>
                                         </tr>
                                     ))}
@@ -397,8 +428,8 @@ const Parametres: React.FC = () => {
                         </p>
                     </div>
                 )}
-                 <div className="mb-4">
-                    <select onChange={(e) => setDateFilter({type: e.target.value as any})} className="p-2 border rounded-md">
+                <div className="mb-4">
+                    <select onChange={(e) => setDateFilter({ type: e.target.value as any })} className="p-2 border rounded-md">
                         <option value="today">Aujourd'hui</option>
                         <option value="all">Tout</option>
                     </select>
