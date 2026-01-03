@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { CompteEpargne } from '../../types';
+import { CompteEpargne, TransactionEpargne } from '../../types';
 import { db } from '../../services/database';
 import Input from '../common/Input';
 import Select from '../common/Select';
@@ -17,7 +17,7 @@ interface CompteEpargneFormProps {
 const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, onCancel }) => {
   const { profile } = useAuthStore();
   const [formData, setFormData] = useState<Partial<CompteEpargne>>({});
-  
+
   const clients = useLiveQuery(() => db.personnes.where('statut').equals('Actif').toArray(), []);
 
   useEffect(() => {
@@ -25,8 +25,8 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
       setFormData(compte);
     } else {
       setFormData({
-          solde_actuel: 0,
-          fonds_garantie: 0,
+        solde_actuel: 0,
+        fonds_garantie: 0,
       });
     }
   }, [compte]);
@@ -40,14 +40,14 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
   const handleClientChange = (clientId: string | null) => {
     setFormData(prev => ({ ...prev, id_personne: clientId || undefined }));
   };
-  
+
   const clientOptions = useMemo(() => {
-      if (!clients) return [];
-      return clients.map(client => ({
-          id: client.id_personne,
-          label: `${client.prenom} ${client.nom}`,
-          subLabel: `Code: ${client.code_client}`,
-      }));
+    if (!clients) return [];
+    return clients.map(client => ({
+      id: client.id_personne,
+      label: `${client.prenom} ${client.nom}`,
+      subLabel: `Code: ${client.code_client}`,
+    }));
   }, [clients]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -61,40 +61,67 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
     }
 
     if (compte && compte.id_compte_epargne) {
-        await db.updateRecord('comptes_epargne', compte.id_compte_epargne, {
-            ...formData,
-            updated_by: userId,
-            updated_at: new Date().toISOString()
-        });
+      await db.updateRecord('comptes_epargne', compte.id_compte_epargne, {
+        ...formData,
+        updated_by: userId,
+        updated_at: new Date().toISOString()
+      });
     } else {
-        if (!formData.id_personne) {
-            alert("Veuillez sélectionner un client.");
-            return;
-        }
-        const selectedClient = clients?.find(c => c.id_personne === formData.id_personne);
-        if (!selectedClient) {
-            alert("Client non valide sélectionné.");
-            return;
-        }
+      if (!formData.id_personne) {
+        alert("Veuillez sélectionner un client.");
+        return;
+      }
+      const selectedClient = clients?.find(c => c.id_personne === formData.id_personne);
+      if (!selectedClient) {
+        alert("Client non valide sélectionné.");
+        return;
+      }
 
-        const newCompte: Omit<CompteEpargne, 'id_compte_epargne'> = {
-          id_personne: formData.id_personne!,
-          no_compte: generateCustomCode(selectedClient.code_client),
-          solde_actuel: formData.solde_actuel || 0,
-          fonds_garantie: formData.fonds_garantie || 0,
-          statut: 'Actif', // Default value, managed locally
-          date_creation: new Date().toISOString(),
+      const newCompte: Omit<CompteEpargne, 'id_compte_epargne'> = {
+        id_personne: formData.id_personne!,
+        no_compte: generateCustomCode(selectedClient.code_client),
+        solde_actuel: 0, // Always start at 0, let transaction update it
+        fonds_garantie: formData.fonds_garantie || 0,
+        statut: 'Actif', // Default value, managed locally
+        date_creation: new Date().toISOString(),
+        created_by: userId,
+        created_at: new Date().toISOString(),
+        succursale: formData.succursale,
+        duree: formData.duree,
+        id_plan: formData.id_plan,
+        person_allowed: formData.person_allowed,
+        piece_identification_allowed: formData.piece_identification_allowed,
+        nif_cin_allowed: formData.nif_cin_allowed,
+        photo_allowed: formData.photo_allowed,
+      };
+
+      // 1. Create the account (initially 0 balance)
+      const compteId = await db.addRecord('comptes_epargne', newCompte);
+
+      // 2. If there is an initial balance, create a deposit transaction
+      const initialBalance = formData.solde_actuel || 0;
+      if (initialBalance > 0) {
+        const newTransaction: Omit<TransactionEpargne, 'id_transaction_epargne'> = {
+          id_compte_epargne: compteId,
+          no_compte: newCompte.no_compte,
+          type_transaction: 'D', // Dépôt
+          montant: initialBalance,
+          solde_avant_transaction: 0,
+          solde_apres_transactions: initialBalance,
+          date_transaction: new Date().toISOString(),
           created_by: userId,
           created_at: new Date().toISOString(),
-          succursale: formData.succursale,
-          duree: formData.duree,
-          id_plan: formData.id_plan,
-          person_allowed: formData.person_allowed,
-          piece_identification_allowed: formData.piece_identification_allowed,
-          nif_cin_allowed: formData.nif_cin_allowed,
-          photo_allowed: formData.photo_allowed,
+          solde_declare: initialBalance
         };
-        await db.addRecord('comptes_epargne', newCompte);
+
+        await db.addRecord('transactions_epargne', newTransaction);
+
+        // 3. Update the local account balance to reflect the transaction immediately (Optimistic UI)
+        await db.updateRecord('comptes_epargne', compteId, {
+          solde_actuel: initialBalance,
+          updated_at: new Date().toISOString()
+        });
+      }
     }
     onSave();
   };
@@ -103,15 +130,15 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="md:col-span-2">
-            <SearchableSelect
-                label="Client"
-                options={clientOptions}
-                value={formData.id_personne || null}
-                onChange={handleClientChange}
-                placeholder="Rechercher par nom ou code client..."
-                disabled={!!compte}
-                required
-            />
+          <SearchableSelect
+            label="Client"
+            options={clientOptions}
+            value={formData.id_personne || null}
+            onChange={handleClientChange}
+            placeholder="Rechercher par nom ou code client..."
+            disabled={!!compte}
+            required
+          />
         </div>
 
         {compte && <Input label="Numéro de Compte" name="no_compte" value={formData.no_compte || ''} readOnly disabled />}
@@ -120,19 +147,16 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
         <Input type="number" label="ID Plan" name="id_plan" value={formData.id_plan || ''} onChange={handleChange} />
         <Input type="number" label="Solde Initial" name="solde_actuel" value={formData.solde_actuel || ''} onChange={handleChange} disabled={!!compte} step="0.01" />
         <Input type="number" label="Fonds de Garantie" name="fonds_garantie" value={formData.fonds_garantie || ''} onChange={handleChange} step="0.01" />
-        <Input label="Personne Autorisée" name="person_allowed" value={formData.person_allowed || ''} onChange={handleChange} className="md:col-span-2"/>
+        <Input label="Personne Autorisée" name="person_allowed" value={formData.person_allowed || ''} onChange={handleChange} className="md:col-span-2" />
 
         <Select label="Pièce d'Identification Autorisée" name="piece_identification_allowed" value={formData.piece_identification_allowed || ''} onChange={handleChange}>
-            <option value="">Sélectionner...</option>
-            <option value="NIF">NIF</option>
-            <option value="CIN">CIN</option>
-            <option value="Passeport">Passeport</option>
+          <option value="">Sélectionner...</option>
+          <option value="NIF">NIF</option>
+          <option value="CIN">CIN</option>
+          <option value="Passeport">Passeport</option>
         </Select>
 
         <Input label="NIF/CIN Autorisé" name="nif_cin_allowed" value={formData.nif_cin_allowed || ''} onChange={handleChange} />
-
-        {/* Photo upload - Hidden for now, will be implemented later */}
-        {/* <Input label="Photo Autorisée (URL)" name="photo_allowed" value={formData.photo_allowed || ''} onChange={handleChange} className="md:col-span-2"/> */}
       </div>
 
       <div className="pt-4 flex justify-end space-x-2">
@@ -142,4 +166,5 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
     </form>
   );
 };
+
 export default CompteEpargneForm;

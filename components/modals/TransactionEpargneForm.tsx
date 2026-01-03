@@ -36,22 +36,22 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
       return;
     }
 
-    let solde_apres_transaction = formData.solde_avant_transaction || 0;
+    let solde_apres_transactions = formData.solde_avant_transaction || 0;
     const montant = formData.montant || 0;
 
     if (formData.type_transaction === 'D') {
-      solde_apres_transaction += montant;
+      solde_apres_transactions += montant;
     } else if (formData.type_transaction === 'R') {
-      solde_apres_transaction -= montant;
+      solde_apres_transactions -= montant;
       // Validate that withdrawal doesn't result in negative balance
-      if (solde_apres_transaction < 0) {
+      if (solde_apres_transactions < 0) {
         alert(`Solde insuffisant pour ce retrait. Solde disponible: ${formData.solde_avant_transaction || 0}`);
         return;
       }
     } else if (formData.type_transaction === 'FL' || formData.type_transaction === 'S') {
-      solde_apres_transaction -= montant;
+      solde_apres_transactions -= montant;
       // Validate that fees don't result in negative balance
-      if (solde_apres_transaction < 0) {
+      if (solde_apres_transactions < 0) {
         alert(`Solde insuffisant pour ces frais. Solde disponible: ${formData.solde_avant_transaction || 0}`);
         return;
       }
@@ -61,7 +61,7 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
       // Update existing transaction
       await db.updateRecord('transactions_epargne', transaction.id_transaction_epargne, {
         ...formData,
-        solde_apres_transaction,
+        solde_apres_transactions,
         updated_at: new Date().toISOString()
       });
     } else {
@@ -75,10 +75,17 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
         date_transaction: new Date().toISOString(),
         created_by: userId,
         created_at: new Date().toISOString(),
-        solde_apres_transaction
+        solde_apres_transactions
       };
 
       await db.addRecord('transactions_epargne', newTransaction);
+
+      // Update the local account balance to reflect the transaction immediately (Optimistic UI)
+      // This ensures the user sees the new balance without waiting for a sync
+      await db.updateRecord('comptes_epargne', formData.id_compte_epargne!, {
+        solde_actuel: solde_apres_transactions,
+        updated_at: new Date().toISOString()
+      });
     }
 
     onSave();

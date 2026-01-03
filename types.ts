@@ -96,7 +96,7 @@ export interface TransactionEpargne {
   type_frais_livret?: string;
   solde_avant_transaction: number;
   date_transaction: string;
-  solde_apres_transaction: number;
+  solde_apres_transactions: number;
   created_at: string;
   created_by: string;
   updated_at?: string;

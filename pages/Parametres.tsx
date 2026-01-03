@@ -112,7 +112,13 @@ const Parametres: React.FC = () => {
             setIsSyncing(false);
 
             if (result.failed === 0) {
-                toast.success(`✅ Téléchargement réussi ! ${result.success} élément(s) téléchargé(s).`);
+                const summary = [
+                    result.added ? `${result.added} ajout(s)` : '',
+                    result.updated ? `${result.updated} mise(s) à jour` : '',
+                    result.deleted ? `${result.deleted} suppression(s)` : ''
+                ].filter(Boolean).join(', ');
+
+                toast.success(`✅ Téléchargement réussi ! ${summary || 'Aucun changement'}.`);
             } else {
                 toast.error(`⚠️ Téléchargement partiel : ${result.success} réussi(s), ${result.failed} échec(s).`);
                 setSyncErrors(result.errors);
@@ -327,8 +333,8 @@ const Parametres: React.FC = () => {
                                             </td>
                                             <td className="px-4 py-3 text-sm">
                                                 <span className={`px-2 py-1 text-xs font-semibold rounded ${item.action === 'add' ? 'bg-green-100 text-green-800' :
-                                                        item.action === 'update' ? 'bg-yellow-100 text-yellow-800' :
-                                                            'bg-red-100 text-red-800'
+                                                    item.action === 'update' ? 'bg-yellow-100 text-yellow-800' :
+                                                        'bg-red-100 text-red-800'
                                                     }`}>
                                                     {item.action === 'add' ? 'Ajout' : item.action === 'update' ? 'Modification' : 'Suppression'}
                                                 </span>
@@ -338,8 +344,8 @@ const Parametres: React.FC = () => {
                                             </td>
                                             <td className="px-4 py-3 text-sm">
                                                 <span className={`px-2 py-1 text-xs font-semibold rounded ${item.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                                                        item.status === 'completed' ? 'bg-green-100 text-green-800' :
-                                                            'bg-red-100 text-red-800'
+                                                    item.status === 'completed' ? 'bg-green-100 text-green-800' :
+                                                        'bg-red-100 text-red-800'
                                                     }`}>
                                                     {item.status === 'pending' ? 'En attente' : item.status === 'completed' ? 'Complété' : 'Échec'}
                                                 </span>

@@ -188,7 +188,7 @@ const mapSupabaseToCompteCredit = (data: any): CompteCredit => {
 
 const mapTransactionEpargneToSupabase = (transaction: TransactionEpargne, userId: string): any => {
   // Exclude solde fields - they are managed by Supabase triggers
-  const { solde_apres_transaction, solde_avant_transaction, id_personne, ...transactionData } = transaction as any;
+  const { solde_apres_transactions, solde_avant_transaction, id_personne, ...transactionData } = transaction as any;
 
   return {
     ...transactionData,
@@ -202,7 +202,7 @@ const mapSupabaseToTransactionEpargne = (data: any): TransactionEpargne => {
   return {
     ...data,
     created_by: data.created_by || '',
-    solde_apres_transaction: data.solde_apres_transactions || data.solde_apres_transaction,
+    solde_apres_transactions: data.solde_apres_transactions,
   };
 };
 
