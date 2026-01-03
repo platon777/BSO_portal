@@ -17,6 +17,9 @@ export interface SyncResult {
   success: number;
   failed: number;
   errors: string[];
+  added?: number;
+  updated?: number;
+  deleted?: number;
 }
 
 export interface ProgressCallback {
@@ -194,6 +197,8 @@ export const downloadUpdatesFromServer = async (
     }
 
     let totalDownloaded = 0;
+    let totalAdded = 0;
+    let totalUpdated = 0;
     let totalFailed = 0;
     const errors: string[] = [];
 
@@ -214,8 +219,19 @@ export const downloadUpdatesFromServer = async (
       }
 
       try {
-        const downloaded = await downloadTable(tableName, lastSyncTimestamp);
-        totalDownloaded += downloaded;
+        const result = await downloadTable(tableName, lastSyncTimestamp);
+        totalDownloaded += result.downloaded;
+        totalAdded += result.added;
+        totalUpdated += result.updated;
+
+        if (onProgress) {
+          const summary = `(+${totalAdded}, ~${totalUpdated})`;
+          onProgress(
+            tableIndex + 1,
+            TABLE_ORDER.length,
+            `✅ ${tableName} terminé ${summary}`
+          );
+        }
       } catch (error: any) {
         // Parse error for better messaging
         const parsedError = error?.code ? parseSupabaseError(error) : parseNetworkError(error);
@@ -229,21 +245,47 @@ export const downloadUpdatesFromServer = async (
       }
     }
 
+    // Download deletions
+    let totalDeleted = 0;
+    try {
+      if (onProgress) {
+        onProgress(
+          TABLE_ORDER.length,
+          TABLE_ORDER.length,
+          `🗑️ Traitement des suppressions...`
+        );
+      }
+      totalDeleted = await downloadDeletions(lastSyncTimestamp);
+      if (onProgress) {
+        onProgress(
+          TABLE_ORDER.length,
+          TABLE_ORDER.length,
+          `🗑️ Suppressions terminées (${totalDeleted})`
+        );
+      }
+      console.log(`[Sync] Processed ${totalDeleted} deletions`);
+    } catch (error) {
+      console.error('[Sync] Error processing deletions:', error);
+    }
+
     // Update last sync timestamp
     localStorage.setItem('bso_last_download_sync', Date.now().toString());
 
     logger
-      .setItemsProcessed(totalDownloaded)
-      .setItemsSuccess(totalDownloaded)
+      .setItemsProcessed(totalDownloaded + totalDeleted)
+      .setItemsSuccess(totalDownloaded + totalDeleted)
       .setItemsFailed(totalFailed)
       .addErrors(errors);
 
     await logger.save();
 
     return {
-      success: totalDownloaded,
+      success: totalDownloaded + totalDeleted,
       failed: totalFailed,
       errors,
+      added: totalAdded,
+      updated: totalUpdated,
+      deleted: totalDeleted
     };
   } catch (error: any) {
     const parsedError = error?.code ? parseSupabaseError(error) : parseNetworkError(error);
@@ -381,7 +423,7 @@ const uploadSyncItem = async (item: SyncQueueItem, userId: string): Promise<void
 const downloadTable = async (
   tableName: string,
   lastSyncTimestamp: Date | null
-): Promise<number> => {
+): Promise<{ downloaded: number; added: number; updated: number }> => {
   let query = supabase.from(tableName).select('*');
 
   // Only get updated records if we have a last sync timestamp
@@ -392,6 +434,8 @@ const downloadTable = async (
   // Pagination for large datasets
   const DOWNLOAD_BATCH_SIZE = 1000;
   let downloaded = 0;
+  let added = 0;
+  let updated = 0;
   let hasMore = true;
   let offset = 0;
 
@@ -440,12 +484,14 @@ const downloadTable = async (
             // Server is newer, add to upsert list
             const mappedData = mapSupabaseToLocal(tableName, record);
             recordsToUpsert.push(mappedData);
+            updated++;
           }
           // If local is newer, skip (keep local)
         } else {
           // Doesn't exist locally, add to upsert list
           const mappedData = mapSupabaseToLocal(tableName, record);
           recordsToUpsert.push(mappedData);
+          added++;
         }
       }
 
@@ -474,8 +520,57 @@ const downloadTable = async (
     }
   }
 
-  console.log(`[Sync] ${tableName}: Download complete, total downloaded: ${downloaded}`);
-  return downloaded;
+  console.log(`[Sync] ${tableName}: Download complete, total downloaded: ${downloaded}, added: ${added}, updated: ${updated}`);
+  return { downloaded, added, updated };
+};
+
+/**
+ * Download deletions from Supabase
+ */
+const downloadDeletions = async (lastSyncTimestamp: Date | null): Promise<number> => {
+  if (!lastSyncTimestamp) return 0;
+
+  console.log('[Sync] Checking for deletions...');
+
+  const { data, error } = await supabase
+    .from('sync_deletions')
+    .select('*')
+    .gt('deleted_at', lastSyncTimestamp.toISOString());
+
+  if (error) {
+    console.error('[Sync] Error fetching deletions:', error);
+    return 0;
+  }
+
+  if (!data || data.length === 0) return 0;
+
+  console.log(`[Sync] Found ${data.length} deletions to process`);
+  let processedCount = 0;
+
+  await db.transaction('rw', db.tables, async () => {
+    for (const deletion of data) {
+      try {
+        const table = db.table(deletion.table_name);
+        if (table) {
+          // Verify if record exists locally
+          const record = await table.get(deletion.record_id);
+          if (record) {
+            console.log(`[Sync] Deleting ${deletion.table_name} record ${deletion.record_id} (found locally)`);
+            await table.delete(deletion.record_id);
+            processedCount++;
+          } else {
+            console.log(`[Sync] ${deletion.table_name} record ${deletion.record_id} not found locally, skipping`);
+            // We still count it as processed because it's "done" (doesn't exist)
+            processedCount++;
+          }
+        }
+      } catch (err) {
+        console.error(`[Sync] Failed to apply deletion for ${deletion.table_name}/${deletion.record_id}:`, err);
+      }
+    }
+  });
+
+  return processedCount;
 };
 
 /**

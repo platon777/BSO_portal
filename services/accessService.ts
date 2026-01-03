@@ -19,15 +19,15 @@ export const accessService = {
         if (profile?.role === UserRole.ADMIN) return true;
 
         // 2. Check for temporary grant
-        const { data: grant } = await supabase
+        const { data: grants } = await supabase
             .from('temporary_access_grants')
             .select('id')
             .eq('agent_id', user.id)
             .eq('client_id', clientId)
             .gt('expires_at', new Date().toISOString())
-            .single();
+            .limit(1);
 
-        return !!grant;
+        return grants && grants.length > 0;
     },
 
     /**
