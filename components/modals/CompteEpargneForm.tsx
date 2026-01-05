@@ -107,6 +107,8 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
           type_transaction: 'D', // Dépôt
           montant: initialBalance,
           solde_avant_transaction: 0,
+          solde_avant_transaction_declare: 0,
+          solde_apres_transaction_declare: initialBalance,
           solde_apres_transactions: initialBalance,
           date_transaction: new Date().toISOString(),
           created_by: userId,

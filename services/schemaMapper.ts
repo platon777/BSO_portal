@@ -193,6 +193,8 @@ const mapTransactionEpargneToSupabase = (transaction: TransactionEpargne, userId
   return {
     ...transactionData,
     created_by: userId,
+    solde_avant_transaction_declare: transaction.solde_avant_transaction_declare,
+    solde_apres_transaction_declare: transaction.solde_apres_transaction_declare
     // Do NOT send solde_apres_transactions or solde_avant_transaction
     // These are computed by Supabase triggers
   };
@@ -203,6 +205,8 @@ const mapSupabaseToTransactionEpargne = (data: any): TransactionEpargne => {
     ...data,
     created_by: data.created_by || '',
     solde_apres_transactions: data.solde_apres_transactions,
+    solde_avant_transaction_declare: data.solde_avant_transaction_declare || 0,
+    solde_apres_transaction_declare: data.solde_apres_transaction_declare || 0,
   };
 };
 
