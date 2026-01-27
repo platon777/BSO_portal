@@ -4,11 +4,7 @@
 
 /* Screenshot Prevention - Soft Protection */
 .secure-content {
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-  user-select: none;
-  -webkit-touch-callout: none;
+  /* user-select: none; - Disabled to allow copy/paste as requested */
   pointer-events: auto;
 }
 

@@ -7,10 +7,11 @@ import { accessService } from '../../services/accessService';
 interface AccessGrantModalProps {
     clientId: string;
     clientName: string;
+    transactionId?: string; // Optional transaction ID
     onClose: () => void;
 }
 
-const AccessGrantModal: React.FC<AccessGrantModalProps> = ({ clientId, clientName, onClose }) => {
+const AccessGrantModal: React.FC<AccessGrantModalProps> = ({ clientId, clientName, transactionId, onClose }) => {
     const [agents, setAgents] = useState<any[]>([]);
     const [selectedAgent, setSelectedAgent] = useState('');
     const [duration, setDuration] = useState(60); // minutes
@@ -46,13 +47,14 @@ const AccessGrantModal: React.FC<AccessGrantModalProps> = ({ clientId, clientNam
     const handleGrant = async () => {
         if (!selectedAgent) return;
         setLoading(true);
-        const { error } = await accessService.grantAccess(selectedAgent, clientId, duration);
+        const { error } = await accessService.grantAccess(selectedAgent, clientId, duration, transactionId);
         setLoading(false);
 
         if (error) {
             toast.error('Erreur: ' + error);
         } else {
-            toast.success(`Accès accordé à ${clientName} pour ${duration} minutes`);
+            const accessType = transactionId ? 'à la transaction' : 'au client';
+            toast.success(`Accès accordé ${accessType} pour ${clientName} pendant ${duration} minutes`);
             onClose();
         }
     };
@@ -66,7 +68,12 @@ const AccessGrantModal: React.FC<AccessGrantModalProps> = ({ clientId, clientNam
     return (
         <div className="p-4">
             <h3 className="text-lg font-bold mb-4">Accorder l'accès temporaire</h3>
-            <p className="mb-4">Client: <strong>{clientName}</strong></p>
+            <p className="mb-2">Client: <strong>{clientName}</strong></p>
+            {transactionId && (
+                <div className="mb-4 p-2 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">
+                    ⚠️ Vous accordez l'accès uniquement à une transaction spécifique.
+                </div>
+            )}
 
             <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Agent</label>

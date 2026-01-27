@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { Personne } from '../../types';
+import { Personne, CompteEpargne, TransactionEpargne } from '../../types';
 import Input from '../common/Input';
 import Select from '../common/Select';
 import { db } from '../../services/database';
-import { generateUserCode } from '../../services/codeGenerator';
+import { generateUserCode, generateCustomCode } from '../../services/codeGenerator';
 import { useAuthStore } from '../../stores/authStore';
 import toast from 'react-hot-toast';
 
@@ -79,7 +79,46 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSave, onCancel }) => 
         unique_id: crypto.randomUUID()
       } as Omit<Personne, 'id_personne'>;
 
-      await db.addRecord('personnes', newClientData);
+      const newClientId = await db.addRecord('personnes', newClientData);
+
+      // Create Savings Account if amount is provided
+      if (formData.montant && formData.montant > 0) {
+        const initialBalance = formData.montant;
+
+        // Create the account
+        const newCompte: Omit<CompteEpargne, 'id_compte_epargne'> = {
+          id_personne: newClientId,
+          no_compte: generateCustomCode(newClientData.code_client),
+          solde_actuel: initialBalance,
+          fonds_garantie: 0,
+          statut: 'Actif',
+          date_creation: new Date().toISOString(),
+          created_by: userId,
+          created_at: new Date().toISOString(),
+          id_plan: formData.id_plan,
+          // Inherit allowed fields from client if needed, or leave empty
+        };
+
+        const compteId = await db.addRecord('comptes_epargne', newCompte);
+
+        // Create the deposit transaction
+        const newTransaction: Omit<TransactionEpargne, 'id_transaction_epargne'> = {
+          id_compte_epargne: compteId,
+          no_compte: newCompte.no_compte,
+          type_transaction: 'D', // Dépôt
+          montant: initialBalance,
+          solde_avant_transaction: 0,
+          solde_avant_transaction_declare: 0,
+          solde_apres_transaction_declare: initialBalance,
+          solde_apres_transactions: initialBalance,
+          date_transaction: new Date().toISOString(),
+          created_by: userId,
+          created_at: new Date().toISOString(),
+          solde_declare: initialBalance
+        };
+
+        await db.addRecord('transactions_epargne', newTransaction);
+      }
     }
     onSave();
   };
