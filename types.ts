@@ -95,8 +95,10 @@ export interface TransactionEpargne {
   virement_from?: string;
   type_frais_livret?: string;
   solde_avant_transaction: number;
+  solde_avant_transaction_declare: number;
   date_transaction: string;
   solde_apres_transactions: number;
+  solde_apres_transaction_declare: number;
   created_at: string;
   created_by: string;
   updated_at?: string;

@@ -55,7 +55,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [wrapperRef]);
-  
+
   const handleSelect = (option: Option) => {
     onChange(option.id);
     setSearchTerm(option.label);
@@ -63,20 +63,29 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      setSearchTerm(e.target.value);
-      if (!isOpen) setIsOpen(true);
-      if (e.target.value === '') {
-          onChange(null);
-      }
-  }
-  
-  useEffect(() => {
-    if (selectedOption) {
-        setSearchTerm(selectedOption.label);
-    } else {
-        setSearchTerm('');
+    setSearchTerm(e.target.value);
+    if (!isOpen) setIsOpen(true);
+    if (e.target.value === '') {
+      onChange(null);
     }
-  }, [selectedOption]);
+  }
+
+  // Track previous value to only update searchTerm when value prop changes
+  const prevValueRef = useRef(value);
+
+  useEffect(() => {
+    if (value !== prevValueRef.current) {
+      if (selectedOption) {
+        setSearchTerm(selectedOption.label);
+      } else {
+        setSearchTerm('');
+      }
+      prevValueRef.current = value;
+    } else if (selectedOption && searchTerm === '') {
+      // Edge case: if options loaded late and we have a value but no search term yet
+      setSearchTerm(selectedOption.label);
+    }
+  }, [value, selectedOption, searchTerm]);
 
 
   return (

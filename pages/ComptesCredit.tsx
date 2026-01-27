@@ -15,6 +15,7 @@ import { UserRole, UserProfile } from '../types/auth';
 import AccessGrantModal from '../components/modals/AccessGrantModal';
 import toast from 'react-hot-toast';
 import * as authService from '../services/supabaseAuth';
+import { copyToClipboard } from '../utils/clipboard';
 
 const ComptesCredit: React.FC = () => {
     const { showModal, hideModal } = useModal();
@@ -150,7 +151,7 @@ const ComptesCredit: React.FC = () => {
             toast.error("Impossible de vérifier l'accès");
             return;
         }
-        const hasAccess = await accessService.hasAccess(tx.id_personne);
+        const hasAccess = await accessService.hasAccess(tx.id_personne, tx.id_transaction_credit);
         if (!hasAccess) {
             toast.error("Accès refusé. Demandez un accès temporaire à un administrateur.");
             return;
@@ -171,7 +172,7 @@ const ComptesCredit: React.FC = () => {
             toast.error("Impossible de vérifier l'accès");
             return;
         }
-        const hasAccess = await accessService.hasAccess(tx.id_personne);
+        const hasAccess = await accessService.hasAccess(tx.id_personne, tx.id_transaction_credit);
         if (!hasAccess) {
             toast.error("Accès refusé. Demandez un accès temporaire à un administrateur.");
             return;
@@ -184,6 +185,23 @@ const ComptesCredit: React.FC = () => {
                 hideModal();
             }}
             onCancel={hideModal}
+        />);
+    };
+
+    const handleGrantAccessTransaction = (tx: TransactionCreditEnriched) => {
+        if (!tx.id_personne) {
+            toast.error("Client introuvable");
+            return;
+        }
+        // Find client name
+        const compte = data.comptes.find(c => c.id_compte_credit === tx.id_compte_credit);
+        const clientName = compte?.personne ? `${compte.personne.prenom} ${compte.personne.nom}` : 'Client inconnu';
+
+        showModal('Accorder accès transaction', <AccessGrantModal
+            clientId={tx.id_personne}
+            clientName={clientName}
+            transactionId={tx.id_transaction_credit}
+            onClose={hideModal}
         />);
     };
 
@@ -207,7 +225,6 @@ const ComptesCredit: React.FC = () => {
                             className="w-full px-4 py-2 border rounded-md"
                         />
                     </div>
-
                     <div className="bg-white shadow-md rounded-lg overflow-hidden">
                         <div className="overflow-x-auto">
                             <table className="min-w-full divide-y divide-gray-200">
@@ -251,7 +268,7 @@ const ComptesCredit: React.FC = () => {
                                                         )}
                                                     </div>
                                                 </td>
-                                                <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{compte.no_compte}</td>
+                                                <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 cursor-pointer hover:text-blue-600" onClick={() => copyToClipboard(compte.no_compte, 'Numéro de compte')} title="Cliquer pour copier">{compte.no_compte}</td>
                                                 <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{compte.personne ? `${compte.personne.prenom} ${compte.personne.nom}` : 'N/A'}</td>
                                                 <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 font-semibold">{compte.montant_prete.toFixed(2)}</td>
                                                 <td className="px-4 py-3 whitespace-nowrap text-sm text-green-600">{compte.paiement_rembourse.toFixed(2)}</td>
@@ -298,7 +315,7 @@ const ComptesCredit: React.FC = () => {
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
                                     {paginatedTransactions.map((tx) => {
-                                        const typeColors = { 'Paiement': 'bg-green-100 text-green-800', 'Penalite': 'bg-red-100 text-red-800', 'Garantie': 'bg-blue-100 text-blue-800' };
+                                        const typeColors: Record<string, string> = { 'Paiement': 'bg-green-100 text-green-800', 'Penalite': 'bg-red-100 text-red-800', 'Garantie': 'bg-blue-100 text-blue-800' };
                                         return (
                                             <tr key={tx.id_transaction_credit} className="hover:bg-gray-50">
                                                 <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">
@@ -309,6 +326,11 @@ const ComptesCredit: React.FC = () => {
                                                         <button onClick={() => handleDeleteTransaction(tx)} className="text-red-600 hover:text-red-900" title="Supprimer">
                                                             <TrashIcon className="w-4 h-4" />
                                                         </button>
+                                                        {profile?.role === UserRole.ADMIN && (
+                                                            <button onClick={() => handleGrantAccessTransaction(tx)} className="text-yellow-600 hover:text-yellow-900" title="Accorder accès transaction">
+                                                                <KeyIcon className="w-4 h-4" />
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 </td>
                                                 <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
@@ -319,7 +341,7 @@ const ComptesCredit: React.FC = () => {
                                                 </td>
                                                 <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{tx.no_compte}</td>
                                                 <td className="px-4 py-3 whitespace-nowrap">
-                                                    <span className={`px-2 py-1 text-xs font-semibold rounded ${typeColors[tx.type_transaction]}`}>
+                                                    <span className={`px-2 py-1 text-xs font-semibold rounded ${typeColors[tx.type_transaction] || 'bg-gray-100 text-gray-800'}`}>
                                                         {tx.type_transaction}
                                                     </span>
                                                 </td>

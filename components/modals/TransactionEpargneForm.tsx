@@ -18,11 +18,12 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
     id_compte_epargne: compteEpargne.id_compte_epargne,
     no_compte: compteEpargne.no_compte,
     solde_avant_transaction: compteEpargne.solde_actuel,
+    solde_avant_transaction_declare: compteEpargne.solde_actuel,
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    const isNumber = ['montant', 'solde_declare'].includes(name);
+    const isNumber = ['montant', 'solde_declare', 'solde_avant_transaction_declare', 'solde_apres_transaction_declare'].includes(name);
     setFormData(prev => ({ ...prev, [name]: isNumber ? parseFloat(value) || 0 : value }));
   };
 
@@ -72,6 +73,8 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
         type_transaction: formData.type_transaction!,
         montant: formData.montant!,
         solde_avant_transaction: formData.solde_avant_transaction!,
+        solde_avant_transaction_declare: formData.solde_avant_transaction_declare!,
+        solde_apres_transaction_declare: formData.solde_apres_transaction_declare!,
         date_transaction: new Date().toISOString(),
         created_by: userId,
         created_at: new Date().toISOString(),
@@ -105,7 +108,11 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
       </Select>
 
       <Input type="number" label="Montant" name="montant" value={formData.montant || ''} onChange={handleChange} required />
-      <Input type="number" label="Solde Déclaré" name="solde_declare" value={formData.solde_declare || ''} onChange={handleChange} />
+
+      <div className="grid grid-cols-2 gap-4">
+        <Input type="number" label="Solde Avant Déclaré" name="solde_avant_transaction_declare" value={formData.solde_avant_transaction_declare || ''} onChange={handleChange} required />
+        <Input type="number" label="Solde Après Déclaré" name="solde_apres_transaction_declare" value={formData.solde_apres_transaction_declare || ''} onChange={handleChange} required />
+      </div>
 
       <div className="pt-4 flex justify-end space-x-2">
         <button type="button" onClick={onCancel} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200">Annuler</button>

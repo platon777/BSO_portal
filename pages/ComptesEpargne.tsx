@@ -15,6 +15,7 @@ import { UserRole, UserProfile } from '../types/auth';
 import AccessGrantModal from '../components/modals/AccessGrantModal';
 import toast from 'react-hot-toast';
 import * as authService from '../services/supabaseAuth';
+import { copyToClipboard } from '../utils/clipboard';
 
 const ComptesEpargne: React.FC = () => {
     const { showModal, hideModal } = useModal();
@@ -186,6 +187,20 @@ const ComptesEpargne: React.FC = () => {
         />);
     };
 
+    const handleGrantAccessTransaction = (tx: TransactionEpargneEnriched) => {
+        if (!tx.id_personne) {
+            toast.error("Client introuvable");
+            return;
+        }
+        const compte = data.comptes.find(c => c.id_compte_epargne === tx.id_compte_epargne);
+        const clientName = compte?.personne ? `${compte.personne.prenom} ${compte.personne.nom}` : 'Client';
+        showModal('Accorder accès', <AccessGrantModal
+            clientId={tx.id_personne}
+            clientName={clientName}
+            onClose={hideModal}
+        />);
+    };
+
     return (
         <SecureWrapper>
             <div className="space-y-6">
@@ -243,7 +258,9 @@ const ComptesEpargne: React.FC = () => {
                                                     )}
                                                 </div>
                                             </td>
-                                            <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{compte.no_compte || '-'}</td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 cursor-pointer hover:text-blue-600" onClick={() => copyToClipboard(compte.no_compte, 'Numéro de compte')} title="Cliquer pour copier">
+                                                {compte.no_compte || '-'}
+                                            </td>
                                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{compte.personne ? `${compte.personne.prenom} ${compte.personne.nom}` : 'N/A'}</td>
                                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 font-semibold">{(compte.solde_actuel ?? 0).toFixed(2)}</td>
                                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{(compte.fonds_garantie ?? 0).toFixed(2)}</td>
@@ -278,8 +295,8 @@ const ComptesEpargne: React.FC = () => {
                                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">N° Compte</th>
                                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
                                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Montant</th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Solde Avant</th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Solde Après</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Solde Avant (Déclaré)</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Solde Après (Déclaré)</th>
                                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Agent</th>
                                     </tr>
                                 </thead>
@@ -297,6 +314,11 @@ const ComptesEpargne: React.FC = () => {
                                                         <button onClick={() => handleDeleteTransaction(tx)} className="text-red-600 hover:text-red-900" title="Supprimer">
                                                             <TrashIcon className="w-4 h-4" />
                                                         </button>
+                                                        {profile?.role === UserRole.ADMIN && (
+                                                            <button onClick={() => handleGrantAccessTransaction(tx)} className="text-yellow-600 hover:text-yellow-900" title="Accorder accès transaction">
+                                                                <KeyIcon className="w-4 h-4" />
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 </td>
                                                 <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
@@ -312,8 +334,8 @@ const ComptesEpargne: React.FC = () => {
                                                     </span>
                                                 </td>
                                                 <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-gray-900">{(tx.montant ?? 0).toFixed(2)}</td>
-                                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{(tx.solde_avant_transaction ?? 0).toFixed(2)}</td>
-                                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{(tx.solde_apres_transaction ?? 0).toFixed(2)}</td>
+                                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{(tx.solde_avant_transaction_declare ?? 0).toFixed(2)}</td>
+                                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{(tx.solde_apres_transaction_declare ?? 0).toFixed(2)}</td>
                                                 <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{getAgentName(tx.created_by)}</td>
                                             </tr>
                                         );
@@ -328,4 +350,5 @@ const ComptesEpargne: React.FC = () => {
         </SecureWrapper>
     );
 };
+
 export default ComptesEpargne;
