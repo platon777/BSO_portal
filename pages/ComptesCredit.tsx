@@ -15,6 +15,7 @@ import { UserRole, UserProfile } from '../types/auth';
 import AccessGrantModal from '../components/modals/AccessGrantModal';
 import toast from 'react-hot-toast';
 import * as authService from '../services/supabaseAuth';
+import { copyToClipboard } from '../utils/clipboard';
 
 const ComptesCredit: React.FC = () => {
     const { showModal, hideModal } = useModal();
@@ -251,7 +252,7 @@ const ComptesCredit: React.FC = () => {
                                                         )}
                                                     </div>
                                                 </td>
-                                                <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 cursor-pointer hover:text-blue-600" onClick={() => { navigator.clipboard.writeText(compte.no_compte); toast.success('Numéro de compte copié !'); }} title="Cliquer pour copier">{compte.no_compte}</td>
+                                                <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 cursor-pointer hover:text-blue-600" onClick={() => copyToClipboard(compte.no_compte, 'Numéro de compte')} title="Cliquer pour copier">{compte.no_compte}</td>
                                                 <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{compte.personne ? `${compte.personne.prenom} ${compte.personne.nom}` : 'N/A'}</td>
                                                 <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 font-semibold">{compte.montant_prete.toFixed(2)}</td>
                                                 <td className="px-4 py-3 whitespace-nowrap text-sm text-green-600">{compte.paiement_rembourse.toFixed(2)}</td>

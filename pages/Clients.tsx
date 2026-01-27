@@ -14,6 +14,7 @@ import { UserRole, UserProfile } from '../types/auth';
 import AccessGrantModal from '../components/modals/AccessGrantModal';
 import toast from 'react-hot-toast';
 import * as authService from '../services/supabaseAuth';
+import { copyToClipboard } from '../utils/clipboard';
 
 const Clients: React.FC = () => {
     const { showModal, hideModal } = useModal();
@@ -146,7 +147,7 @@ const Clients: React.FC = () => {
                             <tbody className="bg-white divide-y divide-gray-200">
                                 {paginatedClients.map((client) => (
                                     <tr key={client.id_personne} className="hover:bg-gray-50">
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 cursor-pointer hover:text-blue-600" onClick={() => { navigator.clipboard.writeText(client.code_client); toast.success('Code client copié !'); }} title="Cliquer pour copier">
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 cursor-pointer hover:text-blue-600" onClick={() => copyToClipboard(client.code_client, 'Code client')} title="Cliquer pour copier">
                                             {client.code_client}
                                         </td>
                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{`${client.prenom} ${client.nom}`}</td>

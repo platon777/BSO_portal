@@ -15,6 +15,7 @@ import { UserRole, UserProfile } from '../types/auth';
 import AccessGrantModal from '../components/modals/AccessGrantModal';
 import toast from 'react-hot-toast';
 import * as authService from '../services/supabaseAuth';
+import { copyToClipboard } from '../utils/clipboard';
 
 const ComptesEpargne: React.FC = () => {
     const { showModal, hideModal } = useModal();
@@ -186,6 +187,20 @@ const ComptesEpargne: React.FC = () => {
         />);
     };
 
+    const handleGrantAccessTransaction = (tx: TransactionEpargneEnriched) => {
+        if (!tx.id_personne) {
+            toast.error("Client introuvable");
+            return;
+        }
+        const compte = data.comptes.find(c => c.id_compte_epargne === tx.id_compte_epargne);
+        const clientName = compte?.personne ? `${compte.personne.prenom} ${compte.personne.nom}` : 'Client';
+        showModal('Accorder accès', <AccessGrantModal
+            clientId={tx.id_personne}
+            clientName={clientName}
+            onClose={hideModal}
+        />);
+    };
+
     return (
         <SecureWrapper>
             <div className="space-y-6">
@@ -243,7 +258,7 @@ const ComptesEpargne: React.FC = () => {
                                                     )}
                                                 </div>
                                             </td>
-                                            <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 cursor-pointer hover:text-blue-600" onClick={() => { navigator.clipboard.writeText(compte.no_compte); toast.success('Numéro de compte copié !'); }} title="Cliquer pour copier">
+                                            <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 cursor-pointer hover:text-blue-600" onClick={() => copyToClipboard(compte.no_compte, 'Numéro de compte')} title="Cliquer pour copier">
                                                 {compte.no_compte || '-'}
                                             </td>
                                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{compte.personne ? `${compte.personne.prenom} ${compte.personne.nom}` : 'N/A'}</td>
