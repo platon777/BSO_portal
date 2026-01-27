@@ -314,6 +314,11 @@ const ComptesEpargne: React.FC = () => {
                                                         <button onClick={() => handleDeleteTransaction(tx)} className="text-red-600 hover:text-red-900" title="Supprimer">
                                                             <TrashIcon className="w-4 h-4" />
                                                         </button>
+                                                        {profile?.role === UserRole.ADMIN && (
+                                                            <button onClick={() => handleGrantAccessTransaction(tx)} className="text-yellow-600 hover:text-yellow-900" title="Accorder accès transaction">
+                                                                <KeyIcon className="w-4 h-4" />
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 </td>
                                                 <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
@@ -345,4 +350,5 @@ const ComptesEpargne: React.FC = () => {
         </SecureWrapper>
     );
 };
+
 export default ComptesEpargne;
