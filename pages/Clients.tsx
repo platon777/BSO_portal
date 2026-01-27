@@ -146,7 +146,9 @@ const Clients: React.FC = () => {
                             <tbody className="bg-white divide-y divide-gray-200">
                                 {paginatedClients.map((client) => (
                                     <tr key={client.id_personne} className="hover:bg-gray-50">
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{client.code_client}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 cursor-pointer hover:text-blue-600" onClick={() => { navigator.clipboard.writeText(client.code_client); toast.success('Code client copié !'); }} title="Cliquer pour copier">
+                                            {client.code_client}
+                                        </td>
                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{`${client.prenom} ${client.nom}`}</td>
                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{client.numero_telephone}</td>
                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{client.nif_cin || '-'}</td>

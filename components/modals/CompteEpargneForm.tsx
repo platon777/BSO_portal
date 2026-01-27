@@ -18,7 +18,7 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
   const { profile } = useAuthStore();
   const [formData, setFormData] = useState<Partial<CompteEpargne>>({});
 
-  const clients = useLiveQuery(() => db.personnes.where('statut').equals('Actif').toArray(), []);
+  const clients = useLiveQuery(() => db.personnes.toArray(), []);
 
   useEffect(() => {
     if (compte) {
