@@ -1,49 +1,48 @@
 import { supabase } from './supabase';
 import { UserRole } from '../types/auth';
+import { useAuthStore } from '../stores/authStore';
 
 export const accessService = {
     /**
-     * Check if current user has access to modify a client
-     */
-    /**
-     * Check if current user has access to modify a client or a specific transaction
+     * Check if current user has access to modify a client or a specific transaction.
+     * Uses the local auth store to avoid network calls that can trigger logout.
      */
     async hasAccess(clientId: string, transactionId?: string): Promise<boolean> {
-        // 1. Check if Admin
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return false;
+        // 1. Use local auth store (no network call = no disconnection risk)
+        const { user, profile } = useAuthStore.getState();
+        if (!user || !profile) return false;
 
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select('role')
-            .eq('user_id', user.id)
-            .single();
+        // 2. Admin always has access
+        if (profile.role === UserRole.ADMIN) return true;
 
-        if (profile?.role === UserRole.ADMIN) return true;
-
-        // 2. Check for temporary grant (Client Level)
-        const { data: clientGrants } = await supabase
-            .from('temporary_access_grants')
-            .select('id')
-            .eq('agent_id', user.id)
-            .eq('client_id', clientId)
-            .is('transaction_id', null) // Explicitly check for NULL transaction_id for client-level access
-            .gt('expires_at', new Date().toISOString())
-            .limit(1);
-
-        if (clientGrants && clientGrants.length > 0) return true;
-
-        // 3. Check for temporary grant (Transaction Level)
-        if (transactionId) {
-            const { data: txGrants } = await supabase
+        // 3. Check for temporary grants via Supabase (wrapped in try-catch)
+        try {
+            // Client-level grant
+            const { data: clientGrants } = await supabase
                 .from('temporary_access_grants')
                 .select('id')
                 .eq('agent_id', user.id)
-                .eq('transaction_id', transactionId)
+                .eq('client_id', clientId)
+                .is('transaction_id', null)
                 .gt('expires_at', new Date().toISOString())
                 .limit(1);
 
-            if (txGrants && txGrants.length > 0) return true;
+            if (clientGrants && clientGrants.length > 0) return true;
+
+            // Transaction-level grant
+            if (transactionId) {
+                const { data: txGrants } = await supabase
+                    .from('temporary_access_grants')
+                    .select('id')
+                    .eq('agent_id', user.id)
+                    .eq('transaction_id', transactionId)
+                    .gt('expires_at', new Date().toISOString())
+                    .limit(1);
+
+                if (txGrants && txGrants.length > 0) return true;
+            }
+        } catch (error) {
+            console.error('[accessService] Erreur lors de la verification des acces:', error);
         }
 
         return false;
@@ -54,9 +53,9 @@ export const accessService = {
      */
     async grantAccess(agentId: string, clientId: string, durationMinutes: number = 60, transactionId?: string): Promise<{ error?: string }> {
         const expiresAt = new Date(Date.now() + durationMinutes * 60 * 1000).toISOString();
-        const { data: { user } } = await supabase.auth.getUser();
+        const { user } = useAuthStore.getState();
 
-        if (!user) return { error: 'Not authenticated' };
+        if (!user) return { error: 'Non authentifie' };
 
         const { error } = await supabase
             .from('temporary_access_grants')
