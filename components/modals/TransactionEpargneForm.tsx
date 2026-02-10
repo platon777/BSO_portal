@@ -30,10 +30,9 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Get current user ID from profile
     const userId = profile?.user_id;
     if (!userId) {
-      alert('Erreur: Utilisateur non connecté');
+      alert('Erreur: Utilisateur non connecte');
       return;
     }
 
@@ -44,14 +43,12 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
       solde_apres_transactions += montant;
     } else if (formData.type_transaction === 'R') {
       solde_apres_transactions -= montant;
-      // Validate that withdrawal doesn't result in negative balance
       if (solde_apres_transactions < 0) {
         alert(`Solde insuffisant pour ce retrait. Solde disponible: ${formData.solde_avant_transaction || 0}`);
         return;
       }
     } else if (formData.type_transaction === 'FL' || formData.type_transaction === 'S') {
       solde_apres_transactions -= montant;
-      // Validate that fees don't result in negative balance
       if (solde_apres_transactions < 0) {
         alert(`Solde insuffisant pour ces frais. Solde disponible: ${formData.solde_avant_transaction || 0}`);
         return;
@@ -59,14 +56,12 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
     }
 
     if (transaction && transaction.id_transaction_epargne) {
-      // Update existing transaction
       await db.updateRecord('transactions_epargne', transaction.id_transaction_epargne, {
         ...formData,
         solde_apres_transactions,
         updated_at: new Date().toISOString()
       });
     } else {
-      // Create new transaction
       const newTransaction: Omit<TransactionEpargne, 'id_transaction_epargne'> = {
         id_compte_epargne: formData.id_compte_epargne!,
         no_compte: formData.no_compte!,
@@ -83,8 +78,6 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
 
       await db.addRecord('transactions_epargne', newTransaction);
 
-      // Update the local account balance to reflect the transaction immediately (Optimistic UI)
-      // This ensures the user sees the new balance without waiting for a sync
       await db.updateRecord('comptes_epargne', formData.id_compte_epargne!, {
         solde_actuel: solde_apres_transactions,
         updated_at: new Date().toISOString()
@@ -97,21 +90,21 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <Input name="client" label="Client" value={`${compteEpargne.personne?.prenom} ${compteEpargne.personne?.nom}`} readOnly disabled />
-      <Input name="no_compte_epargne" label="Compte Épargne" value={compteEpargne.no_compte} readOnly disabled />
+      <Input name="no_compte_epargne" label="Compte Epargne" value={compteEpargne.no_compte} readOnly disabled />
 
       <Select label="Type de transaction" name="type_transaction" value={formData.type_transaction || ''} onChange={handleChange} required>
-        <option value="">Sélectionner le type</option>
-        <option value="D">Dépôt</option>
+        <option value="">Selectionner le type</option>
+        <option value="D">Depot</option>
         <option value="R">Retrait</option>
         <option value="FL">Frais Livret</option>
         <option value="S">Frais service</option>
       </Select>
 
-      <Input type="number" label="Montant" name="montant" value={formData.montant || ''} onChange={handleChange} required />
+      <Input type="number" label="Montant" name="montant" value={formData.montant ?? ''} onChange={handleChange} required />
 
       <div className="grid grid-cols-2 gap-4">
-        <Input type="number" label="Solde Avant Déclaré" name="solde_avant_transaction_declare" value={formData.solde_avant_transaction_declare || ''} onChange={handleChange} required />
-        <Input type="number" label="Solde Après Déclaré" name="solde_apres_transaction_declare" value={formData.solde_apres_transaction_declare || ''} onChange={handleChange} required />
+        <Input type="number" label="Solde Avant Declare" name="solde_avant_transaction_declare" value={formData.solde_avant_transaction_declare ?? ''} onChange={handleChange} required />
+        <Input type="number" label="Solde Apres Declare" name="solde_apres_transaction_declare" value={formData.solde_apres_transaction_declare ?? ''} onChange={handleChange} required />
       </div>
 
       <div className="pt-4 flex justify-end space-x-2">

@@ -72,6 +72,7 @@ const ComptesEpargne: React.FC = () => {
                 const lowercasedFilter = searchTerm.toLowerCase();
                 comptesAvecPersonne = comptesAvecPersonne.filter(c =>
                     c.no_compte?.toLowerCase().includes(lowercasedFilter) ||
+                    c.no_compte_ancien?.toLowerCase().includes(lowercasedFilter) ||
                     c.personne?.nom?.toLowerCase().includes(lowercasedFilter) ||
                     c.personne?.prenom?.toLowerCase().includes(lowercasedFilter)
                 );
@@ -215,7 +216,7 @@ const ComptesEpargne: React.FC = () => {
                     <div className="mb-4">
                         <input
                             type="text"
-                            placeholder="Rechercher par N° de compte ou nom de client..."
+                            placeholder="Rechercher par N° de compte, compte ancien ou nom de client..."
                             value={searchTerm}
                             onChange={(e) => { setSearchTerm(e.target.value); setCurrentPageComptes(1); }}
                             className="w-full px-4 py-2 border rounded-md"
@@ -228,6 +229,7 @@ const ComptesEpargne: React.FC = () => {
                                     <tr>
                                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">N° Compte</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">N° Ancien</th>
                                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Client</th>
                                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Solde Actuel</th>
                                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fonds Garantie</th>
@@ -261,6 +263,7 @@ const ComptesEpargne: React.FC = () => {
                                             <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 cursor-pointer hover:text-blue-600" onClick={() => copyToClipboard(compte.no_compte, 'Numéro de compte')} title="Cliquer pour copier">
                                                 {compte.no_compte || '-'}
                                             </td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{compte.no_compte_ancien || '-'}</td>
                                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{compte.personne ? `${compte.personne.prenom} ${compte.personne.nom}` : 'N/A'}</td>
                                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 font-semibold">{(compte.solde_actuel ?? 0).toFixed(2)}</td>
                                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{(compte.fonds_garantie ?? 0).toFixed(2)}</td>

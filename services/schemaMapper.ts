@@ -10,7 +10,7 @@ type TableData = Personne | CompteEpargne | CompteCredit | TransactionEpargne | 
 
 /**
  * Map local data to Supabase format
- * - Ensures created_by/updated_by are UUIDs
+ * - Normalizes audit fields for each table
  * - Converts timestamps to ISO strings where needed
  * - Handles null vs undefined differences
  */
@@ -21,12 +21,14 @@ export const mapLocalToSupabase = (
 ): any => {
   // Clone data to avoid mutations
   const mapped = { ...data };
+  const isPersonnes = tableName === 'personnes';
 
   // Ensure created_by and updated_by are set to current user
-  if ('created_by' in mapped && !mapped.created_by) {
+  // personnes: created_by/updated_by reference profiles.id (integer), not UUID
+  if (!isPersonnes && 'created_by' in mapped && !mapped.created_by) {
     (mapped as any).created_by = currentUserId;
   }
-  if ('updated_by' in mapped) {
+  if (!isPersonnes && 'updated_by' in mapped) {
     (mapped as any).updated_by = currentUserId;
   }
 
@@ -96,14 +98,31 @@ export const mapSupabaseToLocal = (tableName: string, data: any): TableData => {
 
 // ===== TABLE-SPECIFIC MAPPERS =====
 
+const toNullableInteger = (value: unknown): number | null => {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Math.trunc(value);
+  }
+
+  if (typeof value === 'string' && /^\d+$/.test(value.trim())) {
+    return parseInt(value.trim(), 10);
+  }
+
+  // Non-numeric values (e.g. UUID) must not be sent to bigint FK fields
+  return null;
+};
+
 const mapPersonneToSupabase = (personne: Personne, userId: string): any => {
   // Exclude fields that don't exist in Supabase schema
   const { id_plan, montant, ...personneData } = personne;
 
   return {
     ...personneData,
-    created_by: personne.created_by ? parseInt(String(personne.created_by)) : null,
-    updated_by: personne.updated_by ? parseInt(String(personne.updated_by)) : null,
+    created_by: toNullableInteger(personne.created_by),
+    updated_by: toNullableInteger(personne.updated_by),
     piece_identification: personne.piece_identification ? getIdentificationTypeId(personne.piece_identification) : null,
     // Do NOT send id_plan or montant - these don't exist in Supabase schema
   };
@@ -169,6 +188,7 @@ const mapSupabaseToCompteCredit = (data: any): CompteCredit => {
     id_compte_credit: data.id_compte_credit,
     id_personne: data.id_personne,
     no_compte: data.no_compte || data.cycle,
+    ancien_code: data.ancien_code || undefined,
     id_compte_epargne: data.id_compte_epargne,
     montant_prete: data.montant_prete,
     taux_interet: data.taux_interet,

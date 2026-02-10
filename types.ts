@@ -3,6 +3,7 @@
 export interface Personne {
   id_personne: string;
   code_client: string;
+  code_client_ancien?: string;
   pseudo?: string;
   lieu_de_travail?: string;
   occupation?: string;
@@ -32,6 +33,7 @@ export interface CompteEpargne {
   id_compte_epargne: string;
   id_personne: string;
   no_compte: string;
+  no_compte_ancien?: string;
   id_plan?: number;
   solde_actuel: number;
   fonds_garantie: number;
@@ -53,6 +55,7 @@ export interface CompteCredit {
   id_compte_credit: string;
   id_personne: string;
   no_compte: string;
+  ancien_code?: string;
   id_compte_epargne: string;
   montant_prete: number;
   taux_interet: number;

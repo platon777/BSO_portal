@@ -53,11 +53,18 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Get current user ID from profile
     const userId = profile?.user_id;
     if (!userId) {
-      alert('Erreur: Utilisateur non connecté');
+      alert('Erreur: Utilisateur non connecte');
       return;
+    }
+
+    if (formData.no_compte_ancien && formData.no_compte_ancien.trim() !== '') {
+      const existingLegacyAccount = await db.comptes_epargne.where('no_compte_ancien').equals(formData.no_compte_ancien).first();
+      if (existingLegacyAccount && existingLegacyAccount.id_compte_epargne !== compte?.id_compte_epargne) {
+        alert('Ce numero de compte ancien existe deja.');
+        return;
+      }
     }
 
     if (compte && compte.id_compte_epargne) {
@@ -68,21 +75,23 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
       });
     } else {
       if (!formData.id_personne) {
-        alert("Veuillez sélectionner un client.");
+        alert('Veuillez selectionner un client.');
         return;
       }
+
       const selectedClient = clients?.find(c => c.id_personne === formData.id_personne);
       if (!selectedClient) {
-        alert("Client non valide sélectionné.");
+        alert('Client non valide selectionne.');
         return;
       }
 
       const newCompte: Omit<CompteEpargne, 'id_compte_epargne'> = {
         id_personne: formData.id_personne!,
         no_compte: generateCustomCode(selectedClient.code_client),
-        solde_actuel: 0, // Always start at 0, let transaction update it
+        no_compte_ancien: formData.no_compte_ancien,
+        solde_actuel: 0,
         fonds_garantie: formData.fonds_garantie || 0,
-        statut: 'Actif', // Default value, managed locally
+        statut: 'Actif',
         date_creation: new Date().toISOString(),
         created_by: userId,
         created_at: new Date().toISOString(),
@@ -95,16 +104,14 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
         photo_allowed: formData.photo_allowed,
       };
 
-      // 1. Create the account (initially 0 balance)
       const compteId = await db.addRecord('comptes_epargne', newCompte);
 
-      // 2. If there is an initial balance, create a deposit transaction
       const initialBalance = formData.solde_actuel || 0;
       if (initialBalance > 0) {
         const newTransaction: Omit<TransactionEpargne, 'id_transaction_epargne'> = {
           id_compte_epargne: compteId,
           no_compte: newCompte.no_compte,
-          type_transaction: 'D', // Dépôt
+          type_transaction: 'D',
           montant: initialBalance,
           solde_avant_transaction: 0,
           solde_avant_transaction_declare: 0,
@@ -118,13 +125,13 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
 
         await db.addRecord('transactions_epargne', newTransaction);
 
-        // 3. Update the local account balance to reflect the transaction immediately (Optimistic UI)
         await db.updateRecord('comptes_epargne', compteId, {
           solde_actuel: initialBalance,
           updated_at: new Date().toISOString()
         });
       }
     }
+
     onSave();
   };
 
@@ -143,22 +150,23 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
           />
         </div>
 
-        {compte && <Input label="Numéro de Compte" name="no_compte" value={formData.no_compte || ''} readOnly disabled />}
+        {compte && <Input label="Numero de Compte" name="no_compte" value={formData.no_compte || ''} readOnly disabled />}
+        <Input label="Numero de Compte Ancien" name="no_compte_ancien" value={formData.no_compte_ancien || ''} onChange={handleChange} />
         <Input label="Succursale" name="succursale" value={formData.succursale || ''} onChange={handleChange} />
-        <Input type="number" label="Durée (mois)" name="duree" value={formData.duree || ''} onChange={handleChange} />
+        <Input type="number" label="Duree (mois)" name="duree" value={formData.duree || ''} onChange={handleChange} />
         <Input type="number" label="ID Plan" name="id_plan" value={formData.id_plan || ''} onChange={handleChange} />
         <Input type="number" label="Solde Initial" name="solde_actuel" value={formData.solde_actuel || ''} onChange={handleChange} disabled={!!compte} step="0.01" />
         <Input type="number" label="Fonds de Garantie" name="fonds_garantie" value={formData.fonds_garantie || ''} onChange={handleChange} step="0.01" />
-        <Input label="Personne Autorisée" name="person_allowed" value={formData.person_allowed || ''} onChange={handleChange} className="md:col-span-2" />
+        <Input label="Personne Autorisee" name="person_allowed" value={formData.person_allowed || ''} onChange={handleChange} className="md:col-span-2" />
 
-        <Select label="Pièce d'Identification Autorisée" name="piece_identification_allowed" value={formData.piece_identification_allowed || ''} onChange={handleChange}>
-          <option value="">Sélectionner...</option>
+        <Select label="Piece d'Identification Autorisee" name="piece_identification_allowed" value={formData.piece_identification_allowed || ''} onChange={handleChange}>
+          <option value="">Selectionner...</option>
           <option value="NIF">NIF</option>
           <option value="CIN">CIN</option>
           <option value="Passeport">Passeport</option>
         </Select>
 
-        <Input label="NIF/CIN Autorisé" name="nif_cin_allowed" value={formData.nif_cin_allowed || ''} onChange={handleChange} />
+        <Input label="NIF/CIN Autorise" name="nif_cin_allowed" value={formData.nif_cin_allowed || ''} onChange={handleChange} />
       </div>
 
       <div className="pt-4 flex justify-end space-x-2">
