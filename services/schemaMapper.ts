@@ -188,6 +188,7 @@ const mapSupabaseToCompteCredit = (data: any): CompteCredit => {
     id_compte_credit: data.id_compte_credit,
     id_personne: data.id_personne,
     no_compte: data.no_compte || data.cycle,
+    ancien_code: data.ancien_code || undefined,
     id_compte_epargne: data.id_compte_epargne,
     montant_prete: data.montant_prete,
     taux_interet: data.taux_interet,

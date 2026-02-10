@@ -72,6 +72,7 @@ const Clients: React.FC = () => {
                 .where('nom').startsWithIgnoreCase(searchTerm)
                 .or('prenom').startsWithIgnoreCase(searchTerm)
                 .or('code_client').startsWithIgnoreCase(searchTerm)
+                .or('code_client_ancien').startsWithIgnoreCase(searchTerm)
                 .toArray();
         }
         return await db.personnes.toArray();
@@ -142,7 +143,7 @@ const Clients: React.FC = () => {
                 <div className="mb-4">
                     <input
                         type="text"
-                        placeholder="Rechercher par nom, prenom ou code client..."
+                        placeholder="Rechercher par nom, prenom, code client ou code ancien..."
                         value={searchTerm}
                         onChange={(e) => {
                             setSearchTerm(e.target.value);
@@ -158,6 +159,7 @@ const Clients: React.FC = () => {
                             <thead className="bg-gray-50">
                                 <tr>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Code</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Code Ancien</th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Photo</th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nom & Prenom</th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Telephone</th>
@@ -180,6 +182,7 @@ const Clients: React.FC = () => {
                                         >
                                             {client.code_client}
                                         </td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{client.code_client_ancien || '-'}</td>
                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
                                             <ClientAvatar client={client} />
                                         </td>

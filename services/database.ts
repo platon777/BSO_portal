@@ -26,9 +26,9 @@ export class MySubClassedDexie extends Dexie {
     // Complete schema with all indexed fields for optimal querying
     // Version 3: Added comprehensive indexes for all key fields
     this.version(3).stores({
-      personnes: 'id_personne, code_client, pseudo, lieu_de_travail, occupation, geocode, prenom, nom, piece_identification, email, numero_telephone, adresse, sexe, date_naissance, nif_cin, photo_identification, date_creation, statut, created_at, &unique_id, id_plan, montant, created_by, updated_by, updated_at',
-      comptes_epargne: 'id_compte_epargne, id_personne, no_compte, id_plan, solde_actuel, fonds_garantie, statut, date_creation, succursale, duree, person_allowed, piece_identification_allowed, nif_cin_allowed, photo_allowed, created_at, created_by, updated_by, updated_at',
-      comptes_credit: 'id_compte_credit, id_personne, no_compte, id_compte_epargne, montant_prete, taux_interet, paiement_journalier, duree_credit_mois, fonds_garantie, penalites, statut, date_creation, created_at, created_by, updated_by, paiement_rembourse, updated_at',
+      personnes: 'id_personne, code_client, code_client_ancien, pseudo, lieu_de_travail, occupation, geocode, prenom, nom, piece_identification, email, numero_telephone, adresse, sexe, date_naissance, nif_cin, photo_identification, date_creation, statut, created_at, &unique_id, id_plan, montant, created_by, updated_by, updated_at',
+      comptes_epargne: 'id_compte_epargne, id_personne, no_compte, no_compte_ancien, id_plan, solde_actuel, fonds_garantie, statut, date_creation, succursale, duree, person_allowed, piece_identification_allowed, nif_cin_allowed, photo_allowed, created_at, created_by, updated_by, updated_at',
+      comptes_credit: 'id_compte_credit, id_personne, no_compte, ancien_code, id_compte_epargne, montant_prete, taux_interet, paiement_journalier, duree_credit_mois, fonds_garantie, penalites, statut, date_creation, created_at, created_by, updated_by, paiement_rembourse, updated_at',
       transactions_epargne: 'id_transaction_epargne, id_compte_epargne, no_compte, type_transaction, montant, solde_declare, virement_from, type_frais_livret, solde_avant_transaction, solde_avant_transaction_declare, date_transaction, solde_apres_transactions, solde_apres_transaction_declare, created_at, created_by, updated_at',
       transactions_credit: 'id_transaction_credit, id_compte_credit, no_compte, type_transaction, montant, solde_avant_transaction, date_transaction, montant_pret, solde_credit, created_at, created_by, versement_declare, updated_at',
       syncQueue: '++id, table, pk, status, timestamp',
@@ -47,6 +47,16 @@ export class MySubClassedDexie extends Dexie {
           item.updated_at = item.timestamp;
         }
       });
+    });
+
+    // Version 5: Add legacy code fields for migration from old system
+    this.version(5).stores({
+      personnes: 'id_personne, code_client, code_client_ancien, pseudo, lieu_de_travail, occupation, geocode, prenom, nom, piece_identification, email, numero_telephone, adresse, sexe, date_naissance, nif_cin, photo_identification, date_creation, statut, created_at, &unique_id, id_plan, montant, created_by, updated_by, updated_at',
+      comptes_epargne: 'id_compte_epargne, id_personne, no_compte, no_compte_ancien, id_plan, solde_actuel, fonds_garantie, statut, date_creation, succursale, duree, person_allowed, piece_identification_allowed, nif_cin_allowed, photo_allowed, created_at, created_by, updated_by, updated_at',
+      comptes_credit: 'id_compte_credit, id_personne, no_compte, ancien_code, id_compte_epargne, montant_prete, taux_interet, paiement_journalier, duree_credit_mois, fonds_garantie, penalites, statut, date_creation, created_at, created_by, updated_by, paiement_rembourse, updated_at',
+      transactions_epargne: 'id_transaction_epargne, id_compte_epargne, no_compte, type_transaction, montant, solde_declare, virement_from, type_frais_livret, solde_avant_transaction, solde_avant_transaction_declare, date_transaction, solde_apres_transactions, solde_apres_transaction_declare, created_at, created_by, updated_at',
+      transactions_credit: 'id_transaction_credit, id_compte_credit, no_compte, type_transaction, montant, solde_avant_transaction, date_transaction, montant_pret, solde_credit, created_at, created_by, versement_declare, updated_at',
+      syncQueue: '++id, table, pk, status, timestamp, retry_count',
     });
   }
 

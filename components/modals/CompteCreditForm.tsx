@@ -48,7 +48,7 @@ const CompteCreditForm: React.FC<CompteCreditFormProps> = ({ compte, onSave, onC
   };
 
   const handleClientChange = (clientId: string | null) => {
-    setFormData(prev => ({ ...prev, id_personne: clientId || undefined, id_compte_epargne: undefined })); // Reset savings account when client changes
+    setFormData(prev => ({ ...prev, id_personne: clientId || undefined, id_compte_epargne: undefined }));
   };
 
   const clientOptions = useMemo(() => {
@@ -63,11 +63,18 @@ const CompteCreditForm: React.FC<CompteCreditFormProps> = ({ compte, onSave, onC
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Get current user ID from profile
     const userId = profile?.user_id;
     if (!userId) {
-      alert('Erreur: Utilisateur non connecté');
+      alert('Erreur: Utilisateur non connecte');
       return;
+    }
+
+    if (formData.ancien_code && formData.ancien_code.trim() !== '') {
+      const existingLegacyCode = await db.comptes_credit.where('ancien_code').equals(formData.ancien_code).first();
+      if (existingLegacyCode && existingLegacyCode.id_compte_credit !== compte?.id_compte_credit) {
+        alert('Ce code credit ancien existe deja.');
+        return;
+      }
     }
 
     if (compte && compte.id_compte_credit) {
@@ -78,12 +85,13 @@ const CompteCreditForm: React.FC<CompteCreditFormProps> = ({ compte, onSave, onC
       });
     } else {
       if (!formData.id_personne || !formData.id_compte_epargne) {
-        alert("Veuillez sélectionner un client et un compte épargne associé.");
+        alert('Veuillez selectionner un client et un compte epargne associe.');
         return;
       }
+
       const selectedCompteEpargne = comptesEpargne.find(c => c.id_compte_epargne === formData.id_compte_epargne);
       if (!selectedCompteEpargne) {
-        alert("Compte épargne associé non valide.");
+        alert('Compte epargne associe non valide.');
         return;
       }
 
@@ -91,6 +99,7 @@ const CompteCreditForm: React.FC<CompteCreditFormProps> = ({ compte, onSave, onC
         id_personne: formData.id_personne!,
         id_compte_epargne: formData.id_compte_epargne!,
         no_compte: generateCustomCode(selectedCompteEpargne.no_compte),
+        ancien_code: formData.ancien_code,
         montant_prete: formData.montant_prete!,
         duree_credit_mois: formData.duree_credit_mois!,
         taux_interet: formData.taux_interet!,
@@ -122,17 +131,18 @@ const CompteCreditForm: React.FC<CompteCreditFormProps> = ({ compte, onSave, onC
             required
           />
         </div>
-        <Select label="Compte Épargne Associé" name="id_compte_epargne" value={formData.id_compte_epargne || ''} onChange={handleChange} required disabled={!!compte || !formData.id_personne} className="md:col-span-2">
-          <option value="">Sélectionner un compte</option>
+        <Select label="Compte Epargne Associe" name="id_compte_epargne" value={formData.id_compte_epargne || ''} onChange={handleChange} required disabled={!!compte || !formData.id_personne} className="md:col-span-2">
+          <option value="">Selectionner un compte</option>
           {comptesEpargne.map(c => <option key={c.id_compte_epargne} value={c.id_compte_epargne}>{c.no_compte}</option>)}
         </Select>
-        {compte && <Input label="Numéro de Compte Crédit" name="no_compte" value={formData.no_compte || ''} readOnly disabled />}
-        <Input type="number" label="Montant Prêté" name="montant_prete" value={formData.montant_prete || ''} onChange={handleChange} required step="0.01" />
-        <Input type="number" label="Durée (mois)" name="duree_credit_mois" value={formData.duree_credit_mois || ''} onChange={handleChange} required />
-        <Input type="number" label="Taux d'intérêt (%)" name="taux_interet" value={formData.taux_interet || ''} onChange={handleChange} required step="0.01" />
+        {compte && <Input label="Numero de Compte Credit" name="no_compte" value={formData.no_compte || ''} readOnly disabled />}
+        <Input label="Code Credit Ancien" name="ancien_code" value={formData.ancien_code || ''} onChange={handleChange} />
+        <Input type="number" label="Montant Prete" name="montant_prete" value={formData.montant_prete || ''} onChange={handleChange} required step="0.01" />
+        <Input type="number" label="Duree (mois)" name="duree_credit_mois" value={formData.duree_credit_mois || ''} onChange={handleChange} required />
+        <Input type="number" label="Taux d'interet (%)" name="taux_interet" value={formData.taux_interet || ''} onChange={handleChange} required step="0.01" />
         <Input type="number" label="Paiement Journalier" name="paiement_journalier" value={formData.paiement_journalier || ''} onChange={handleChange} required step="0.01" />
         <Input type="number" label="Fonds de Garantie" name="fonds_garantie" value={formData.fonds_garantie || ''} onChange={handleChange} step="0.01" />
-        <Input type="number" label="Pénalités" name="penalites" value={formData.penalites || ''} onChange={handleChange} step="0.01" />
+        <Input type="number" label="Penalites" name="penalites" value={formData.penalites || ''} onChange={handleChange} step="0.01" />
 
         <div className="md:col-span-2">
           <Select label="Statut" name="statut" value={formData.statut || 'Actif'} onChange={handleChange}>
