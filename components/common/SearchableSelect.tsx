@@ -100,16 +100,16 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
         onFocus={() => setIsOpen(true)}
         placeholder={placeholder}
         disabled={disabled}
-        className="w-full px-3 py-2 text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+        className="w-full px-3 py-3 sm:py-2 text-base sm:text-sm text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 min-h-[44px]"
       />
       {isOpen && !disabled && (
-        <ul className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+        <ul className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 sm:max-h-60 overflow-auto overscroll-contain">
           {filteredOptions.length > 0 ? (
             filteredOptions.map(option => (
               <li
                 key={option.id}
                 onClick={() => handleSelect(option)}
-                className="px-3 py-2 cursor-pointer hover:bg-gray-100"
+                className="px-3 py-3 sm:py-2 cursor-pointer hover:bg-gray-100 min-h-[44px]"
               >
                 <div className="font-medium text-gray-800">{option.label}</div>
                 {option.subLabel && <div className="text-xs text-gray-500">{option.subLabel}</div>}

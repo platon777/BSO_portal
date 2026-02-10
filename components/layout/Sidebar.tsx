@@ -26,7 +26,7 @@ const NavItem: React.FC<{
         e.preventDefault();
         setCurrentPage(page);
       }}
-      className={`flex items-center px-4 py-3 text-sm font-medium transition-colors duration-150 ${
+      className={`flex items-center px-4 py-3 min-h-[44px] text-sm font-medium transition-colors duration-150 ${
         isActive
           ? 'bg-blue-600 text-white'
           : 'text-gray-200 hover:bg-blue-800 hover:text-white'
