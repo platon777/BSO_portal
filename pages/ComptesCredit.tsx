@@ -236,7 +236,8 @@ const ComptesCredit: React.FC = () => {
                                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Code Ancien</th>
                                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Client</th>
                                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Montant Prêté</th>
-                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Remboursé</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Paye Manuel</th>
+                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rembourse Total</th>
                                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Restant</th>
                                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Taux (%)</th>
                                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Paiement/Jour</th>
@@ -249,7 +250,9 @@ const ComptesCredit: React.FC = () => {
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
                                     {paginatedComptes.map((compte) => {
-                                        const restant = compte.montant_prete - compte.paiement_rembourse;
+                                        const paiementManuel = compte.montant_deja_paye_manuellement || 0;
+                                        const totalRembourse = compte.paiement_rembourse + paiementManuel;
+                                        const restant = compte.montant_prete - totalRembourse;
                                         return (
                                             <tr key={compte.id_compte_credit} className="hover:bg-gray-50">
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -274,7 +277,8 @@ const ComptesCredit: React.FC = () => {
                                                 <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{compte.ancien_code || '-'}</td>
                                                 <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{compte.personne ? `${compte.personne.prenom} ${compte.personne.nom}` : 'N/A'}</td>
                                                 <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 font-semibold">{compte.montant_prete.toFixed(2)}</td>
-                                                <td className="px-4 py-3 whitespace-nowrap text-sm text-green-600">{compte.paiement_rembourse.toFixed(2)}</td>
+                                                <td className="px-4 py-3 whitespace-nowrap text-sm text-blue-600">{paiementManuel.toFixed(2)}</td>
+                                                <td className="px-4 py-3 whitespace-nowrap text-sm text-green-600">{totalRembourse.toFixed(2)}</td>
                                                 <td className="px-4 py-3 whitespace-nowrap text-sm text-red-600 font-semibold">{restant.toFixed(2)}</td>
                                                 <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{compte.taux_interet}%</td>
                                                 <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{compte.paiement_journalier.toFixed(2)}</td>
@@ -367,3 +371,4 @@ const ComptesCredit: React.FC = () => {
 };
 
 export default ComptesCredit;
+

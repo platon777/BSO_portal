@@ -27,6 +27,7 @@ const CompteCreditForm: React.FC<CompteCreditFormProps> = ({ compte, onSave, onC
     } else {
       setFormData({
         paiement_rembourse: 0,
+        montant_deja_paye_manuellement: 0,
         fonds_garantie: 0,
         statut: 'Actif',
       });
@@ -43,7 +44,7 @@ const CompteCreditForm: React.FC<CompteCreditFormProps> = ({ compte, onSave, onC
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    const isNumber = ['montant_prete', 'duree_credit_mois', 'taux_interet', 'fonds_garantie', 'paiement_journalier', 'penalites'].includes(name);
+    const isNumber = ['montant_prete', 'duree_credit_mois', 'taux_interet', 'fonds_garantie', 'paiement_journalier', 'penalites', 'montant_deja_paye_manuellement'].includes(name);
     setFormData(prev => ({ ...prev, [name]: isNumber ? parseFloat(value) || 0 : value }));
   };
 
@@ -105,6 +106,7 @@ const CompteCreditForm: React.FC<CompteCreditFormProps> = ({ compte, onSave, onC
         taux_interet: formData.taux_interet!,
         paiement_journalier: formData.paiement_journalier!,
         paiement_rembourse: 0,
+        montant_deja_paye_manuellement: formData.montant_deja_paye_manuellement ?? 0,
         fonds_garantie: formData.fonds_garantie || 0,
         penalites: formData.penalites || 0,
         statut: 'Actif',
@@ -137,12 +139,13 @@ const CompteCreditForm: React.FC<CompteCreditFormProps> = ({ compte, onSave, onC
         </Select>
         {compte && <Input label="Numero de Compte Credit" name="no_compte" value={formData.no_compte || ''} readOnly disabled />}
         <Input label="Code Credit Ancien" name="ancien_code" value={formData.ancien_code || ''} onChange={handleChange} />
-        <Input type="number" label="Montant Prete" name="montant_prete" value={formData.montant_prete || ''} onChange={handleChange} required step="0.01" />
-        <Input type="number" label="Duree (mois)" name="duree_credit_mois" value={formData.duree_credit_mois || ''} onChange={handleChange} required />
-        <Input type="number" label="Taux d'interet (%)" name="taux_interet" value={formData.taux_interet || ''} onChange={handleChange} required step="0.01" />
-        <Input type="number" label="Paiement Journalier" name="paiement_journalier" value={formData.paiement_journalier || ''} onChange={handleChange} required step="0.01" />
-        <Input type="number" label="Fonds de Garantie" name="fonds_garantie" value={formData.fonds_garantie || ''} onChange={handleChange} step="0.01" />
-        <Input type="number" label="Penalites" name="penalites" value={formData.penalites || ''} onChange={handleChange} step="0.01" />
+        <Input type="number" label="Montant Prete" name="montant_prete" value={formData.montant_prete ?? ''} onChange={handleChange} required step="0.01" />
+        <Input type="number" label="Montant Deja Paye (Manuel)" name="montant_deja_paye_manuellement" value={formData.montant_deja_paye_manuellement ?? ''} onChange={handleChange} step="0.01" />
+        <Input type="number" label="Duree (mois)" name="duree_credit_mois" value={formData.duree_credit_mois ?? ''} onChange={handleChange} required />
+        <Input type="number" label="Taux d'interet (%)" name="taux_interet" value={formData.taux_interet ?? ''} onChange={handleChange} required step="0.01" />
+        <Input type="number" label="Paiement Journalier" name="paiement_journalier" value={formData.paiement_journalier ?? ''} onChange={handleChange} required step="0.01" />
+        <Input type="number" label="Fonds de Garantie" name="fonds_garantie" value={formData.fonds_garantie ?? ''} onChange={handleChange} step="0.01" />
+        <Input type="number" label="Penalites" name="penalites" value={formData.penalites ?? ''} onChange={handleChange} step="0.01" />
 
         <div className="md:col-span-2">
           <Select label="Statut" name="statut" value={formData.statut || 'Actif'} onChange={handleChange}>

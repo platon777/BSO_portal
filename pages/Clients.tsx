@@ -16,7 +16,12 @@ import toast from 'react-hot-toast';
 import * as authService from '../services/supabaseAuth';
 import { copyToClipboard } from '../utils/clipboard';
 
-const ClientAvatar: React.FC<{ client: Personne }> = ({ client }) => {
+interface ClientAvatarProps {
+    client: Personne;
+    onPreview?: () => void;
+}
+
+const ClientAvatar: React.FC<ClientAvatarProps> = ({ client, onPreview }) => {
     const [loadError, setLoadError] = useState(false);
     const photo = client.photo_identification;
     const initials = `${client.prenom?.[0] || ''}${client.nom?.[0] || ''}`.toUpperCase() || 'CL';
@@ -29,13 +34,23 @@ const ClientAvatar: React.FC<{ client: Personne }> = ({ client }) => {
         );
     }
 
+    const canPreview = Boolean(photo && !loadError && onPreview);
+
     return (
-        <img
-            src={photo}
-            alt={`Photo ${client.prenom} ${client.nom}`}
-            className="h-10 w-10 rounded-full object-cover border border-gray-300"
-            onError={() => setLoadError(true)}
-        />
+        <button
+            type="button"
+            onClick={onPreview}
+            disabled={!canPreview}
+            title={canPreview ? 'Voir la photo' : 'Aucune photo disponible'}
+            className={`rounded-full ${canPreview ? 'cursor-zoom-in focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1' : 'cursor-default'}`}
+        >
+            <img
+                src={photo}
+                alt={`Photo ${client.prenom} ${client.nom}`}
+                className="h-10 w-10 rounded-full object-cover border border-gray-300"
+                onError={() => setLoadError(true)}
+            />
+        </button>
     );
 };
 
@@ -72,7 +87,6 @@ const Clients: React.FC = () => {
                 .where('nom').startsWithIgnoreCase(searchTerm)
                 .or('prenom').startsWithIgnoreCase(searchTerm)
                 .or('code_client').startsWithIgnoreCase(searchTerm)
-                .or('code_client_ancien').startsWithIgnoreCase(searchTerm)
                 .toArray();
         }
         return await db.personnes.toArray();
@@ -101,6 +115,22 @@ const Clients: React.FC = () => {
 
     const handleGrantAccess = (client: Personne) => {
         showModal('Accorder acces', <AccessGrantModal clientId={client.id_personne} clientName={client.prenom + ' ' + client.nom} onClose={hideModal} />);
+    };
+
+    const handlePreviewPhoto = (client: Personne) => {
+        if (!client.photo_identification) {
+            return;
+        }
+        showModal(
+            `Photo - ${client.prenom} ${client.nom}`,
+            <div className="flex justify-center">
+                <img
+                    src={client.photo_identification}
+                    alt={`Photo ${client.prenom} ${client.nom}`}
+                    className="w-full max-w-md max-h-[70vh] object-contain rounded-md border border-gray-200"
+                />
+            </div>
+        );
     };
 
     const handleDeleteClient = async (client: Personne) => {
@@ -143,7 +173,7 @@ const Clients: React.FC = () => {
                 <div className="mb-4">
                     <input
                         type="text"
-                        placeholder="Rechercher par nom, prenom, code client ou code ancien..."
+                        placeholder="Rechercher par nom, prenom ou code client..."
                         value={searchTerm}
                         onChange={(e) => {
                             setSearchTerm(e.target.value);
@@ -159,7 +189,6 @@ const Clients: React.FC = () => {
                             <thead className="bg-gray-50">
                                 <tr>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Code</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Code Ancien</th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Photo</th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nom & Prenom</th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Telephone</th>
@@ -182,9 +211,8 @@ const Clients: React.FC = () => {
                                         >
                                             {client.code_client}
                                         </td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{client.code_client_ancien || '-'}</td>
                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                                            <ClientAvatar client={client} />
+                                            <ClientAvatar client={client} onPreview={() => handlePreviewPhoto(client)} />
                                         </td>
                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{`${client.prenom} ${client.nom}`}</td>
                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{client.numero_telephone}</td>
@@ -244,3 +272,4 @@ const Clients: React.FC = () => {
 };
 
 export default Clients;
+

@@ -201,6 +201,7 @@ const mapSupabaseToCompteCredit = (data: any): CompteCredit => {
     created_by: data.created_by || '',
     updated_by: data.updated_by || undefined,
     paiement_rembourse: data.paiement_cumule || 0, // Map from Supabase paiement_cumule
+    montant_deja_paye_manuellement: data.montant_deja_paye_manuellement || 0,
     updated_at: data.updated_at || undefined,
     statut: 'Actif', // Default status, not in Supabase schema
   };

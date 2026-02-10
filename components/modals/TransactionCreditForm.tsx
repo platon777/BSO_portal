@@ -17,13 +17,13 @@ const TransactionCreditForm: React.FC<TransactionCreditFormProps> = ({ compteCre
   const [formData, setFormData] = useState<Partial<TransactionCredit>>(transaction || {
     id_compte_credit: compteCredit.id_compte_credit,
     no_compte: compteCredit.no_compte,
-    solde_avant_transaction: (compteCredit.montant_prete - compteCredit.paiement_rembourse),
+    solde_avant_transaction: (compteCredit.montant_prete - (compteCredit.paiement_rembourse + (compteCredit.montant_deja_paye_manuellement || 0))),
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     const isNumber = ['montant', 'versement_declare'].includes(name);
-    setFormData(prev => ({ ...prev, [name]: isNumber ? parseFloat(value) : value }));
+    setFormData(prev => ({ ...prev, [name]: isNumber ? parseFloat(value) || 0 : value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -74,8 +74,8 @@ const TransactionCreditForm: React.FC<TransactionCreditFormProps> = ({ compteCre
         <option value="Garantie">Fonds Garantie</option>
       </Select>
 
-      <Input type="number" label="Montant" name="montant" value={formData.montant || ''} onChange={handleChange} required />
-      <Input type="number" label="Versement Déclaré" name="versement_declare" value={formData.versement_declare || ''} onChange={handleChange} />
+      <Input type="number" label="Montant" name="montant" value={formData.montant ?? ''} onChange={handleChange} required />
+      <Input type="number" label="Versement Déclaré" name="versement_declare" value={formData.versement_declare ?? ''} onChange={handleChange} />
 
       <div className="pt-4 flex justify-end space-x-2">
         <button type="button" onClick={onCancel} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200">Annuler</button>
@@ -86,3 +86,4 @@ const TransactionCreditForm: React.FC<TransactionCreditFormProps> = ({ compteCre
 };
 
 export default TransactionCreditForm;
+
