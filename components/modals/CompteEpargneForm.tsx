@@ -106,7 +106,7 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
 
       const compteId = await db.addRecord('comptes_epargne', newCompte);
 
-      const initialBalance = formData.solde_actuel || 0;
+      const initialBalance = formData.solde_actuel ?? 0;
       if (initialBalance > 0) {
         const newTransaction: Omit<TransactionEpargne, 'id_transaction_epargne'> = {
           id_compte_epargne: compteId,
@@ -155,7 +155,7 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
         <Input label="Succursale" name="succursale" value={formData.succursale || ''} onChange={handleChange} />
         <Input type="number" label="Duree (mois)" name="duree" value={formData.duree || ''} onChange={handleChange} />
         <Input type="number" label="ID Plan" name="id_plan" value={formData.id_plan || ''} onChange={handleChange} />
-        <Input type="number" label="Solde Initial" name="solde_actuel" value={formData.solde_actuel || ''} onChange={handleChange} disabled={!!compte} step="0.01" />
+        <Input type="number" label="Solde Initial" name="solde_actuel" value={formData.solde_actuel ?? ''} onChange={handleChange} disabled={!!compte} step="0.01" />
         <Input type="number" label="Fonds de Garantie" name="fonds_garantie" value={formData.fonds_garantie || ''} onChange={handleChange} step="0.01" />
         <Input label="Personne Autorisee" name="person_allowed" value={formData.person_allowed || ''} onChange={handleChange} className="md:col-span-2" />
 

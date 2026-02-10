@@ -97,6 +97,9 @@ const validateCompteCredit = (data: any, errors: string[], action: string) => {
       errors.push('Paiement journalier must be greater than 0');
     }
   }
+  if (data.montant_deja_paye_manuellement !== undefined && data.montant_deja_paye_manuellement < 0) {
+    errors.push('Montant deja paye manuellement cannot be negative');
+  }
 };
 
 const validateTransactionEpargne = (data: any, errors: string[], action: string) => {

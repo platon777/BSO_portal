@@ -68,6 +68,7 @@ export interface CompteCredit {
   created_by: string;
   updated_by?: string;
   paiement_rembourse: number;
+  montant_deja_paye_manuellement?: number;
   updated_at?: string;
   statut?: 'Actif' | 'Payé' | 'En retard' | 'Fermé';
 }
@@ -137,3 +138,4 @@ export interface TransactionEpargneEnriched extends TransactionEpargne {
 export interface TransactionCreditEnriched extends TransactionCredit {
   id_personne?: string;
 }
+

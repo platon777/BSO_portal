@@ -80,14 +80,6 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSave, onCancel }) => 
       return;
     }
 
-    if (formData.code_client_ancien && formData.code_client_ancien.trim() !== '') {
-      const existingLegacyCode = await db.personnes.where('code_client_ancien').equals(formData.code_client_ancien).first();
-      if (existingLegacyCode && existingLegacyCode.id_personne !== client?.id_personne) {
-        toast.error(`Ce code client ancien existe deja : ${existingLegacyCode.prenom} ${existingLegacyCode.nom}`);
-        return;
-      }
-    }
-
     if (client && client.id_personne) {
       await db.updateRecord('personnes', client.id_personne, {
         ...formData,
@@ -155,7 +147,6 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSave, onCancel }) => 
         <Input label="Numero d'identification (NIF/CIN)" name="nif_cin" value={formData.nif_cin || ''} onChange={handleChange} />
         <Input label="Adresse" name="adresse" value={formData.adresse || ''} onChange={handleChange} />
         <Input label="Telephone" name="numero_telephone" value={formData.numero_telephone || ''} onChange={handleChange} required />
-        <Input label="Code Client Ancien" name="code_client_ancien" value={formData.code_client_ancien || ''} onChange={handleChange} />
         <Input label="Email" name="email" type="email" value={formData.email || ''} onChange={handleChange} />
         <Input label="Lieu de travail" name="lieu_de_travail" value={formData.lieu_de_travail || ''} onChange={handleChange} />
         <Input label="Occupation" name="occupation" value={formData.occupation || ''} onChange={handleChange} />
