@@ -1,10 +1,13 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import Sidebar from './components/layout/Sidebar';
 import MobileNav from './components/layout/MobileNav';
 import Header from './components/layout/Header';
 import Clients from './pages/Clients';
 import ComptesEpargne from './pages/ComptesEpargne';
 import ComptesCredit from './pages/ComptesCredit';
+import ClientDetails from './pages/ClientDetails';
+import CompteEpargneDetails from './pages/CompteEpargneDetails';
+import CompteCreditDetails from './pages/CompteCreditDetails';
 import Parametres from './pages/Parametres';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
@@ -16,7 +19,20 @@ import { useAuthStore } from './stores/authStore';
 import { Toaster } from 'react-hot-toast';
 import ErrorBoundary from './components/common/ErrorBoundary';
 
-type Page = 'dashboard' | 'clients' | 'epargne' | 'credit' | 'recouvrement' | 'rapports' | 'parametres' | 'login' | 'signup';
+type Page =
+  | 'dashboard'
+  | 'clients'
+  | 'epargne'
+  | 'credit'
+  | 'recouvrement'
+  | 'rapports'
+  | 'parametres'
+  | 'client_details'
+  | 'epargne_details'
+  | 'credit_details'
+  | 'login'
+  | 'signup';
+type NavPage = 'dashboard' | 'clients' | 'epargne' | 'credit' | 'recouvrement' | 'rapports' | 'parametres';
 
 // Export a simple navigation hook for use in child components
 let navigateFn: ((page: Page) => void) | null = null;
@@ -28,6 +44,9 @@ export const useNavigate = () => {
 const App: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<Page>('clients');
   const [isSidebarOpen, setSidebarOpen] = useState(false);
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const [selectedEpargneId, setSelectedEpargneId] = useState<string | null>(null);
+  const [selectedCreditId, setSelectedCreditId] = useState<string | null>(null);
   const { isAuthenticated, isLoading, initialize } = useAuthStore();
 
   useEffect(() => {
@@ -61,11 +80,41 @@ const App: React.FC = () => {
       case 'signup':
         return <Signup />;
       case 'clients':
-        return <Clients />;
+        return <Clients onViewDetails={handleOpenClientDetails} />;
       case 'epargne':
-        return <ComptesEpargne />;
+        return <ComptesEpargne onViewDetails={handleOpenEpargneDetails} />;
       case 'credit':
-        return <ComptesCredit />;
+        return <ComptesCredit onViewDetails={handleOpenCreditDetails} />;
+      case 'client_details':
+        return selectedClientId ? (
+          <ClientDetails
+            clientId={selectedClientId}
+            onBack={() => handleSetPage('clients')}
+            onOpenEpargneDetails={handleOpenEpargneDetails}
+            onOpenCreditDetails={handleOpenCreditDetails}
+          />
+        ) : (
+          <div className="p-4 sm:p-6 text-gray-700">Client introuvable.</div>
+        );
+      case 'epargne_details':
+        return selectedEpargneId ? (
+          <CompteEpargneDetails
+            compteId={selectedEpargneId}
+            onBack={() => handleSetPage('epargne')}
+            onOpenCreditDetails={handleOpenCreditDetails}
+          />
+        ) : (
+          <div className="p-4 sm:p-6 text-gray-700">Compte epargne introuvable.</div>
+        );
+      case 'credit_details':
+        return selectedCreditId ? (
+          <CompteCreditDetails
+            compteId={selectedCreditId}
+            onBack={() => handleSetPage('credit')}
+          />
+        ) : (
+          <div className="p-4 sm:p-6 text-gray-700">Compte credit introuvable.</div>
+        );
       case 'parametres':
         return <Parametres />;
       // TODO: Implement other pages
@@ -81,6 +130,49 @@ const App: React.FC = () => {
     setCurrentPage(page);
     setSidebarOpen(false); // Close sidebar on navigation
   }, []);
+
+  const handleOpenClientDetails = useCallback((clientId: string) => {
+    const safeClientId = typeof clientId === 'string' ? clientId.trim() : '';
+    if (!safeClientId) {
+      console.warn('[App] Invalid client ID for details', clientId);
+      return;
+    }
+    setSelectedClientId(safeClientId);
+    setCurrentPage('client_details');
+    setSidebarOpen(false);
+  }, []);
+
+  const handleOpenEpargneDetails = useCallback((compteId: string) => {
+    const safeCompteId = typeof compteId === 'string' ? compteId.trim() : '';
+    if (!safeCompteId) {
+      console.warn('[App] Invalid epargne account ID for details', compteId);
+      return;
+    }
+    setSelectedEpargneId(safeCompteId);
+    setCurrentPage('epargne_details');
+    setSidebarOpen(false);
+  }, []);
+
+  const handleOpenCreditDetails = useCallback((compteId: string) => {
+    const safeCompteId = typeof compteId === 'string' ? compteId.trim() : '';
+    if (!safeCompteId) {
+      console.warn('[App] Invalid credit account ID for details', compteId);
+      return;
+    }
+    setSelectedCreditId(safeCompteId);
+    setCurrentPage('credit_details');
+    setSidebarOpen(false);
+  }, []);
+
+  const currentNavPage: NavPage = useMemo(() => {
+    if (currentPage === 'client_details') return 'clients';
+    if (currentPage === 'epargne_details') return 'epargne';
+    if (currentPage === 'credit_details') return 'credit';
+    if (currentPage === 'dashboard' || currentPage === 'clients' || currentPage === 'epargne' || currentPage === 'credit' || currentPage === 'recouvrement' || currentPage === 'rapports' || currentPage === 'parametres') {
+      return currentPage;
+    }
+    return 'clients';
+  }, [currentPage]);
 
 
   // Show loading screen while checking auth
@@ -131,7 +223,7 @@ const App: React.FC = () => {
       <ModalProvider>
         <Toaster position="top-center" toastOptions={{ className: 'text-sm' }} />
         <div className="flex flex-col h-screen bg-gray-100 font-sans md:flex-row">
-          <Sidebar currentPage={currentPage} setCurrentPage={handleSetPage} isOpen={isSidebarOpen} setOpen={setSidebarOpen} />
+          <Sidebar currentPage={currentNavPage} setCurrentPage={handleSetPage} isOpen={isSidebarOpen} setOpen={setSidebarOpen} />
           <div className="flex-1 flex flex-col overflow-hidden min-w-0">
             <Header toggleSidebar={() => setSidebarOpen(prev => !prev)} />
             <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 pb-20 md:pb-4">
@@ -140,7 +232,7 @@ const App: React.FC = () => {
               </div>
             </main>
           </div>
-          <MobileNav currentPage={currentPage} setCurrentPage={handleSetPage} />
+          <MobileNav currentPage={currentNavPage} setCurrentPage={handleSetPage} />
         </div>
         <ModalRoot />
         <OfflineIndicator />

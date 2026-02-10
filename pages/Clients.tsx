@@ -17,6 +17,18 @@ import toast from 'react-hot-toast';
 import * as authService from '../services/supabaseAuth';
 import { copyToClipboard } from '../utils/clipboard';
 
+type SortOption = 'created_desc' | 'created_asc' | 'updated_desc' | 'updated_asc';
+
+interface ClientsProps {
+    onViewDetails?: (id: string) => void;
+}
+
+const getSortTimestamp = (client: Personne, sortOption: SortOption) => {
+    const createdAt = new Date(client.created_at || client.date_creation || '').getTime() || 0;
+    const updatedAt = new Date(client.updated_at || client.created_at || client.date_creation || '').getTime() || createdAt;
+    return sortOption.startsWith('updated') ? updatedAt : createdAt;
+};
+
 interface ClientAvatarProps {
     client: Personne;
     onPreview?: () => void;
@@ -55,10 +67,11 @@ const ClientAvatar: React.FC<ClientAvatarProps> = ({ client, onPreview }) => {
     );
 };
 
-const Clients: React.FC = () => {
+const Clients: React.FC<ClientsProps> = ({ onViewDetails }) => {
     const { showModal, hideModal } = useModal();
     const { profile } = useAuthStore();
     const [searchTerm, setSearchTerm] = useState('');
+    const [sortOption, setSortOption] = useState<SortOption>('created_desc');
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [profilesMap, setProfilesMap] = useState<Map<string, string>>(new Map());
@@ -93,13 +106,23 @@ const Clients: React.FC = () => {
         return await db.personnes.toArray();
     }, [searchTerm], []);
 
+    const sortedClients = useMemo(() => {
+        if (!clients) return [];
+        const isAsc = sortOption.endsWith('_asc');
+        return [...clients].sort((a, b) => {
+            const dateA = getSortTimestamp(a, sortOption);
+            const dateB = getSortTimestamp(b, sortOption);
+            return isAsc ? dateA - dateB : dateB - dateA;
+        });
+    }, [clients, sortOption]);
+
     const paginatedClients = useMemo(() => {
         if (!clients) return [];
         const start = (currentPage - 1) * itemsPerPage;
-        return clients.slice(start, start + itemsPerPage);
-    }, [clients, currentPage, itemsPerPage]);
+        return sortedClients.slice(start, start + itemsPerPage);
+    }, [sortedClients, currentPage, itemsPerPage, clients]);
 
-    const totalPages = clients ? Math.ceil(clients.length / itemsPerPage) : 0;
+    const totalPages = Math.ceil((sortedClients.length || 0) / itemsPerPage);
 
     const handleAddClient = () => {
         showModal('Ajouter un client', <ClientForm onSave={hideModal} onCancel={hideModal} />);
@@ -171,7 +194,7 @@ const Clients: React.FC = () => {
                     </button>
                 </div>
 
-                <div className="mb-4">
+                <div className="mb-4 grid grid-cols-1 md:grid-cols-3 gap-3">
                     <input
                         type="text"
                         placeholder="Rechercher par nom, prenom ou code client..."
@@ -180,15 +203,31 @@ const Clients: React.FC = () => {
                             setSearchTerm(e.target.value);
                             setCurrentPage(1);
                         }}
-                        className="w-full px-4 py-3 sm:py-2 text-base sm:text-sm border rounded-lg min-h-[44px]"
+                        className="w-full md:col-span-2 px-4 py-3 sm:py-2 text-base sm:text-sm border rounded-lg min-h-[44px]"
                     />
+                    <select
+                        value={sortOption}
+                        onChange={(e) => {
+                            setSortOption(e.target.value as SortOption);
+                            setCurrentPage(1);
+                        }}
+                        className="w-full px-4 py-3 sm:py-2 text-base sm:text-sm border rounded-lg min-h-[44px] bg-white"
+                    >
+                        <option value="created_desc">Creation: plus recent</option>
+                        <option value="created_asc">Creation: plus ancien</option>
+                        <option value="updated_desc">Modification: plus recente</option>
+                        <option value="updated_asc">Modification: plus ancienne</option>
+                    </select>
                 </div>
 
                 {/* Mobile: Card View */}
                 <div className="space-y-3 md:hidden">
                     {paginatedClients.map((client) => (
                         <div key={client.id_personne} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-                            <div className="flex items-center gap-3 mb-3">
+                            <div
+                                className={`flex items-center gap-3 mb-3 ${onViewDetails ? 'cursor-pointer' : ''}`}
+                                onClick={() => onViewDetails?.(client.id_personne)}
+                            >
                                 <ClientAvatar client={client} onPreview={() => handlePreviewPhoto(client)} />
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2">
@@ -197,7 +236,7 @@ const Clients: React.FC = () => {
                                             {client.statut}
                                         </span>
                                     </div>
-                                    <p className="text-xs text-blue-600 font-mono cursor-pointer" onClick={() => copyToClipboard(client.code_client, 'Code client')}>
+                                    <p className="text-xs text-blue-600 font-mono cursor-pointer" onClick={(e) => { e.stopPropagation(); copyToClipboard(client.code_client, 'Code client'); }}>
                                         {client.code_client}
                                     </p>
                                 </div>
@@ -209,6 +248,13 @@ const Clients: React.FC = () => {
                                 <div><span className="text-gray-500 text-xs">Date</span><p className="text-gray-600">{new Date(client.date_creation).toLocaleDateString('fr-FR')}</p></div>
                             </div>
                             <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
+                                <button
+                                    onClick={() => onViewDetails?.(client.id_personne)}
+                                    disabled={!onViewDetails}
+                                    className="flex-1 flex items-center justify-center gap-1 py-2 text-sm text-blue-600 bg-blue-50 rounded-lg min-h-[40px] disabled:opacity-60"
+                                >
+                                    Details
+                                </button>
                                 <button onClick={() => handleEditClient(client)} className="flex-1 flex items-center justify-center gap-1 py-2 text-sm text-indigo-600 bg-indigo-50 rounded-lg min-h-[40px]">
                                     <EditIcon className="w-4 h-4" /> Modifier
                                 </button>
@@ -223,7 +269,7 @@ const Clients: React.FC = () => {
                             </div>
                         </div>
                     ))}
-                    <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} itemsPerPage={itemsPerPage} totalItems={clients?.length || 0} onItemsPerPageChange={(value) => { setItemsPerPage(value); setCurrentPage(1); }} />
+                    <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} itemsPerPage={itemsPerPage} totalItems={sortedClients.length || 0} onItemsPerPageChange={(value) => { setItemsPerPage(value); setCurrentPage(1); }} />
                 </div>
 
                 {/* Desktop: Table View */}
@@ -250,7 +296,16 @@ const Clients: React.FC = () => {
                                     <tr key={client.id_personne} className="hover:bg-gray-50">
                                         <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 cursor-pointer hover:text-blue-600" onClick={() => copyToClipboard(client.code_client, 'Code client')} title="Cliquer pour copier">{client.code_client}</td>
                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900"><ClientAvatar client={client} onPreview={() => handlePreviewPhoto(client)} /></td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{`${client.prenom} ${client.nom}`}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                                            <button
+                                                type="button"
+                                                onClick={() => onViewDetails?.(client.id_personne)}
+                                                disabled={!onViewDetails}
+                                                className="text-left hover:text-blue-700 disabled:opacity-70"
+                                            >
+                                                {`${client.prenom} ${client.nom}`}
+                                            </button>
+                                        </td>
                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{client.numero_telephone}</td>
                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{client.nif_cin || '-'}</td>
                                         <td className="px-4 py-3 text-sm text-gray-600 max-w-xs truncate">{client.adresse || '-'}</td>
@@ -261,6 +316,7 @@ const Clients: React.FC = () => {
                                         <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium space-x-2">
                                             <button onClick={() => handleEditClient(client)} className="text-indigo-600 hover:text-indigo-900"><EditIcon className="w-5 h-5" /></button>
                                             <button onClick={() => handleDeleteClient(client)} className="text-red-600 hover:text-red-900"><TrashIcon className="w-5 h-5" /></button>
+                                            <button onClick={() => onViewDetails?.(client.id_personne)} className="text-blue-600 hover:text-blue-900 disabled:opacity-70" disabled={!onViewDetails}>Details</button>
                                             {profile?.role === UserRole.ADMIN && (<button onClick={() => handleGrantAccess(client)} className="text-yellow-600 hover:text-yellow-900" title="Accorder acces temporaire"><KeyIcon className="w-5 h-5" /></button>)}
                                         </td>
                                     </tr>
@@ -268,7 +324,7 @@ const Clients: React.FC = () => {
                             </tbody>
                         </table>
                     </div>
-                    <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} itemsPerPage={itemsPerPage} totalItems={clients?.length || 0} onItemsPerPageChange={(value) => { setItemsPerPage(value); setCurrentPage(1); }} />
+                    <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} itemsPerPage={itemsPerPage} totalItems={sortedClients.length || 0} onItemsPerPageChange={(value) => { setItemsPerPage(value); setCurrentPage(1); }} />
                 </div>
 
                 <FAB onClick={handleAddClient} label="Ajouter un client" />
@@ -278,4 +334,3 @@ const Clients: React.FC = () => {
 };
 
 export default Clients;
-

@@ -18,10 +18,23 @@ import toast from 'react-hot-toast';
 import * as authService from '../services/supabaseAuth';
 import { copyToClipboard } from '../utils/clipboard';
 
-const ComptesCredit: React.FC = () => {
+type SortOption = 'created_desc' | 'created_asc' | 'updated_desc' | 'updated_asc';
+
+interface ComptesCreditProps {
+    onViewDetails?: (id: string) => void;
+}
+
+const getSortTimestamp = (compte: CompteCreditEnriched, sortOption: SortOption) => {
+    const createdAt = new Date(compte.created_at || compte.date_creation || '').getTime() || 0;
+    const updatedAt = new Date(compte.updated_at || compte.created_at || compte.date_creation || '').getTime() || createdAt;
+    return sortOption.startsWith('updated') ? updatedAt : createdAt;
+};
+
+const ComptesCredit: React.FC<ComptesCreditProps> = ({ onViewDetails }) => {
     const { showModal, hideModal } = useModal();
     const { profile } = useAuthStore();
     const [searchTerm, setSearchTerm] = useState('');
+    const [sortOption, setSortOption] = useState<SortOption>('created_desc');
     const [currentPageComptes, setCurrentPageComptes] = useState(1);
     const [itemsPerPageComptes, setItemsPerPageComptes] = useState(10);
     const [currentPageTransactions, setCurrentPageTransactions] = useState(1);
@@ -85,13 +98,22 @@ const ComptesCredit: React.FC = () => {
         }
     }, [searchTerm], { comptes: [], transactions: [] });
 
-    const paginatedComptes = useMemo(() => {
-        if (!data?.comptes) return [];
-        const start = (currentPageComptes - 1) * itemsPerPageComptes;
-        return data.comptes.slice(start, start + itemsPerPageComptes);
-    }, [data?.comptes, currentPageComptes, itemsPerPageComptes]);
+    const sortedComptes = useMemo(() => {
+        const comptes = data?.comptes || [];
+        const isAsc = sortOption.endsWith('_asc');
+        return [...comptes].sort((a, b) => {
+            const dateA = getSortTimestamp(a, sortOption);
+            const dateB = getSortTimestamp(b, sortOption);
+            return isAsc ? dateA - dateB : dateB - dateA;
+        });
+    }, [data?.comptes, sortOption]);
 
-    const totalPagesComptes = Math.ceil((data?.comptes?.length || 0) / itemsPerPageComptes);
+    const paginatedComptes = useMemo(() => {
+        const start = (currentPageComptes - 1) * itemsPerPageComptes;
+        return sortedComptes.slice(start, start + itemsPerPageComptes);
+    }, [sortedComptes, currentPageComptes, itemsPerPageComptes]);
+
+    const totalPagesComptes = Math.ceil((sortedComptes.length || 0) / itemsPerPageComptes);
 
     const paginatedTransactions = useMemo(() => {
         if (!data?.transactions) return [];
@@ -218,14 +240,27 @@ const ComptesCredit: React.FC = () => {
                             Créer un compte
                         </button>
                     </div>
-                    <div className="mb-4">
+                    <div className="mb-4 grid grid-cols-1 md:grid-cols-3 gap-3">
                         <input
                             type="text"
-                            placeholder="Rechercher par N° de compte, code ancien ou nom de client..."
+                            placeholder="Rechercher par numero de compte, code ancien ou nom de client..."
                             value={searchTerm}
                             onChange={(e) => { setSearchTerm(e.target.value); setCurrentPageComptes(1); }}
-                            className="w-full px-4 py-3 sm:py-2 text-base sm:text-sm border rounded-lg min-h-[44px]"
+                            className="w-full md:col-span-2 px-4 py-3 sm:py-2 text-base sm:text-sm border rounded-lg min-h-[44px]"
                         />
+                        <select
+                            value={sortOption}
+                            onChange={(e) => {
+                                setSortOption(e.target.value as SortOption);
+                                setCurrentPageComptes(1);
+                            }}
+                            className="w-full px-4 py-3 sm:py-2 text-base sm:text-sm border rounded-lg min-h-[44px] bg-white"
+                        >
+                            <option value="created_desc">Creation: plus recent</option>
+                            <option value="created_asc">Creation: plus ancien</option>
+                            <option value="updated_desc">Modification: plus recente</option>
+                            <option value="updated_asc">Modification: plus ancienne</option>
+                        </select>
                     </div>
                     {/* Mobile: Card View */}
                     <div className="space-y-3 md:hidden">
@@ -235,9 +270,9 @@ const ComptesCredit: React.FC = () => {
                             const restant = compte.montant_prete - totalRembourse;
                             return (
                                 <div key={compte.id_compte_credit} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-                                    <div className="flex justify-between items-start mb-2">
+                                    <div className={`flex justify-between items-start mb-2 ${onViewDetails ? 'cursor-pointer' : ''}`} onClick={() => onViewDetails?.(compte.id_compte_credit)}>
                                         <div>
-                                            <p className="font-mono text-sm font-semibold text-gray-900 cursor-pointer" onClick={() => copyToClipboard(compte.no_compte, 'Numéro de compte')}>{compte.no_compte}</p>
+                                            <p className="font-mono text-sm font-semibold text-gray-900 cursor-pointer" onClick={(e) => { e.stopPropagation(); copyToClipboard(compte.no_compte, 'Numéro de compte'); }}>{compte.no_compte}</p>
                                             <p className="text-sm text-gray-700">{compte.personne ? `${compte.personne.prenom} ${compte.personne.nom}` : 'N/A'}</p>
                                         </div>
                                         <span className={`px-2 text-xs font-semibold rounded-full ${compte.statut === 'Actif' ? 'bg-green-100 text-green-800' : compte.statut === 'Payé' ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'}`}>{compte.statut}</span>
@@ -254,6 +289,7 @@ const ComptesCredit: React.FC = () => {
                                         <div><span className="text-gray-500 text-xs">Agent</span><p className="truncate">{getAgentName(compte.created_by)}</p></div>
                                     </div>
                                     <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
+                                        <button onClick={() => onViewDetails?.(compte.id_compte_credit)} disabled={!onViewDetails} className="flex-1 py-2 text-sm text-blue-700 bg-blue-100 rounded-lg min-h-[40px] disabled:opacity-60">Details</button>
                                         <button onClick={() => handleAddTransaction(compte)} className="flex-1 py-2 text-sm text-blue-600 bg-blue-50 rounded-lg min-h-[40px] flex items-center justify-center gap-1"><ArrowRightLeftIcon className="w-4 h-4" /> Transaction</button>
                                         <button onClick={() => handleEditCompte(compte)} className="py-2 px-3 text-indigo-600 bg-indigo-50 rounded-lg min-h-[40px]"><EditIcon className="w-4 h-4" /></button>
                                         <button onClick={() => handleDeleteCompte(compte)} className="py-2 px-3 text-red-600 bg-red-50 rounded-lg min-h-[40px]"><TrashIcon className="w-4 h-4" /></button>
@@ -262,7 +298,7 @@ const ComptesCredit: React.FC = () => {
                                 </div>
                             );
                         })}
-                        <Pagination currentPage={currentPageComptes} totalPages={totalPagesComptes} onPageChange={setCurrentPageComptes} itemsPerPage={itemsPerPageComptes} totalItems={data?.comptes?.length || 0} onItemsPerPageChange={(v) => { setItemsPerPageComptes(v); setCurrentPageComptes(1); }} />
+                        <Pagination currentPage={currentPageComptes} totalPages={totalPagesComptes} onPageChange={setCurrentPageComptes} itemsPerPage={itemsPerPageComptes} totalItems={sortedComptes.length || 0} onItemsPerPageChange={(v) => { setItemsPerPageComptes(v); setCurrentPageComptes(1); }} />
                     </div>
 
                     {/* Desktop: Table View */}
@@ -294,6 +330,7 @@ const ComptesCredit: React.FC = () => {
                                         return (
                                             <tr key={compte.id_compte_credit} className="hover:bg-gray-50">
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium"><div className="flex items-center space-x-3">
+                                                    <button onClick={() => onViewDetails?.(compte.id_compte_credit)} className="text-blue-700 hover:text-blue-900 disabled:opacity-60" title="Voir details" disabled={!onViewDetails}>Details</button>
                                                     <button onClick={() => handleAddTransaction(compte)} className="text-blue-600 hover:text-blue-800" title="Nouvelle Transaction"><ArrowRightLeftIcon className="w-5 h-5" /></button>
                                                     <button onClick={() => handleEditCompte(compte)} className="text-indigo-600 hover:text-indigo-800" title="Modifier"><EditIcon className="w-5 h-5" /></button>
                                                     <button onClick={() => handleDeleteCompte(compte)} className="text-red-600 hover:text-red-800" title="Supprimer"><TrashIcon className="w-5 h-5" /></button>
@@ -318,7 +355,7 @@ const ComptesCredit: React.FC = () => {
                                 </tbody>
                             </table>
                         </div>
-                        <Pagination currentPage={currentPageComptes} totalPages={totalPagesComptes} onPageChange={setCurrentPageComptes} itemsPerPage={itemsPerPageComptes} totalItems={data?.comptes?.length || 0} onItemsPerPageChange={(v) => { setItemsPerPageComptes(v); setCurrentPageComptes(1); }} />
+                        <Pagination currentPage={currentPageComptes} totalPages={totalPagesComptes} onPageChange={setCurrentPageComptes} itemsPerPage={itemsPerPageComptes} totalItems={sortedComptes.length || 0} onItemsPerPageChange={(v) => { setItemsPerPageComptes(v); setCurrentPageComptes(1); }} />
                     </div>
 
                     <FAB onClick={handleAddCompte} label="Créer un compte crédit" />
@@ -399,4 +436,5 @@ const ComptesCredit: React.FC = () => {
 };
 
 export default ComptesCredit;
+
 
