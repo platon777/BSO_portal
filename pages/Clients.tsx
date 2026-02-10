@@ -16,6 +16,29 @@ import toast from 'react-hot-toast';
 import * as authService from '../services/supabaseAuth';
 import { copyToClipboard } from '../utils/clipboard';
 
+const ClientAvatar: React.FC<{ client: Personne }> = ({ client }) => {
+    const [loadError, setLoadError] = useState(false);
+    const photo = client.photo_identification;
+    const initials = `${client.prenom?.[0] || ''}${client.nom?.[0] || ''}`.toUpperCase() || 'CL';
+
+    if (!photo || loadError) {
+        return (
+            <div className="h-10 w-10 rounded-full bg-gray-200 text-gray-700 flex items-center justify-center text-xs font-semibold border border-gray-300">
+                {initials}
+            </div>
+        );
+    }
+
+    return (
+        <img
+            src={photo}
+            alt={`Photo ${client.prenom} ${client.nom}`}
+            className="h-10 w-10 rounded-full object-cover border border-gray-300"
+            onError={() => setLoadError(true)}
+        />
+    );
+};
+
 const Clients: React.FC = () => {
     const { showModal, hideModal } = useModal();
     const { profile } = useAuthStore();
@@ -24,7 +47,6 @@ const Clients: React.FC = () => {
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [profilesMap, setProfilesMap] = useState<Map<string, string>>(new Map());
 
-    // Fetch all profiles to display agent names
     useEffect(() => {
         const loadProfiles = async () => {
             const result = await authService.fetchAllProfiles();
@@ -39,7 +61,6 @@ const Clients: React.FC = () => {
         loadProfiles();
     }, []);
 
-    // Helper function to display agent name
     const getAgentName = (userId: string | undefined) => {
         if (!userId) return '-';
         return profilesMap.get(userId) || 'Agent';
@@ -71,22 +92,23 @@ const Clients: React.FC = () => {
     const handleEditClient = async (client: Personne) => {
         const hasAccess = await accessService.hasAccess(client.id_personne);
         if (!hasAccess) {
-            toast.error("Accès refusé. Demandez un accès temporaire à un administrateur.");
+            toast.error('Acces refuse. Demandez un acces temporaire a un administrateur.');
             return;
         }
         showModal('Modifier le client', <ClientForm client={client} onSave={hideModal} onCancel={hideModal} />);
     };
 
     const handleGrantAccess = (client: Personne) => {
-        showModal('Accorder accès', <AccessGrantModal clientId={client.id_personne} clientName={client.prenom + ' ' + client.nom} onClose={hideModal} />);
+        showModal('Accorder acces', <AccessGrantModal clientId={client.id_personne} clientName={client.prenom + ' ' + client.nom} onClose={hideModal} />);
     };
 
     const handleDeleteClient = async (client: Personne) => {
         const hasAccess = await accessService.hasAccess(client.id_personne);
         if (!hasAccess) {
-            toast.error("Accès refusé. Demandez un accès temporaire à un administrateur.");
+            toast.error('Acces refuse. Demandez un acces temporaire a un administrateur.');
             return;
         }
+
         const confirmDelete = async () => {
             await db.deletePersonCascade(client.id_personne);
             hideModal();
@@ -96,7 +118,7 @@ const Clients: React.FC = () => {
             'Confirmer la suppression',
             <ConfirmationModal
                 title="Supprimer le client"
-                message={`Êtes-vous sûr de vouloir supprimer ${client.prenom} ${client.nom} ? Toutes les données associées (comptes, transactions) seront également supprimées.`}
+                message={`Etes-vous sur de vouloir supprimer ${client.prenom} ${client.nom} ? Toutes les donnees associees (comptes, transactions) seront aussi supprimees.`}
                 onConfirm={confirmDelete}
                 onCancel={hideModal}
             />
@@ -120,9 +142,12 @@ const Clients: React.FC = () => {
                 <div className="mb-4">
                     <input
                         type="text"
-                        placeholder="Rechercher par nom, prénom ou code client..."
+                        placeholder="Rechercher par nom, prenom ou code client..."
                         value={searchTerm}
-                        onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+                        onChange={(e) => {
+                            setSearchTerm(e.target.value);
+                            setCurrentPage(1);
+                        }}
                         className="w-full px-4 py-2 border rounded-md"
                     />
                 </div>
@@ -133,12 +158,13 @@ const Clients: React.FC = () => {
                             <thead className="bg-gray-50">
                                 <tr>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Code</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nom & Prénom</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Téléphone</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Photo</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nom & Prenom</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Telephone</th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">NIF/CIN</th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Adresse</th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Occupation</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date Création</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date creation</th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Agent</th>
                                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
@@ -147,8 +173,15 @@ const Clients: React.FC = () => {
                             <tbody className="bg-white divide-y divide-gray-200">
                                 {paginatedClients.map((client) => (
                                     <tr key={client.id_personne} className="hover:bg-gray-50">
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 cursor-pointer hover:text-blue-600" onClick={() => copyToClipboard(client.code_client, 'Code client')} title="Cliquer pour copier">
+                                        <td
+                                            className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 cursor-pointer hover:text-blue-600"
+                                            onClick={() => copyToClipboard(client.code_client, 'Code client')}
+                                            title="Cliquer pour copier"
+                                        >
                                             {client.code_client}
+                                        </td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                                            <ClientAvatar client={client} />
                                         </td>
                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{`${client.prenom} ${client.nom}`}</td>
                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{client.numero_telephone}</td>
@@ -159,16 +192,28 @@ const Clients: React.FC = () => {
                                             {new Date(client.date_creation).toLocaleDateString('fr-FR')}
                                         </td>
                                         <td className="px-4 py-3 whitespace-nowrap">
-                                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${client.statut === 'Actif' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                            <span
+                                                className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                                    client.statut === 'Actif' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                                }`}
+                                            >
                                                 {client.statut}
                                             </span>
                                         </td>
                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{getAgentName(client.created_by)}</td>
                                         <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium space-x-2">
-                                            <button onClick={() => handleEditClient(client)} className="text-indigo-600 hover:text-indigo-900"><EditIcon className="w-5 h-5" /></button>
-                                            <button onClick={() => handleDeleteClient(client)} className="text-red-600 hover:text-red-900"><TrashIcon className="w-5 h-5" /></button>
+                                            <button onClick={() => handleEditClient(client)} className="text-indigo-600 hover:text-indigo-900">
+                                                <EditIcon className="w-5 h-5" />
+                                            </button>
+                                            <button onClick={() => handleDeleteClient(client)} className="text-red-600 hover:text-red-900">
+                                                <TrashIcon className="w-5 h-5" />
+                                            </button>
                                             {profile?.role === UserRole.ADMIN && (
-                                                <button onClick={() => handleGrantAccess(client)} className="text-yellow-600 hover:text-yellow-900" title="Accorder accès temporaire">
+                                                <button
+                                                    onClick={() => handleGrantAccess(client)}
+                                                    className="text-yellow-600 hover:text-yellow-900"
+                                                    title="Accorder acces temporaire"
+                                                >
                                                     <KeyIcon className="w-5 h-5" />
                                                 </button>
                                             )}
@@ -184,7 +229,10 @@ const Clients: React.FC = () => {
                         onPageChange={setCurrentPage}
                         itemsPerPage={itemsPerPage}
                         totalItems={clients?.length || 0}
-                        onItemsPerPageChange={(value) => { setItemsPerPage(value); setCurrentPage(1); }}
+                        onItemsPerPageChange={(value) => {
+                            setItemsPerPage(value);
+                            setCurrentPage(1);
+                        }}
                     />
                 </div>
             </div>

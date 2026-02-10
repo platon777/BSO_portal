@@ -28,6 +28,8 @@ export interface ProgressCallback {
 
 const BATCH_SIZE = 50; // Process 50 items at a time
 const MAX_RETRY_COUNT = 3;
+const PHOTO_BUCKET = 'bso';
+const PHOTO_CLIENT_FOLDER = 'photo_client';
 
 // Table dependency order (important for foreign keys)
 const TABLE_ORDER = [
@@ -353,15 +355,14 @@ const uploadSyncItem = async (item: SyncQueueItem, userId: string): Promise<void
   return withRetry(async () => {
     switch (item.action) {
       case 'add': {
-        const mappedData = mapLocalToSupabase(tableName, item.data, userId);
+        let mappedData = mapLocalToSupabase(tableName, item.data, userId);
+        mappedData = await uploadPersonPhotoIfNeeded(item, mappedData);
         const { error } = await supabase.from(tableName).insert(mappedData);
         if (error) throw error;
         break;
       }
 
       case 'update': {
-        const mappedData = mapLocalToSupabase(tableName, item.data, userId);
-
         // Check if record exists and compare timestamps
         const { data: existing, error: fetchError } = await supabase
           .from(tableName)
@@ -377,7 +378,8 @@ const uploadSyncItem = async (item: SyncQueueItem, userId: string): Promise<void
         if (!existing) {
           const fullData = await db.table(tableName).get(item.pk);
           if (fullData) {
-            const mappedFullData = mapLocalToSupabase(tableName, fullData, userId);
+            let mappedFullData = mapLocalToSupabase(tableName, fullData, userId);
+            mappedFullData = await uploadPersonPhotoIfNeeded(item, mappedFullData);
             const { error } = await supabase.from(tableName).insert(mappedFullData);
             if (error) throw error;
           }
@@ -390,6 +392,9 @@ const uploadSyncItem = async (item: SyncQueueItem, userId: string): Promise<void
 
         if (localUpdatedAt >= serverUpdatedAt) {
           // Local is newer or same, update server
+          let mappedData = mapLocalToSupabase(tableName, item.data, userId);
+          mappedData = await uploadPersonPhotoIfNeeded(item, mappedData);
+
           const { error } = await supabase
             .from(tableName)
             .update(mappedData)
@@ -415,6 +420,84 @@ const uploadSyncItem = async (item: SyncQueueItem, userId: string): Promise<void
       }
     }
   });
+};
+
+const isImageDataUrl = (value: unknown): value is string => {
+  return typeof value === 'string' && /^data:image\/[a-zA-Z0-9.+-]+;base64,/.test(value);
+};
+
+const dataUrlToBlob = (dataUrl: string): { blob: Blob; extension: string } => {
+  const matches = dataUrl.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
+  if (!matches) {
+    throw new Error('Format de photo invalide');
+  }
+
+  const mimeType = matches[1];
+  const base64Data = matches[2];
+  const binaryString = atob(base64Data);
+  const bytes = new Uint8Array(binaryString.length);
+
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+
+  const blob = new Blob([bytes], { type: mimeType });
+  const extension = mimeType.split('/')[1]?.split('+')[0] || 'jpg';
+
+  return { blob, extension };
+};
+
+const isStorageRlsError = (error: any): boolean => {
+  const message = String(error?.message || error?.error || '').toLowerCase();
+  return message.includes('row-level security') || message.includes('violates row-level security policy');
+};
+
+const uploadPersonPhotoIfNeeded = async (item: SyncQueueItem, mappedData: any): Promise<any> => {
+  if (item.table !== 'personnes') {
+    return mappedData;
+  }
+
+  const photoValue = mappedData?.photo_identification;
+  if (!isImageDataUrl(photoValue)) {
+    return mappedData;
+  }
+
+  const { blob, extension } = dataUrlToBlob(photoValue);
+  const path = `${PHOTO_CLIENT_FOLDER}/${item.pk}_${item.timestamp}.${extension}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from(PHOTO_BUCKET)
+    .upload(path, blob, {
+      contentType: blob.type,
+      upsert: true,
+    });
+
+  if (uploadError) {
+    // If storage policy is not configured yet, keep sync alive by falling back
+    // to the existing value (usually a data URL) in personnes.photo_identification.
+    if (isStorageRlsError(uploadError)) {
+      console.warn('[Sync] Upload photo bloque par RLS Storage. Fallback en photo_identification locale.', uploadError);
+      return mappedData;
+    }
+    throw uploadError;
+  }
+
+  const { data: publicUrlData } = supabase.storage.from(PHOTO_BUCKET).getPublicUrl(path);
+  const publicUrl = publicUrlData?.publicUrl;
+
+  if (!publicUrl) {
+    throw new Error('URL publique de la photo introuvable apres upload');
+  }
+
+  await db.personnes.update(item.pk, {
+    photo_identification: publicUrl,
+    updated_at: new Date().toISOString(),
+  });
+
+  return {
+    ...mappedData,
+    photo_identification: publicUrl,
+  };
 };
 
 /**
