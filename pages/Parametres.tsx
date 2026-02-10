@@ -14,7 +14,7 @@ import toast from 'react-hot-toast';
 import Dexie from 'dexie';
 
 const StatCard: React.FC<{ title: string; value: string | number; count?: number; amount?: string; color: string }> = ({ title, value, count, amount, color }) => (
-    <div className={`bg-white p-4 rounded-lg shadow-md border-l-4 ${color}`}>
+    <div className={`bg-white p-4 rounded-lg shadow-md border-l-4 ${color} min-w-[200px] sm:min-w-0 shrink-0 sm:shrink`}>
         <h3 className="text-sm font-medium text-gray-500">{title}</h3>
         {count !== undefined && amount !== undefined ? (
             <>
@@ -271,20 +271,20 @@ const Parametres: React.FC = () => {
 
     return (
         <div>
-            <h1 className="text-2xl font-bold text-gray-800 mb-4">Paramètres & Synchronisation</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4">Paramètres & Synchronisation</h1>
 
             <div className="bg-white p-4 rounded-lg shadow-md mb-6">
                 <h2 className="text-lg font-bold text-gray-800 mb-4">Actions de Synchronisation</h2>
-                <div className="flex flex-wrap gap-4">
-                    <button onClick={handleSync} className="flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">
+                <div className="flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-4">
+                    <button onClick={handleSync} className="flex items-center justify-center sm:justify-start px-4 py-3 sm:py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 min-h-[44px]">
                         <RefreshCwIcon className="w-4 h-4 mr-2" />
                         Synchroniser
                     </button>
-                    <button onClick={handleForceDownload} className="flex items-center px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700">
+                    <button onClick={handleForceDownload} className="flex items-center justify-center sm:justify-start px-4 py-3 sm:py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 min-h-[44px]">
                         <DownloadCloudIcon className="w-4 h-4 mr-2" />
                         Forcer Téléchargement
                     </button>
-                    <button onClick={handleRetryFailed} className="flex items-center px-4 py-2 text-sm font-medium text-white bg-orange-500 rounded-md hover:bg-orange-600 disabled:bg-gray-400" disabled={!unsyncedItems?.some(i => i.status === 'failed')}>
+                    <button onClick={handleRetryFailed} className="flex items-center justify-center sm:justify-start px-4 py-3 sm:py-2 text-sm font-medium text-white bg-orange-500 rounded-lg hover:bg-orange-600 disabled:bg-gray-400 min-h-[44px]" disabled={!unsyncedItems?.some(i => i.status === 'failed')}>
                         <RotateCcwIcon className="w-4 h-4 mr-2" />
                         Réessayer échecs
                     </button>
@@ -307,7 +307,59 @@ const Parametres: React.FC = () => {
                 {unsyncedItems && unsyncedItems.length > 0 && (
                     <div className="mt-6">
                         <h3 className="text-md font-semibold text-gray-700 mb-3">Détails de la queue de synchronisation</h3>
-                        <div className="overflow-x-auto">
+
+                        {/* Mobile card view */}
+                        <div className="md:hidden space-y-3">
+                            {unsyncedItems.map((item) => (
+                                <div key={item.id} className="bg-gray-50 rounded-lg p-3 space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded">
+                                                {item.table}
+                                            </span>
+                                            <span className={`px-2 py-1 text-xs font-semibold rounded ${item.action === 'add' ? 'bg-green-100 text-green-800' :
+                                                item.action === 'update' ? 'bg-yellow-100 text-yellow-800' :
+                                                    'bg-red-100 text-red-800'
+                                                }`}>
+                                                {item.action === 'add' ? 'Ajout' : item.action === 'update' ? 'Modification' : 'Suppression'}
+                                            </span>
+                                            <span className={`px-2 py-1 text-xs font-semibold rounded ${item.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                                item.status === 'completed' ? 'bg-green-100 text-green-800' :
+                                                    'bg-red-100 text-red-800'
+                                                }`}>
+                                                {item.status === 'pending' ? 'En attente' : item.status === 'completed' ? 'Complété' : 'Échec'}
+                                            </span>
+                                        </div>
+                                        <button
+                                            onClick={() => handleRemoveFromQueue(item)}
+                                            className="p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+                                            title="Supprimer de la file"
+                                        >
+                                            <TrashIcon className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                    <div className="flex items-center justify-between text-xs text-gray-500">
+                                        <span className="font-mono">{item.pk.substring(0, 8)}...</span>
+                                        <span>{new Date(item.timestamp).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</span>
+                                    </div>
+                                    {item.error && (
+                                        <details className="cursor-pointer">
+                                            <summary className="text-red-600 text-sm font-medium min-h-[44px] flex items-center">Voir l'erreur</summary>
+                                            <div className="mt-1 p-2 bg-red-50 border border-red-200 rounded text-xs">
+                                                <pre className="whitespace-pre-wrap break-words text-red-800 font-mono">{item.error}</pre>
+                                            </div>
+                                        </details>
+                                    )}
+                                    <details className="cursor-pointer">
+                                        <summary className="text-blue-600 text-sm font-medium min-h-[44px] flex items-center">Voir données</summary>
+                                        <pre className="mt-1 p-2 bg-gray-100 rounded text-xs overflow-auto max-h-40">{JSON.stringify(item.data, null, 2)}</pre>
+                                    </details>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Desktop table view */}
+                        <div className="hidden md:block overflow-x-auto">
                             <table className="min-w-full divide-y divide-gray-200">
                                 <thead className="bg-gray-50">
                                     <tr>
@@ -399,17 +451,17 @@ const Parametres: React.FC = () => {
             {/* Maintenance & Updates Section */}
             <div className="bg-white p-4 rounded-lg shadow-md mb-6">
                 <h2 className="text-lg font-bold text-gray-800 mb-4">Maintenance & Mises à jour</h2>
-                <div className="flex flex-wrap gap-4">
+                <div className="flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-4">
                     <button
                         onClick={handleUpdateApp}
-                        className="flex items-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
+                        className="flex items-center justify-center sm:justify-start px-4 py-3 sm:py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 min-h-[44px]"
                     >
                         <RefreshCwIcon className="w-4 h-4 mr-2" />
                         Mettre à jour l'application
                     </button>
                     <button
                         onClick={handleClearDatabase}
-                        className="flex items-center px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
+                        className="flex items-center justify-center sm:justify-start px-4 py-3 sm:py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 min-h-[44px]"
                     >
                         <Trash2Icon className="w-4 h-4 mr-2" />
                         Vider la base de données
@@ -440,7 +492,7 @@ const Parametres: React.FC = () => {
                         <option value="all">Tout</option>
                     </select>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="flex overflow-x-auto gap-3 pb-2 scrollbar-hide -mx-3 px-3 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-2 lg:grid-cols-3 sm:gap-4 sm:overflow-visible">
                     {/* Comptes créés */}
                     <StatCard title="Comptes Crédit Créés" value="" count={stats.comptes_credit_crees} amount="0,00 HTG" color="border-blue-100" />
                     <StatCard title="Comptes Épargne Créés" value="" count={stats.comptes_epargne_crees} amount="0,00 HTG" color="border-blue-100" />

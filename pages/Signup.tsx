@@ -71,10 +71,10 @@ const Signup: React.FC = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-500 to-indigo-600 px-4">
-      <div className="max-w-md w-full bg-white rounded-lg shadow-2xl p-8">
+      <div className="max-w-md w-full bg-white rounded-lg shadow-2xl p-6 sm:p-8">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">BSO Portal</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-2">BSO Portal</h1>
           <p className="text-gray-600">Créez votre compte</p>
         </div>
 
@@ -172,7 +172,7 @@ const Signup: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
+                className="absolute right-1 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none min-h-[44px] min-w-[44px] flex items-center justify-center"
                 disabled={isLoading || isOffline}
               >
                 {showPassword ? (
@@ -208,7 +208,7 @@ const Signup: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
+                className="absolute right-1 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none min-h-[44px] min-w-[44px] flex items-center justify-center"
                 disabled={isLoading || isOffline}
               >
                 {showConfirmPassword ? (
@@ -229,7 +229,7 @@ const Signup: React.FC = () => {
           <button
             type="submit"
             disabled={isLoading || isOffline}
-            className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-md shadow-md transition duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center"
+            className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-md shadow-md transition duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center min-h-[44px]"
           >
             {isLoading ? (
               <>

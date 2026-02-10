@@ -15,7 +15,7 @@ const Input: React.FC<InputProps> = ({ label, name, ...rest }) => {
       <input
         id={name}
         name={name}
-        className="w-full px-3 py-2 text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        className="w-full px-3 py-3 sm:py-2 text-base sm:text-sm text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[44px]"
         {...rest}
       />
     </div>

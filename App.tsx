@@ -118,7 +118,7 @@ const App: React.FC = () => {
     return (
       <ErrorBoundary>
         <ModalProvider>
-          <Toaster position="top-right" />
+          <Toaster position="top-center" toastOptions={{ className: 'text-sm' }} />
           {currentPage === 'login' ? <Login /> : <Signup />}
           <ModalRoot />
         </ModalProvider>
@@ -129,13 +129,13 @@ const App: React.FC = () => {
   return (
     <ErrorBoundary>
       <ModalProvider>
-        <Toaster position="top-right" />
-        <div className="flex h-screen bg-gray-100 font-sans">
+        <Toaster position="top-center" toastOptions={{ className: 'text-sm' }} />
+        <div className="flex flex-col h-screen bg-gray-100 font-sans md:flex-row">
           <Sidebar currentPage={currentPage} setCurrentPage={handleSetPage} isOpen={isSidebarOpen} setOpen={setSidebarOpen} />
-          <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 flex flex-col overflow-hidden min-w-0">
             <Header toggleSidebar={() => setSidebarOpen(prev => !prev)} />
             <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 pb-20 md:pb-4">
-              <div className="container mx-auto px-4 sm:px-6 py-4">
+              <div className="px-3 py-3 sm:px-4 sm:py-4 md:container md:mx-auto md:px-6">
                 {renderPage()}
               </div>
             </main>
