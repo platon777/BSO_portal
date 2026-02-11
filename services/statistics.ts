@@ -20,9 +20,11 @@ export interface AgentStats {
   transactions_credit_garantie: number;
   montant_transactions_epargne_depot: number;
   montant_transactions_epargne_retrait: number;
+  montant_transactions_epargne_frais_service: number;
   montant_transactions_frais_livret: number;
   montant_transactions_credit_paiement: number;
   montant_transactions_credit_penalite: number;
+  montant_remise_client: number;
   total_cash: number;
 }
 
@@ -38,9 +40,11 @@ export const initialStats: AgentStats = {
   transactions_credit_garantie: 0,
   montant_transactions_epargne_depot: 0,
   montant_transactions_epargne_retrait: 0,
+  montant_transactions_epargne_frais_service: 0,
   montant_transactions_frais_livret: 0,
   montant_transactions_credit_paiement: 0,
   montant_transactions_credit_penalite: 0,
+  montant_remise_client: 0,
   total_cash: 0,
 };
 
@@ -111,6 +115,9 @@ export async function getAgentStats(userId: string, dateFilter: DateFilter): Pro
   const transactionsEpargneFiltered = filterByDateAndUser(transactionsEpargne, 'date_transaction', dateFilter, userId);
   transactionsEpargneFiltered.forEach(t => {
     const montant = t.montant || 0;
+    const remiseClient = t.remise_client || 0;
+    stats.montant_remise_client += remiseClient;
+
     if (t.type_transaction === 'D') {
       stats.transactions_epargne_depot++;
       stats.montant_transactions_epargne_depot += montant;
@@ -122,6 +129,7 @@ export async function getAgentStats(userId: string, dateFilter: DateFilter): Pro
       stats.montant_transactions_frais_livret += montant;
     } else if (t.type_transaction === 'S') {
       stats.transactions_epargne_frais_service++;
+      stats.montant_transactions_epargne_frais_service += montant;
     }
   });
 
@@ -140,12 +148,15 @@ export async function getAgentStats(userId: string, dateFilter: DateFilter): Pro
     }
   });
 
-  // Calculate total cash: depot + retrait + frais livret + paiement credit + penalites
+  // Calculate total cash:
+  // depot - retrait + frais (livret + service) + credit + penalites - remise
   stats.total_cash = stats.montant_transactions_epargne_depot +
-                     stats.montant_transactions_epargne_retrait +
                      stats.montant_transactions_frais_livret +
+                     stats.montant_transactions_epargne_frais_service +
                      stats.montant_transactions_credit_paiement +
-                     stats.montant_transactions_credit_penalite;
+                     stats.montant_transactions_credit_penalite -
+                     stats.montant_transactions_epargne_retrait -
+                     stats.montant_remise_client;
 
   return stats;
 }
