@@ -499,7 +499,7 @@ const Parametres: React.FC = () => {
 
                     {/* Transactions Épargne */}
                     <StatCard title="Transactions Épargne Dépôt" value="" count={stats.transactions_epargne_depot} amount={`${stats.montant_transactions_epargne_depot.toFixed(2)} HTG`} color="border-green-100" />
-                    <StatCard title="Transactions Frais Services" value="" count={stats.transactions_epargne_frais_service} amount="0,00 HTG" color="border-green-100" />
+                    <StatCard title="Transactions Frais Services" value="" count={stats.transactions_epargne_frais_service} amount={`${stats.montant_transactions_epargne_frais_service.toFixed(2)} HTG`} color="border-green-100" />
                     <StatCard title="Transactions Frais Livret" value="" count={stats.transactions_frais_livret} amount={`${stats.montant_transactions_frais_livret.toFixed(2)} HTG`} color="border-green-100" />
                     <StatCard title="Transactions Épargne Retrait" value="" count={stats.transactions_epargne_retrait} amount={`${stats.montant_transactions_epargne_retrait.toFixed(2)} HTG`} color="border-red-100" />
 

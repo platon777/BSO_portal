@@ -1,8 +1,13 @@
-import React, { useState } from 'react';
-import { TransactionEpargne, CompteEpargneAvecPersonne } from '../../types';
+import React, { useCallback, useState } from 'react';
+import { TransactionEpargne, CompteEpargneAvecPersonne, CompteEpargne, Personne } from '../../types';
 import { db } from '../../services/database';
 import Input from '../common/Input';
 import Select from '../common/Select';
+import AsyncSearchableSelect, {
+  AsyncSearchableOption,
+  LoadOptionsParams,
+  LoadOptionsResult,
+} from '../common/AsyncSearchableSelect';
 import { useAuthStore } from '../../stores/authStore';
 import toast from 'react-hot-toast';
 
@@ -18,6 +23,9 @@ const parseNumber = (value: string): number => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
 };
+
+const BENEFICIARY_PAGE_SIZE = 20;
+const SEARCH_MATCH_LIMIT = 120;
 
 const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteEpargne, transaction, onSave, onCancel }) => {
   const { profile } = useAuthStore();
@@ -39,6 +47,107 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
     const isNumber = ['montant', 'solde_declare', 'solde_avant_transaction_declare', 'solde_apres_transaction_declare', 'frais_auto', 'remise_client'].includes(name);
     setFormData(prev => ({ ...prev, [name]: isNumber ? parseNumber(value) : value }));
   };
+
+  const handleBeneficiaryChange = (beneficiaryAccount: string | null) => {
+    setFormData(prev => ({ ...prev, virement_to: beneficiaryAccount || undefined }));
+  };
+
+  const buildBeneficiaryOptionsFromComptes = useCallback(async (comptes: CompteEpargne[]): Promise<AsyncSearchableOption[]> => {
+    if (comptes.length === 0) return [];
+
+    const personIds = Array.from(new Set(comptes.map((compte) => compte.id_personne).filter(Boolean)));
+    const persons = personIds.length > 0
+      ? await db.personnes.where('id_personne').anyOf(personIds).toArray()
+      : [];
+    const personById = new Map<string, Personne>(persons.map((person) => [person.id_personne, person]));
+
+    return comptes.map((compte) => {
+      const person = personById.get(compte.id_personne);
+      const nomClient = person ? `${person.prenom} ${person.nom}` : 'Client inconnu';
+      const codeClient = person?.code_client || '-';
+      const codeAncien = compte.no_compte_ancien || '-';
+      return {
+        id: compte.no_compte,
+        label: compte.no_compte,
+        subLabel: `${nomClient} | Code: ${codeClient} | Code ancien: ${codeAncien}`,
+      };
+    });
+  }, []);
+
+  const loadBeneficiaryOptions = useCallback(async ({ search, offset, limit }: LoadOptionsParams): Promise<LoadOptionsResult> => {
+    const trimmedSearch = search.trim();
+    const effectiveLimit = Math.max(limit, BENEFICIARY_PAGE_SIZE);
+
+    if (!trimmedSearch) {
+      const rawComptes = await db.comptes_epargne
+        .orderBy('date_creation')
+        .reverse()
+        .offset(offset)
+        .limit(effectiveLimit + 1)
+        .toArray();
+
+      const filteredComptes = rawComptes.filter((compte) => compte.id_compte_epargne !== compteEpargne.id_compte_epargne);
+      const pageComptes = filteredComptes.slice(0, effectiveLimit);
+      const options = await buildBeneficiaryOptionsFromComptes(pageComptes);
+
+      return {
+        options,
+        hasMore: rawComptes.length > effectiveLimit,
+      };
+    }
+
+    const [byNoCompte, byAncienCode, personsByCode, personsByPrenom, personsByNom] = await Promise.all([
+      db.comptes_epargne.where('no_compte').startsWithIgnoreCase(trimmedSearch).limit(SEARCH_MATCH_LIMIT).toArray(),
+      db.comptes_epargne.where('no_compte_ancien').startsWithIgnoreCase(trimmedSearch).limit(SEARCH_MATCH_LIMIT).toArray(),
+      db.personnes.where('code_client').startsWithIgnoreCase(trimmedSearch).limit(SEARCH_MATCH_LIMIT).toArray(),
+      db.personnes.where('prenom').startsWithIgnoreCase(trimmedSearch).limit(SEARCH_MATCH_LIMIT).toArray(),
+      db.personnes.where('nom').startsWithIgnoreCase(trimmedSearch).limit(SEARCH_MATCH_LIMIT).toArray(),
+    ]);
+
+    const personIdSet = new Set<string>();
+    [...personsByCode, ...personsByPrenom, ...personsByNom].forEach((person: Personne) => personIdSet.add(person.id_personne));
+
+    let byPerson: CompteEpargne[] = [];
+    if (personIdSet.size > 0) {
+      byPerson = await db.comptes_epargne.where('id_personne').anyOf(Array.from(personIdSet)).toArray();
+    }
+
+    const uniqueComptes = new Map<string, CompteEpargne>();
+    [...byNoCompte, ...byAncienCode, ...byPerson].forEach((compte) => {
+      if (compte.id_compte_epargne === compteEpargne.id_compte_epargne) return;
+      uniqueComptes.set(compte.id_compte_epargne, compte);
+    });
+
+    const sortedComptes = Array.from(uniqueComptes.values()).sort((a, b) =>
+      new Date(b.date_creation || 0).getTime() - new Date(a.date_creation || 0).getTime()
+    );
+
+    const pageSlice = sortedComptes.slice(offset, offset + effectiveLimit + 1);
+    const pageComptes = pageSlice.slice(0, effectiveLimit);
+    const options = await buildBeneficiaryOptionsFromComptes(pageComptes);
+
+    return {
+      options,
+      hasMore: pageSlice.length > effectiveLimit,
+    };
+  }, [buildBeneficiaryOptionsFromComptes, compteEpargne.id_compte_epargne]);
+
+  const resolveBeneficiaryValue = useCallback(async (value: string): Promise<AsyncSearchableOption | null> => {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+
+    const compte = await db.comptes_epargne.where('no_compte').equals(trimmed).first();
+    if (!compte) {
+      return {
+        id: trimmed,
+        label: trimmed,
+        subLabel: 'Compte non repertorie localement',
+      };
+    }
+
+    const [option] = await buildBeneficiaryOptionsFromComptes([compte]);
+    return option || null;
+  }, [buildBeneficiaryOptionsFromComptes]);
 
   const validateBeforeSubmit = () => {
     if (!formData.type_transaction) {
@@ -154,7 +263,16 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
       {formData.type_transaction === 'V' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input type="text" label="Compte emetteur" name="virement_from" value={formData.virement_from ?? compteEpargne.no_compte} onChange={handleChange} required />
-          <Input type="text" label="Compte beneficiaire" name="virement_to" value={formData.virement_to ?? ''} onChange={handleChange} required />
+          <AsyncSearchableSelect
+            label="Compte beneficiaire"
+            value={formData.virement_to || null}
+            onChange={handleBeneficiaryChange}
+            loadOptions={loadBeneficiaryOptions}
+            resolveValue={resolveBeneficiaryValue}
+            placeholder="Rechercher par nom, code client ou code ancien..."
+            pageSize={BENEFICIARY_PAGE_SIZE}
+            required
+          />
         </div>
       )}
 
