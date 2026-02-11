@@ -3,6 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../services/database';
 import { copyToClipboard } from '../utils/clipboard';
 import SecureWrapper from '../components/common/SecureWrapper';
+import { getCreditFinalCapital } from '../utils/creditCalculations';
 
 interface CompteEpargneDetailsProps {
   compteId: string;
@@ -152,7 +153,7 @@ const CompteEpargneDetails: React.FC<CompteEpargneDetailsProps> = ({ compteId, o
               <div key={credit.id_compte_credit} className="p-3 rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-between gap-3">
                 <div>
                   <p className="font-medium text-gray-900">{credit.no_compte}</p>
-                  <p className="text-xs text-gray-600">Montant prete: {formatValue(credit.montant_prete)} HTG</p>
+                  <p className="text-xs text-gray-600">Capital final: {formatValue(getCreditFinalCapital(credit))} HTG</p>
                 </div>
                 {onOpenCreditDetails && (
                   <button

@@ -4,6 +4,7 @@ import { db } from '../../services/database';
 import Input from '../common/Input';
 import Select from '../common/Select';
 import { useAuthStore } from '../../stores/authStore';
+import toast from 'react-hot-toast';
 
 interface TransactionEpargneFormProps {
   compteEpargne: CompteEpargneAvecPersonne;
@@ -12,19 +13,53 @@ interface TransactionEpargneFormProps {
   onCancel: () => void;
 }
 
+const parseNumber = (value: string): number => {
+  if (value === '' || value === null || value === undefined) return 0;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
 const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteEpargne, transaction, onSave, onCancel }) => {
   const { profile } = useAuthStore();
   const [formData, setFormData] = useState<Partial<TransactionEpargne>>(transaction || {
     id_compte_epargne: compteEpargne.id_compte_epargne,
     no_compte: compteEpargne.no_compte,
+    categorie_compte_epargne: compteEpargne.categorie_compte_epargne,
+    virement_from: compteEpargne.no_compte,
+    frais_auto: 0,
+    remise_client: 0,
+    monnaie_client: 'HTG',
     solde_avant_transaction: compteEpargne.solde_actuel,
     solde_avant_transaction_declare: compteEpargne.solde_actuel,
+    solde_apres_transaction_declare: compteEpargne.solde_actuel,
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    const isNumber = ['montant', 'solde_declare', 'solde_avant_transaction_declare', 'solde_apres_transaction_declare'].includes(name);
-    setFormData(prev => ({ ...prev, [name]: isNumber ? parseFloat(value) || 0 : value }));
+    const isNumber = ['montant', 'solde_declare', 'solde_avant_transaction_declare', 'solde_apres_transaction_declare', 'frais_auto', 'remise_client'].includes(name);
+    setFormData(prev => ({ ...prev, [name]: isNumber ? parseNumber(value) : value }));
+  };
+
+  const validateBeforeSubmit = () => {
+    if (!formData.type_transaction) {
+      toast.error('Type de transaction est obligatoire.');
+      return false;
+    }
+
+    const computedMontant = Number(formData.montant ?? 0);
+    if (computedMontant <= 0) {
+      toast.error('Montant doit etre superieur a zero.');
+      return false;
+    }
+
+    if (formData.type_transaction === 'V') {
+      if (!String(formData.virement_from || '').trim() || !String(formData.virement_to || '').trim()) {
+        toast.error('Virement requiert compte emetteur et compte beneficiaire.');
+        return false;
+      }
+    }
+
+    return true;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -32,7 +67,11 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
 
     const userId = profile?.user_id;
     if (!userId) {
-      alert('Erreur: Utilisateur non connecte');
+      toast.error('Erreur: utilisateur non connecte');
+      return;
+    }
+
+    if (!validateBeforeSubmit()) {
       return;
     }
 
@@ -41,16 +80,10 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
 
     if (formData.type_transaction === 'D') {
       solde_apres_transactions += montant;
-    } else if (formData.type_transaction === 'R') {
+    } else if (formData.type_transaction === 'R' || formData.type_transaction === 'FL' || formData.type_transaction === 'S' || formData.type_transaction === 'V') {
       solde_apres_transactions -= montant;
       if (solde_apres_transactions < 0) {
-        alert(`Solde insuffisant pour ce retrait. Solde disponible: ${formData.solde_avant_transaction || 0}`);
-        return;
-      }
-    } else if (formData.type_transaction === 'FL' || formData.type_transaction === 'S') {
-      solde_apres_transactions -= montant;
-      if (solde_apres_transactions < 0) {
-        alert(`Solde insuffisant pour ces frais. Solde disponible: ${formData.solde_avant_transaction || 0}`);
+        toast.error(`Solde insuffisant. Solde disponible: ${formData.solde_avant_transaction || 0}`);
         return;
       }
     }
@@ -62,17 +95,25 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
         updated_at: new Date().toISOString()
       });
     } else {
+      const nowIso = new Date().toISOString();
       const newTransaction: Omit<TransactionEpargne, 'id_transaction_epargne'> = {
         id_compte_epargne: formData.id_compte_epargne!,
         no_compte: formData.no_compte!,
         type_transaction: formData.type_transaction!,
         montant: formData.montant!,
+        categorie_compte_epargne: formData.categorie_compte_epargne,
+        solde_declare: formData.solde_declare,
+        virement_from: formData.virement_from,
+        virement_to: formData.virement_to,
+        frais_auto: formData.frais_auto,
+        monnaie_client: formData.monnaie_client,
+        remise_client: formData.remise_client,
         solde_avant_transaction: formData.solde_avant_transaction!,
         solde_avant_transaction_declare: formData.solde_avant_transaction_declare!,
         solde_apres_transaction_declare: formData.solde_apres_transaction_declare!,
-        date_transaction: new Date().toISOString(),
+        date_transaction: nowIso,
         created_by: userId,
-        created_at: new Date().toISOString(),
+        created_at: nowIso,
         solde_apres_transactions
       };
 
@@ -80,7 +121,7 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
 
       await db.updateRecord('comptes_epargne', formData.id_compte_epargne!, {
         solde_actuel: solde_apres_transactions,
-        updated_at: new Date().toISOString()
+        updated_at: nowIso
       });
     }
 
@@ -92,19 +133,45 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
       <Input name="client" label="Client" value={`${compteEpargne.personne?.prenom} ${compteEpargne.personne?.nom}`} readOnly disabled />
       <Input name="no_compte_epargne" label="Compte Epargne" value={compteEpargne.no_compte} readOnly disabled />
 
+      <Select label="Categorie Compte Epargne" name="categorie_compte_epargne" value={formData.categorie_compte_epargne || ''} onChange={handleChange}>
+        <option value="">Selectionner...</option>
+        <option value="Epargne">Epargne</option>
+        <option value="Fonds Garantie">Fonds Garantie</option>
+        <option value="Grandon">Grandon</option>
+      </Select>
+
       <Select label="Type de transaction" name="type_transaction" value={formData.type_transaction || ''} onChange={handleChange} required>
         <option value="">Selectionner le type</option>
         <option value="D">Depot</option>
         <option value="R">Retrait</option>
-        <option value="FL">Frais Livret</option>
-        <option value="S">Frais service</option>
+        <option value="FL">Nouveau Livret</option>
+        <option value="S">Frais Auto</option>
+        <option value="V">Virement</option>
       </Select>
 
-      <Input type="number" label="Montant" name="montant" value={formData.montant ?? ''} onChange={handleChange} required />
+      <Input type="number" label="Montant" name="montant" value={formData.montant ?? ''} onChange={handleChange} required step="0.01" />
+
+      {formData.type_transaction === 'V' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Input type="text" label="Compte emetteur" name="virement_from" value={formData.virement_from ?? compteEpargne.no_compte} onChange={handleChange} required />
+          <Input type="text" label="Compte beneficiaire" name="virement_to" value={formData.virement_to ?? ''} onChange={handleChange} required />
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Input type="number" label="Frais Auto" name="frais_auto" value={formData.frais_auto ?? 0} onChange={handleChange} step="0.01" />
+
+        <Select label="Monnaie Client" name="monnaie_client" value={formData.monnaie_client || 'HTG'} onChange={handleChange}>
+          <option value="HTG">HTG</option>
+          <option value="USD">USD</option>
+        </Select>
+
+        <Input type="number" label="Remise Client" name="remise_client" value={formData.remise_client ?? 0} onChange={handleChange} step="0.01" />
+      </div>
 
       <div className="grid grid-cols-2 gap-4">
-        <Input type="number" label="Solde Avant Declare" name="solde_avant_transaction_declare" value={formData.solde_avant_transaction_declare ?? ''} onChange={handleChange} required />
-        <Input type="number" label="Solde Apres Declare" name="solde_apres_transaction_declare" value={formData.solde_apres_transaction_declare ?? ''} onChange={handleChange} required />
+        <Input type="number" label="Solde Avant Declare" name="solde_avant_transaction_declare" value={formData.solde_avant_transaction_declare ?? 0} onChange={handleChange} required step="0.01" />
+        <Input type="number" label="Solde Apres Declare" name="solde_apres_transaction_declare" value={formData.solde_apres_transaction_declare ?? 0} onChange={handleChange} required step="0.01" />
       </div>
 
       <div className="pt-4 flex flex-col-reverse sm:flex-row sm:justify-end gap-2">

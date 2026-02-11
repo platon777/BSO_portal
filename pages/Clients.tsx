@@ -243,7 +243,7 @@ const Clients: React.FC<ClientsProps> = ({ onViewDetails }) => {
                             </div>
                             <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm mb-3">
                                 <div><span className="text-gray-500 text-xs">Tel</span><p className="text-gray-900">{client.numero_telephone}</p></div>
-                                <div><span className="text-gray-500 text-xs">NIF/CIN</span><p className="text-gray-600">{client.nif_cin || '-'}</p></div>
+                                <div><span className="text-gray-500 text-xs">Lieu travail</span><p className="text-gray-600">{client.lieu_de_travail || '-'}</p></div>
                                 <div><span className="text-gray-500 text-xs">Agent</span><p className="text-gray-700 truncate">{getAgentName(client.created_by)}</p></div>
                                 <div><span className="text-gray-500 text-xs">Date</span><p className="text-gray-600">{new Date(client.date_creation).toLocaleDateString('fr-FR')}</p></div>
                             </div>
@@ -282,7 +282,7 @@ const Clients: React.FC<ClientsProps> = ({ onViewDetails }) => {
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Photo</th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nom & Prenom</th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Telephone</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">NIF/CIN</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Lieu travail</th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Adresse</th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Occupation</th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date creation</th>
@@ -307,7 +307,7 @@ const Clients: React.FC<ClientsProps> = ({ onViewDetails }) => {
                                             </button>
                                         </td>
                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{client.numero_telephone}</td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{client.nif_cin || '-'}</td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{client.lieu_de_travail || '-'}</td>
                                         <td className="px-4 py-3 text-sm text-gray-600 max-w-xs truncate">{client.adresse || '-'}</td>
                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{client.occupation || '-'}</td>
                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{new Date(client.date_creation).toLocaleDateString('fr-FR')}</td>

@@ -3,6 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../services/database';
 import { copyToClipboard } from '../utils/clipboard';
 import SecureWrapper from '../components/common/SecureWrapper';
+import { getCreditFinalCapital, getCreditMontantRestant, getCreditTotalRembourse } from '../utils/creditCalculations';
 
 interface CompteCreditDetailsProps {
   compteId: string;
@@ -82,9 +83,9 @@ const CompteCreditDetails: React.FC<CompteCreditDetailsProps> = ({ compteId, onB
   }
 
   const { compte, personne, compteEpargne, transactions } = data;
-  const paiementManuel = compte.montant_deja_paye_manuellement || 0;
-  const totalRembourse = (compte.paiement_rembourse || 0) + paiementManuel;
-  const montantRestant = (compte.montant_prete || 0) - totalRembourse;
+  const totalRembourse = getCreditTotalRembourse(compte);
+  const capitalFinal = getCreditFinalCapital(compte);
+  const montantRestant = getCreditMontantRestant(compte);
 
   const detailItems: Array<{ label: string; value: unknown }> = [
     { label: 'ID compte', value: compte.id_compte_credit },
@@ -93,7 +94,8 @@ const CompteCreditDetails: React.FC<CompteCreditDetailsProps> = ({ compteId, onB
     { label: 'Code ancien', value: compte.ancien_code },
     { label: 'ID compte epargne', value: compte.id_compte_epargne },
     { label: 'Montant prete', value: compte.montant_prete },
-    { label: 'Taux interet (%)', value: compte.taux_interet },
+    { label: 'Capital final calcule', value: capitalFinal },
+    { label: 'Taux interet (decimal)', value: compte.taux_interet },
     { label: 'Paiement journalier', value: compte.paiement_journalier },
     { label: 'Duree (mois)', value: compte.duree_credit_mois },
     { label: 'Fonds garantie', value: compte.fonds_garantie },

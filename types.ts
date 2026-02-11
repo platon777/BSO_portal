@@ -35,9 +35,12 @@ export interface CompteEpargne {
   no_compte: string;
   no_compte_ancien?: string;
   id_plan?: number;
+  type_compte_epargne?: 'Compte Upgrade' | 'Compte Staff' | 'Compte Bloque';
+  categorie_compte_epargne?: 'Epargne' | 'Fonds Garantie' | 'Grandon';
+  photo_personne_autorisee?: string;
   solde_actuel: number;
   fonds_garantie: number;
-  statut?: 'Actif' | 'Inactif' | 'Fermé';
+  statut?: 'Actif' | 'Inactif' | 'Ferme' | 'Fermé';
   date_creation: string;
   succursale?: string;
   duree?: number;
@@ -64,13 +67,15 @@ export interface CompteCredit {
   fonds_garantie: number;
   penalites: number;
   date_creation: string;
+  date_debut?: string;
+  date_fin?: string;
   created_at: string;
   created_by: string;
   updated_by?: string;
   paiement_rembourse: number;
   montant_deja_paye_manuellement?: number;
   updated_at?: string;
-  statut?: 'Actif' | 'Payé' | 'En retard' | 'Fermé';
+  statut?: 'Actif' | 'Paye' | 'Payé' | 'En retard' | 'Ferme' | 'Fermé';
 }
 
 export interface TransactionCredit {
@@ -93,10 +98,15 @@ export interface TransactionEpargne {
   id_transaction_epargne: string;
   id_compte_epargne: string;
   no_compte: string;
-  type_transaction: 'D' | 'R' | 'FL' | 'S'; // Dépôt, Retrait, Frais Livret, Frais Service
+  type_transaction: 'D' | 'R' | 'FL' | 'S' | 'V'; // Depot, Retrait, Nouveau Livret, Frais Auto, Virement
   montant: number;
+  categorie_compte_epargne?: string;
   solde_declare?: number;
   virement_from?: string;
+  virement_to?: string;
+  frais_auto?: number;
+  monnaie_client?: string;
+  remise_client?: number;
   type_frais_livret?: string;
   solde_avant_transaction: number;
   solde_avant_transaction_declare: number;
@@ -133,9 +143,10 @@ export interface CompteCreditEnriched extends CompteCredit {
 // Enriched transactions with client ID for access control
 export interface TransactionEpargneEnriched extends TransactionEpargne {
   id_personne?: string;
+  client_name?: string;
 }
 
 export interface TransactionCreditEnriched extends TransactionCredit {
   id_personne?: string;
+  client_name?: string;
 }
-

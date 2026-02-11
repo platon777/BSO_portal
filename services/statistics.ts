@@ -54,7 +54,7 @@ const filterByDateAndUser = <T extends {
   fonds_garantie?: number;
   solde_actuel?: number;
   montant?: number;
-  type_transaction?: 'Paiement' | 'Penalite' | 'Garantie' | 'D' | 'R' | 'FL' | 'S';
+  type_transaction?: 'Paiement' | 'Penalite' | 'Garantie' | 'D' | 'R' | 'FL' | 'S' | 'V';
 }>(
   items: T[],
   dateField: keyof T,

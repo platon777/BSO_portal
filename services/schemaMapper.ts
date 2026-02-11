@@ -133,7 +133,7 @@ const mapSupabaseToPersonne = (data: any): Personne => {
     ...data,
     created_by: data.created_by ? String(data.created_by) : '',
     updated_by: data.updated_by ? String(data.updated_by) : undefined,
-    piece_identification: data.piece_identification || '',
+    piece_identification: getIdentificationTypeName(data.piece_identification),
     id_plan: undefined, // Not in Supabase schema
     montant: undefined, // Not in Supabase schema
   };
@@ -148,7 +148,9 @@ const mapCompteEpargneToSupabase = (compte: CompteEpargne, userId: string): any 
     created_by: userId,
     updated_by: userId,
     succursale: compte.succursale ? parseInt(String(compte.succursale)) : null,
-    piece_identification_allowed: compte.piece_identification_allowed ? parseInt(String(compte.piece_identification_allowed)) : null,
+    piece_identification_allowed: compte.piece_identification_allowed
+      ? getIdentificationTypeId(String(compte.piece_identification_allowed))
+      : null,
     // Do NOT send statut or solde_actuel - these are managed by Supabase
   };
 };
@@ -159,7 +161,10 @@ const mapSupabaseToCompteEpargne = (data: any): CompteEpargne => {
     created_by: data.created_by || '',
     updated_by: data.updated_by || undefined,
     succursale: data.succursale ? String(data.succursale) : undefined,
-    piece_identification_allowed: data.piece_identification_allowed ? String(data.piece_identification_allowed) : undefined,
+    piece_identification_allowed: getIdentificationTypeName(data.piece_identification_allowed),
+    type_compte_epargne: data.type_compte_epargne || undefined,
+    categorie_compte_epargne: data.categorie_compte_epargne || undefined,
+    photo_personne_autorisee: data.photo_personne_autorisee || undefined,
     statut: 'Actif', // Default status, not in Supabase schema
     solde_actuel: data.solde_actuel || 0, // Ensure we have a value
   };
@@ -176,8 +181,8 @@ const mapCompteCreditToSupabase = (compte: CompteCredit, userId: string): any =>
     updated_by: userId,
     collecteur: null, // Field not in local schema
     cycle: compte.no_compte || null,
-    date_debut: compte.date_creation || null,
-    date_fin: null,
+    date_debut: compte.date_debut || compte.date_creation || null,
+    date_fin: compte.date_fin || null,
     // Do NOT send paiement_rembourse, montant_final, montant_restant, or statut
     // These are computed/managed by Supabase automatically
   };
@@ -197,6 +202,8 @@ const mapSupabaseToCompteCredit = (data: any): CompteCredit => {
     fonds_garantie: data.fonds_garantie || 0,
     penalites: data.penalites || 0,
     date_creation: data.date_creation || data.created_at,
+    date_debut: data.date_debut || undefined,
+    date_fin: data.date_fin || undefined,
     created_at: data.created_at,
     created_by: data.created_by || '',
     updated_by: data.updated_by || undefined,
@@ -225,6 +232,11 @@ const mapSupabaseToTransactionEpargne = (data: any): TransactionEpargne => {
   return {
     ...data,
     created_by: data.created_by || '',
+    categorie_compte_epargne: data.categorie_compte_epargne || undefined,
+    virement_to: data.virement_to || undefined,
+    frais_auto: data.frais_auto || 0,
+    monnaie_client: data.monnaie_client || undefined,
+    remise_client: data.remise_client || 0,
     solde_apres_transactions: data.solde_apres_transactions,
     solde_avant_transaction_declare: data.solde_avant_transaction_declare || 0,
     solde_apres_transaction_declare: data.solde_apres_transaction_declare || 0,
@@ -269,6 +281,16 @@ const getIdentificationTypeId = (type: string): number | null => {
     'Passeport': 3,
   };
   return typeMap[type] || null;
+};
+
+const getIdentificationTypeName = (value: unknown): 'NIF' | 'CIN' | 'Passeport' | '' => {
+  if (value === null || value === undefined || value === '') return '';
+
+  const str = String(value).trim();
+  if (str === '1' || str.toUpperCase() === 'NIF') return 'NIF';
+  if (str === '2' || str.toUpperCase() === 'CIN') return 'CIN';
+  if (str === '3' || str.toUpperCase() === 'PASSEPORT') return 'Passeport';
+  return '';
 };
 
 /**
