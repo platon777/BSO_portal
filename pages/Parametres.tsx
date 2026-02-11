@@ -14,7 +14,7 @@ import toast from 'react-hot-toast';
 import Dexie from 'dexie';
 
 const StatCard: React.FC<{ title: string; value: string | number; count?: number; amount?: string; color: string }> = ({ title, value, count, amount, color }) => (
-    <div className={`bg-white p-4 rounded-lg shadow-md border-l-4 ${color} min-w-[200px] sm:min-w-0 shrink-0 sm:shrink`}>
+    <div className={`bg-white p-4 rounded-lg shadow-md border-l-4 ${color} w-full`}>
         <h3 className="text-sm font-medium text-gray-500">{title}</h3>
         {count !== undefined && amount !== undefined ? (
             <>
@@ -492,7 +492,7 @@ const Parametres: React.FC = () => {
                         <option value="all">Tout</option>
                     </select>
                 </div>
-                <div className="flex overflow-x-auto gap-3 pb-2 scrollbar-hide -mx-3 px-3 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-2 lg:grid-cols-3 sm:gap-4 sm:overflow-visible">
+                <div className="grid grid-cols-2 gap-3 sm:gap-4 max-h-[60vh] overflow-y-auto overscroll-contain p-2 sm:p-3 pr-2 pb-24 md:pb-3">
                     {/* Comptes créés */}
                     <StatCard title="Comptes Crédit Créés" value="" count={stats.comptes_credit_crees} amount="0,00 HTG" color="border-blue-100" />
                     <StatCard title="Comptes Épargne Créés" value="" count={stats.comptes_epargne_crees} amount="0,00 HTG" color="border-blue-100" />
