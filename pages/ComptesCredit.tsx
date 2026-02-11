@@ -20,6 +20,7 @@ import { copyToClipboard } from '../utils/clipboard';
 import { getCreditFinalCapital, getCreditMontantRestant, getCreditTotalRembourse } from '../utils/creditCalculations';
 
 type SortOption = 'created_desc' | 'created_asc' | 'updated_desc' | 'updated_asc';
+type ViewMode = 'comptes' | 'transactions';
 
 interface ComptesCreditProps {
   onViewDetails?: (id: string) => void;
@@ -49,6 +50,7 @@ const ComptesCredit: React.FC<ComptesCreditProps> = ({ onViewDetails }) => {
   const canViewBalances = profile?.role === UserRole.ADMIN;
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOption, setSortOption] = useState<SortOption>('created_desc');
+  const [activeView, setActiveView] = useState<ViewMode>('comptes');
   const [currentPageComptes, setCurrentPageComptes] = useState(1);
   const [itemsPerPageComptes, setItemsPerPageComptes] = useState(10);
   const [currentPageTransactions, setCurrentPageTransactions] = useState(1);
@@ -254,6 +256,24 @@ const ComptesCredit: React.FC<ComptesCreditProps> = ({ onViewDetails }) => {
   return (
     <SecureWrapper>
       <div className="space-y-6">
+        <div className="bg-white rounded-lg border border-gray-200 p-1 inline-flex w-full sm:w-auto">
+          <button
+            type="button"
+            onClick={() => setActiveView('comptes')}
+            className={`flex-1 sm:flex-none px-4 py-2 text-sm font-medium rounded-md transition-colors ${activeView === 'comptes' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
+          >
+            Comptes ({sortedComptes.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveView('transactions')}
+            className={`flex-1 sm:flex-none px-4 py-2 text-sm font-medium rounded-md transition-colors ${activeView === 'transactions' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
+          >
+            Transactions ({data?.transactions?.length || 0})
+          </button>
+        </div>
+
+        {activeView === 'comptes' && (
         <div>
           <div className="flex justify-between items-center mb-4">
             <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Comptes de Credit</h1>
@@ -315,6 +335,7 @@ const ComptesCredit: React.FC<ComptesCreditProps> = ({ onViewDetails }) => {
                     <div><span className="text-gray-500 text-xs">Date fin</span><p>{compte.date_fin ? new Date(compte.date_fin).toLocaleDateString('fr-FR') : '-'}</p></div>
                     <div><span className="text-gray-500 text-xs">Versements rates</span><p>{missedPayments}</p></div>
                     <div><span className="text-gray-500 text-xs">Code ancien</span><p>{compte.ancien_code || '-'}</p></div>
+                    <div><span className="text-gray-500 text-xs">Paiement/Jour</span><p>{(compte.paiement_journalier || 0).toFixed(2)}</p></div>
                     <div><span className="text-gray-500 text-xs">Agent</span><p className="truncate">{getAgentName(compte.created_by)}</p></div>
                   </div>
 
@@ -384,7 +405,9 @@ const ComptesCredit: React.FC<ComptesCreditProps> = ({ onViewDetails }) => {
 
           <FAB onClick={handleAddCompte} label="Creer un compte credit" />
         </div>
+        )}
 
+        {activeView === 'transactions' && (
         <div>
           <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-4">Dernieres Transactions Credit</h2>
 
@@ -455,6 +478,7 @@ const ComptesCredit: React.FC<ComptesCreditProps> = ({ onViewDetails }) => {
             <Pagination currentPage={currentPageTransactions} totalPages={totalPagesTransactions} onPageChange={setCurrentPageTransactions} itemsPerPage={itemsPerPageTransactions} totalItems={data?.transactions?.length || 0} onItemsPerPageChange={(v) => { setItemsPerPageTransactions(v); setCurrentPageTransactions(1); }} />
           </div>
         </div>
+        )}
       </div>
     </SecureWrapper>
   );

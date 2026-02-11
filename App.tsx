@@ -50,14 +50,53 @@ const App: React.FC = () => {
   const { isAuthenticated, isLoading, initialize } = useAuthStore();
 
   useEffect(() => {
-    // Initialize authentication
-    initialize();
+    const APP_BUILD_VERSION = '2026-02-11-credit-fix-hotpatch-1';
+    const APP_BUILD_VERSION_KEY = 'bso_app_build_version';
 
-    // Populate database with fake data on first load
-    seedDatabase();
+    const refreshPwaBundleIfNeeded = async (): Promise<boolean> => {
+      const previousVersion = localStorage.getItem(APP_BUILD_VERSION_KEY);
+      if (previousVersion === APP_BUILD_VERSION) {
+        return false;
+      }
 
-    // Service Worker is now auto-registered by vite-plugin-pwa
-    console.log('[App] PWA initialized - Service Worker auto-registered');
+      localStorage.setItem(APP_BUILD_VERSION_KEY, APP_BUILD_VERSION);
+
+      // First install: no forced reload needed.
+      if (!previousVersion) {
+        return false;
+      }
+
+      try {
+        if ('serviceWorker' in navigator) {
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(registrations.map((registration) => registration.unregister()));
+        }
+
+        if ('caches' in window) {
+          const cacheNames = await caches.keys();
+          await Promise.all(cacheNames.map((cacheName) => caches.delete(cacheName)));
+        }
+      } catch (error) {
+        console.warn('[App] Failed to fully refresh PWA cache', error);
+      }
+
+      window.location.reload();
+      return true;
+    };
+
+    (async () => {
+      const didReload = await refreshPwaBundleIfNeeded();
+      if (didReload) return;
+
+      // Initialize authentication
+      initialize();
+
+      // Populate database with fake data on first load
+      seedDatabase();
+
+      // Service Worker is now auto-registered by vite-plugin-pwa
+      console.log('[App] PWA initialized - Service Worker auto-registered');
+    })();
   }, [initialize]);
 
   // Update navigate function

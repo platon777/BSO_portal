@@ -26,6 +26,22 @@ const toDateInput = (value?: string): string => {
   return value.includes('T') ? value.split('T')[0] : value;
 };
 
+const normalizeRatePercentForForm = (value: unknown): number => {
+  const num = parseNumber(String(value ?? ''));
+  if (num > 0 && num < 1) {
+    return Number((num * 100).toFixed(4));
+  }
+  if (num > 100 && num <= 10000) {
+    return Number((num / 100).toFixed(4));
+  }
+  return num;
+};
+
+const normalizeRatePercentForStorage = (value: unknown): number => {
+  const normalized = normalizeRatePercentForForm(value);
+  return Math.max(0, Math.round(normalized));
+};
+
 const CompteCreditForm: React.FC<CompteCreditFormProps> = ({ compte, onSave, onCancel }) => {
   const { profile } = useAuthStore();
   const [formData, setFormData] = useState<Partial<CompteCredit>>({});
@@ -35,13 +51,15 @@ const CompteCreditForm: React.FC<CompteCreditFormProps> = ({ compte, onSave, onC
 
   useEffect(() => {
     if (compte) {
-      setFormData(compte);
+      setFormData({
+        ...compte,
+        taux_interet: normalizeRatePercentForForm(compte.taux_interet),
+      });
     } else {
       const nowIso = new Date().toISOString();
       setFormData({
         paiement_rembourse: 0,
         montant_deja_paye_manuellement: 0,
-        fonds_garantie: 0,
         penalites: 0,
         statut: 'Actif',
         date_debut: nowIso,
@@ -59,7 +77,7 @@ const CompteCreditForm: React.FC<CompteCreditFormProps> = ({ compte, onSave, onC
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    const isNumber = ['montant_prete', 'duree_credit_mois', 'taux_interet', 'fonds_garantie', 'paiement_journalier', 'penalites', 'montant_deja_paye_manuellement'].includes(name);
+    const isNumber = ['montant_prete', 'duree_credit_mois', 'taux_interet', 'paiement_journalier', 'penalites', 'montant_deja_paye_manuellement'].includes(name);
     setFormData(prev => ({ ...prev, [name]: isNumber ? parseNumber(value) : value }));
   };
 
@@ -89,9 +107,8 @@ const CompteCreditForm: React.FC<CompteCreditFormProps> = ({ compte, onSave, onC
     const requiredNumberFields: Array<{ key: keyof CompteCredit; label: string; gtZero?: boolean }> = [
       { key: 'montant_prete', label: 'Montant prete', gtZero: true },
       { key: 'duree_credit_mois', label: 'Duree (mois)', gtZero: true },
-      { key: 'taux_interet', label: 'Taux interet' },
+      { key: 'taux_interet', label: 'Taux interet mensuel (%)', gtZero: true },
       { key: 'paiement_journalier', label: 'Paiement journalier', gtZero: true },
-      { key: 'fonds_garantie', label: 'Fonds garantie' },
       { key: 'penalites', label: 'Penalites' },
     ];
 
@@ -151,9 +168,12 @@ const CompteCreditForm: React.FC<CompteCreditFormProps> = ({ compte, onSave, onC
       }
     }
 
+    const normalizedRate = normalizeRatePercentForStorage(formData.taux_interet);
+
     if (compte && compte.id_compte_credit) {
       await db.updateRecord('comptes_credit', compte.id_compte_credit, {
         ...formData,
+        taux_interet: normalizedRate,
         updated_by: userId,
         updated_at: new Date().toISOString()
       });
@@ -172,11 +192,11 @@ const CompteCreditForm: React.FC<CompteCreditFormProps> = ({ compte, onSave, onC
         ancien_code: formData.ancien_code,
         montant_prete: Number(formData.montant_prete),
         duree_credit_mois: Number(formData.duree_credit_mois),
-        taux_interet: Number(formData.taux_interet),
+        taux_interet: normalizedRate,
         paiement_journalier: Number(formData.paiement_journalier),
         paiement_rembourse: 0,
         montant_deja_paye_manuellement: formData.montant_deja_paye_manuellement ?? 0,
-        fonds_garantie: Number(formData.fonds_garantie),
+        fonds_garantie: 0,
         penalites: Number(formData.penalites),
         statut: 'Actif',
         date_creation: nowIso,
@@ -216,9 +236,8 @@ const CompteCreditForm: React.FC<CompteCreditFormProps> = ({ compte, onSave, onC
         <Input type="number" label="Montant Prete" name="montant_prete" value={formData.montant_prete ?? ''} onChange={handleChange} required step="0.01" />
         <Input type="number" label="Montant Deja Paye (Manuel)" name="montant_deja_paye_manuellement" value={formData.montant_deja_paye_manuellement ?? 0} onChange={handleChange} step="0.01" />
         <Input type="number" label="Duree (mois)" name="duree_credit_mois" value={formData.duree_credit_mois ?? ''} onChange={handleChange} required />
-        <Input type="number" label="Taux d'interet (decimal)" name="taux_interet" value={formData.taux_interet ?? ''} onChange={handleChange} required step="0.01" />
+        <Input type="number" label="Taux d'interet mensuel (%)" name="taux_interet" value={formData.taux_interet ?? ''} onChange={handleChange} required step="1" min="0" />
         <Input type="number" label="Paiement Journalier" name="paiement_journalier" value={formData.paiement_journalier ?? ''} onChange={handleChange} required step="0.01" />
-        <Input type="number" label="Fonds de Garantie" name="fonds_garantie" value={formData.fonds_garantie ?? ''} onChange={handleChange} required step="0.01" />
         <Input type="number" label="Penalites" name="penalites" value={formData.penalites ?? ''} onChange={handleChange} required step="0.01" />
 
         <Input type="date" label="Date de debut" name="date_debut" value={toDateInput(formData.date_debut)} onChange={handleChange} required />

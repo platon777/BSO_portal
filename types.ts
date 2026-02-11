@@ -98,7 +98,7 @@ export interface TransactionEpargne {
   id_transaction_epargne: string;
   id_compte_epargne: string;
   no_compte: string;
-  type_transaction: 'D' | 'R' | 'FL' | 'S' | 'V'; // Depot, Retrait, Nouveau Livret, Frais Auto, Virement
+  type_transaction: 'D' | 'R' | 'FL' | 'S' | 'V'; // Depot, Retrait, Nouveau Livret, Frais Service, Virement
   montant: number;
   categorie_compte_epargne?: string;
   solde_declare?: number;

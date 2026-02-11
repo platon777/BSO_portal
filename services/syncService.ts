@@ -31,6 +31,7 @@ const MAX_RETRY_COUNT = 3;
 const PHOTO_BUCKET = 'bso';
 const PHOTO_CLIENT_FOLDER = 'photo_client';
 const PHOTO_AUTHORIZED_FOLDER = 'photo_client';
+const CREDIT_FULL_DOWNLOAD_FIX_KEY = 'bso_credit_fix_full_download_v20260211_1';
 
 // Table dependency order (important for foreign keys)
 const TABLE_ORDER = [
@@ -190,6 +191,17 @@ export const downloadUpdatesFromServer = async (
     const lastSyncStr = localStorage.getItem('bso_last_download_sync');
     let lastSyncTimestamp = lastSyncStr ? new Date(parseInt(lastSyncStr)) : null;
 
+    // Guard against invalid/future timestamps that can block incremental sync forever.
+    if (lastSyncTimestamp && Number.isNaN(lastSyncTimestamp.getTime())) {
+      lastSyncTimestamp = null;
+    } else if (
+      lastSyncTimestamp &&
+      lastSyncTimestamp.getTime() > Date.now() + 5 * 60 * 1000
+    ) {
+      console.warn('[Sync] last download timestamp is in the future, forcing full download');
+      lastSyncTimestamp = null;
+    }
+
     // Check if database is empty (force full download if so)
     const personnesCount = await db.personnes.count();
     const isEmptyDatabase = personnesCount === 0;
@@ -208,9 +220,13 @@ export const downloadUpdatesFromServer = async (
     const downloadType = lastSyncTimestamp ? 'incrémental' : 'complet';
     console.log(`[Sync] Starting ${downloadType} download`);
 
+    // One-time safety net: force a full re-download of credit accounts after rate formula fixes.
+    const shouldForceFullCreditDownload = localStorage.getItem(CREDIT_FULL_DOWNLOAD_FIX_KEY) !== '1';
+
     // Download each table in order
     for (let tableIndex = 0; tableIndex < TABLE_ORDER.length; tableIndex++) {
       const tableName = TABLE_ORDER[tableIndex];
+      const forceFullForTable = shouldForceFullCreditDownload && tableName === 'comptes_credit';
 
       if (onProgress) {
         const prefix = lastSyncTimestamp ? '📥' : '📦';
@@ -222,10 +238,14 @@ export const downloadUpdatesFromServer = async (
       }
 
       try {
-        const result = await downloadTable(tableName, lastSyncTimestamp);
+        const result = await downloadTable(tableName, lastSyncTimestamp, forceFullForTable);
         totalDownloaded += result.downloaded;
         totalAdded += result.added;
         totalUpdated += result.updated;
+
+        if (forceFullForTable) {
+          localStorage.setItem(CREDIT_FULL_DOWNLOAD_FIX_KEY, '1');
+        }
 
         if (onProgress) {
           const summary = `(+${totalAdded}, ~${totalUpdated})`;
@@ -576,12 +596,13 @@ const uploadImageFieldsIfNeeded = async (item: SyncQueueItem, mappedData: any): 
  */
 const downloadTable = async (
   tableName: string,
-  lastSyncTimestamp: Date | null
+  lastSyncTimestamp: Date | null,
+  forceFullDownload = false
 ): Promise<{ downloaded: number; added: number; updated: number }> => {
   let query = supabase.from(tableName).select('*');
 
   // Only get updated records if we have a last sync timestamp
-  if (lastSyncTimestamp) {
+  if (lastSyncTimestamp && !forceFullDownload) {
     query = query.gt('updated_at', lastSyncTimestamp.toISOString());
   }
 
@@ -593,7 +614,11 @@ const downloadTable = async (
   let hasMore = true;
   let offset = 0;
 
-  console.log(`[Sync] Starting download for ${tableName}, lastSync:`, lastSyncTimestamp);
+  console.log(
+    `[Sync] Starting download for ${tableName}, lastSync:`,
+    forceFullDownload ? null : lastSyncTimestamp,
+    forceFullDownload ? '(forced full download)' : ''
+  );
 
   while (hasMore) {
     console.log(`[Sync] ${tableName}: Fetching batch at offset ${offset}`);

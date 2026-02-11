@@ -25,6 +25,14 @@ const formatValue = (value: unknown) => {
   return String(value);
 };
 
+const normalizeRatePercent = (value: unknown): number => {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return 0;
+  if (num > 0 && num < 1) return num * 100;
+  if (num > 100 && num <= 10000) return num / 100;
+  return num;
+};
+
 const CompteCreditDetails: React.FC<CompteCreditDetailsProps> = ({ compteId, onBack }) => {
   const { profile } = useAuthStore();
   const canViewBalances = profile?.role === UserRole.ADMIN;
@@ -99,10 +107,9 @@ const CompteCreditDetails: React.FC<CompteCreditDetailsProps> = ({ compteId, onB
     { label: 'ID compte epargne', value: compte.id_compte_epargne },
     { label: 'Montant prete', value: compte.montant_prete },
     { label: 'Capital final calcule', value: capitalFinal },
-    { label: 'Taux interet (decimal)', value: compte.taux_interet },
+    { label: 'Taux interet mensuel (%)', value: normalizeRatePercent(compte.taux_interet) },
     { label: 'Paiement journalier', value: compte.paiement_journalier },
     { label: 'Duree (mois)', value: compte.duree_credit_mois },
-    { label: 'Fonds garantie', value: compte.fonds_garantie },
     { label: 'Penalites', value: compte.penalites },
     ...(canViewBalances ? [
       { label: 'Paiement rembourse', value: compte.paiement_rembourse },

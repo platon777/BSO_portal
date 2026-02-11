@@ -32,11 +32,11 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
   const [formData, setFormData] = useState<Partial<TransactionEpargne>>(transaction || {
     id_compte_epargne: compteEpargne.id_compte_epargne,
     no_compte: compteEpargne.no_compte,
-    categorie_compte_epargne: compteEpargne.categorie_compte_epargne,
+    categorie_compte_epargne: compteEpargne.categorie_compte_epargne || 'Epargne',
     virement_from: compteEpargne.no_compte || '',
     frais_auto: 0,
     remise_client: 0,
-    monnaie_client: 'HTG',
+    monnaie_client: '',
     solde_avant_transaction: compteEpargne.solde_actuel,
     solde_avant_transaction_declare: compteEpargne.solde_actuel,
     solde_apres_transaction_declare: compteEpargne.solde_actuel,
@@ -200,6 +200,7 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
     if (transaction && transaction.id_transaction_epargne) {
       await db.updateRecord('transactions_epargne', transaction.id_transaction_epargne, {
         ...formData,
+        categorie_compte_epargne: formData.categorie_compte_epargne || 'Epargne',
         virement_from: formData.type_transaction === 'V'
           ? String(formData.virement_from || compteEpargne.no_compte || '').trim()
           : undefined,
@@ -216,7 +217,7 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
         no_compte: formData.no_compte!,
         type_transaction: formData.type_transaction!,
         montant: formData.montant!,
-        categorie_compte_epargne: formData.categorie_compte_epargne,
+        categorie_compte_epargne: formData.categorie_compte_epargne || 'Epargne',
         solde_declare: formData.solde_declare,
         virement_from: formData.type_transaction === 'V'
           ? String(formData.virement_from || compteEpargne.no_compte || '').trim()
@@ -252,8 +253,7 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
       <Input name="client" label="Client" value={`${compteEpargne.personne?.prenom} ${compteEpargne.personne?.nom}`} readOnly disabled />
       <Input name="no_compte_epargne" label="Compte Epargne" value={compteEpargne.no_compte} readOnly disabled />
 
-      <Select label="Categorie Compte Epargne" name="categorie_compte_epargne" value={formData.categorie_compte_epargne || ''} onChange={handleChange}>
-        <option value="">Selectionner...</option>
+      <Select label="Categorie Compte Epargne" name="categorie_compte_epargne" value={formData.categorie_compte_epargne || 'Epargne'} onChange={handleChange}>
         <option value="Epargne">Epargne</option>
         <option value="Fonds Garantie">Fonds Garantie</option>
         <option value="Grandon">Grandon</option>
@@ -264,7 +264,7 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
         <option value="D">Depot</option>
         <option value="R">Retrait</option>
         <option value="FL">Nouveau Livret</option>
-        <option value="S">Frais Auto</option>
+        <option value="S">Frais Service</option>
         <option value="V">Virement</option>
       </Select>
 
@@ -295,12 +295,16 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Input type="number" label="Frais Auto" name="frais_auto" value={formData.frais_auto ?? 0} onChange={handleChange} step="0.01" />
+        <Input type="number" label="Frais Service" name="frais_auto" value={formData.frais_auto ?? 0} onChange={handleChange} step="0.01" />
 
-        <Select label="Monnaie Client" name="monnaie_client" value={formData.monnaie_client || 'HTG'} onChange={handleChange}>
-          <option value="HTG">HTG</option>
-          <option value="USD">USD</option>
-        </Select>
+        <Input
+          type="text"
+          label="Monnaie Client"
+          name="monnaie_client"
+          value={formData.monnaie_client ?? ''}
+          onChange={handleChange}
+          placeholder="Entrer une valeur libre..."
+        />
 
         <Input type="number" label="Remise Client" name="remise_client" value={formData.remise_client ?? 0} onChange={handleChange} step="0.01" />
       </div>
