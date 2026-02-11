@@ -1,4 +1,5 @@
 import { Personne, CompteEpargne, CompteCredit, TransactionEpargne, TransactionCredit } from '../types';
+import { getSuccursaleId, getSuccursaleLabel } from '../utils/succursale';
 
 /**
  * Schema mapper for local <-> Supabase data transformation
@@ -147,7 +148,7 @@ const mapCompteEpargneToSupabase = (compte: CompteEpargne, userId: string): any 
     ...compteData,
     created_by: userId,
     updated_by: userId,
-    succursale: compte.succursale ? parseInt(String(compte.succursale)) : null,
+    succursale: getSuccursaleId(compte.succursale),
     piece_identification_allowed: compte.piece_identification_allowed
       ? getIdentificationTypeId(String(compte.piece_identification_allowed))
       : null,
@@ -156,11 +157,12 @@ const mapCompteEpargneToSupabase = (compte: CompteEpargne, userId: string): any 
 };
 
 const mapSupabaseToCompteEpargne = (data: any): CompteEpargne => {
+  const succursaleLabel = getSuccursaleLabel(data.succursale);
   return {
     ...data,
     created_by: data.created_by || '',
     updated_by: data.updated_by || undefined,
-    succursale: data.succursale ? String(data.succursale) : undefined,
+    succursale: succursaleLabel || (data.succursale ? String(data.succursale) : undefined),
     piece_identification_allowed: getIdentificationTypeName(data.piece_identification_allowed),
     type_compte_epargne: data.type_compte_epargne || undefined,
     categorie_compte_epargne: data.categorie_compte_epargne || undefined,

@@ -6,6 +6,7 @@ import SecureWrapper from '../components/common/SecureWrapper';
 import { getCreditFinalCapital } from '../utils/creditCalculations';
 import { useAuthStore } from '../stores/authStore';
 import { UserRole } from '../types/auth';
+import { getSuccursaleLabel } from '../utils/succursale';
 
 interface CompteEpargneDetailsProps {
   compteId: string;
@@ -99,7 +100,7 @@ const CompteEpargneDetails: React.FC<CompteEpargneDetailsProps> = ({ compteId, o
     { label: 'Fonds garantie', value: compte.fonds_garantie },
     { label: 'Statut', value: compte.statut },
     { label: 'Date creation metier', value: formatDate(compte.date_creation) },
-    { label: 'Succursale', value: compte.succursale },
+    { label: 'Succursale', value: getSuccursaleLabel(compte.succursale) || compte.succursale },
     { label: 'Duree', value: compte.duree },
     { label: 'Person allowed', value: compte.person_allowed },
     { label: 'Piece allowed', value: compte.piece_identification_allowed },
@@ -134,10 +135,48 @@ const CompteEpargneDetails: React.FC<CompteEpargneDetailsProps> = ({ compteId, o
           {personne && (
             <div className="mb-6 p-3 rounded-lg border border-blue-200 bg-blue-50">
               <p className="text-xs uppercase tracking-wide text-blue-700">Client lie</p>
-              <p className="text-sm font-semibold text-blue-900">{personne.prenom} {personne.nom}</p>
-              <p className="text-xs text-blue-800">Code: {personne.code_client}</p>
+              <div className="mt-2 flex flex-col sm:flex-row sm:items-center gap-3">
+                <div className="h-16 w-16 rounded-full overflow-hidden bg-white border border-blue-200 flex items-center justify-center">
+                  {personne.photo_identification ? (
+                    <img
+                      src={personne.photo_identification}
+                      alt={`Photo ${personne.prenom} ${personne.nom}`}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-xs text-blue-700 text-center px-1">Aucune photo</span>
+                  )}
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-blue-900">{personne.prenom} {personne.nom}</p>
+                  <p className="text-xs text-blue-800">Code: {personne.code_client}</p>
+                </div>
+              </div>
             </div>
           )}
+
+          <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="p-3 rounded-lg border border-gray-200 bg-gray-50">
+              <p className="text-xs uppercase tracking-wide text-gray-500 mb-2">Photo du titulaire</p>
+              <div className="h-40 rounded-md overflow-hidden bg-white border border-gray-200 flex items-center justify-center">
+                {personne?.photo_identification ? (
+                  <img src={personne.photo_identification} alt="Photo titulaire" className="h-full w-full object-cover" />
+                ) : (
+                  <span className="text-sm text-gray-500">Aucune photo disponible</span>
+                )}
+              </div>
+            </div>
+            <div className="p-3 rounded-lg border border-gray-200 bg-gray-50">
+              <p className="text-xs uppercase tracking-wide text-gray-500 mb-2">Photo personne autorisee</p>
+              <div className="h-40 rounded-md overflow-hidden bg-white border border-gray-200 flex items-center justify-center">
+                {compte.photo_personne_autorisee ? (
+                  <img src={compte.photo_personne_autorisee} alt="Photo personne autorisee" className="h-full w-full object-cover" />
+                ) : (
+                  <span className="text-sm text-gray-500">Aucune photo disponible</span>
+                )}
+              </div>
+            </div>
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {detailItems.map((item) => (
