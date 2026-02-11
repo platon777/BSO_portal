@@ -33,7 +33,7 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
     id_compte_epargne: compteEpargne.id_compte_epargne,
     no_compte: compteEpargne.no_compte,
     categorie_compte_epargne: compteEpargne.categorie_compte_epargne,
-    virement_from: compteEpargne.no_compte,
+    virement_from: compteEpargne.no_compte || '',
     frais_auto: 0,
     remise_client: 0,
     monnaie_client: 'HTG',
@@ -200,6 +200,12 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
     if (transaction && transaction.id_transaction_epargne) {
       await db.updateRecord('transactions_epargne', transaction.id_transaction_epargne, {
         ...formData,
+        virement_from: formData.type_transaction === 'V'
+          ? String(formData.virement_from || compteEpargne.no_compte || '').trim()
+          : undefined,
+        virement_to: formData.type_transaction === 'V'
+          ? String(formData.virement_to || '').trim()
+          : undefined,
         solde_apres_transactions,
         updated_at: new Date().toISOString()
       });
@@ -212,8 +218,12 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
         montant: formData.montant!,
         categorie_compte_epargne: formData.categorie_compte_epargne,
         solde_declare: formData.solde_declare,
-        virement_from: formData.virement_from,
-        virement_to: formData.virement_to,
+        virement_from: formData.type_transaction === 'V'
+          ? String(formData.virement_from || compteEpargne.no_compte || '').trim()
+          : undefined,
+        virement_to: formData.type_transaction === 'V'
+          ? String(formData.virement_to || '').trim()
+          : undefined,
         frais_auto: formData.frais_auto,
         monnaie_client: formData.monnaie_client,
         remise_client: formData.remise_client,
@@ -262,7 +272,15 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
 
       {formData.type_transaction === 'V' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Input type="text" label="Compte emetteur" name="virement_from" value={formData.virement_from ?? compteEpargne.no_compte} onChange={handleChange} required />
+          <Input
+            type="text"
+            label="Compte emetteur"
+            name="virement_from"
+            value={formData.virement_from ?? compteEpargne.no_compte ?? ''}
+            readOnly
+            disabled
+            required
+          />
           <AsyncSearchableSelect
             label="Compte beneficiaire"
             value={formData.virement_to || null}

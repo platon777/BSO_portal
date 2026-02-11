@@ -8,6 +8,7 @@ import { generateCustomCode } from '../../services/codeGenerator';
 import SearchableSelect from '../common/SearchableSelect';
 import { useAuthStore } from '../../stores/authStore';
 import toast from 'react-hot-toast';
+import { getSuccursaleLabel, getSuccursaleOptions } from '../../utils/succursale';
 
 interface CompteEpargneFormProps {
   compte?: CompteEpargne;
@@ -41,7 +42,10 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
 
   useEffect(() => {
     if (compte) {
-      setFormData(compte);
+      setFormData({
+        ...compte,
+        succursale: getSuccursaleLabel(compte.succursale) || compte.succursale,
+      });
     } else {
       setFormData({
         solde_actuel: 0,
@@ -95,6 +99,8 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
       subLabel: `Code: ${client.code_client}`,
     }));
   }, [clients]);
+
+  const succursaleOptions = useMemo(() => getSuccursaleOptions(), []);
 
   const validateRequired = () => {
     if (!formData.id_personne) {
@@ -234,9 +240,11 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
 
         <Select label="Succursale" name="succursale" value={formData.succursale || ''} onChange={handleChange} required>
           <option value="">Selectionner...</option>
-          <option value="1">Cap-Haitien</option>
-          <option value="2">Vertieres</option>
-          <option value="3">Champin</option>
+          {succursaleOptions.map((option) => (
+            <option key={option.id} value={option.label}>
+              {option.label}
+            </option>
+          ))}
         </Select>
 
         <Input type="number" label="Plan (ID)" name="id_plan" value={formData.id_plan ?? ''} onChange={handleChange} required />

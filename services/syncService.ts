@@ -356,7 +356,8 @@ const uploadSyncItem = async (item: SyncQueueItem, userId: string): Promise<void
   return withRetry(async () => {
     switch (item.action) {
       case 'add': {
-        let mappedData = mapLocalToSupabase(tableName, item.data, userId);
+        const normalizedData = await normalizeSyncPayloadForUpload(tableName, item.data);
+        let mappedData = mapLocalToSupabase(tableName, normalizedData, userId);
         mappedData = await uploadImageFieldsIfNeeded(item, mappedData);
         const { error } = await supabase.from(tableName).insert(mappedData);
         if (error) throw error;
@@ -379,7 +380,8 @@ const uploadSyncItem = async (item: SyncQueueItem, userId: string): Promise<void
         if (!existing) {
           const fullData = await db.table(tableName).get(item.pk);
           if (fullData) {
-            let mappedFullData = mapLocalToSupabase(tableName, fullData, userId);
+            const normalizedFullData = await normalizeSyncPayloadForUpload(tableName, fullData);
+            let mappedFullData = mapLocalToSupabase(tableName, normalizedFullData, userId);
             mappedFullData = await uploadImageFieldsIfNeeded(item, mappedFullData);
             const { error } = await supabase.from(tableName).insert(mappedFullData);
             if (error) throw error;
@@ -393,7 +395,8 @@ const uploadSyncItem = async (item: SyncQueueItem, userId: string): Promise<void
 
         if (localUpdatedAt >= serverUpdatedAt) {
           // Local is newer or same, update server
-          let mappedData = mapLocalToSupabase(tableName, item.data, userId);
+          const normalizedData = await normalizeSyncPayloadForUpload(tableName, item.data);
+          let mappedData = mapLocalToSupabase(tableName, normalizedData, userId);
           mappedData = await uploadImageFieldsIfNeeded(item, mappedData);
 
           const { error } = await supabase
@@ -421,6 +424,52 @@ const uploadSyncItem = async (item: SyncQueueItem, userId: string): Promise<void
       }
     }
   });
+};
+
+const normalizeSyncPayloadForUpload = async (tableName: string, data: any): Promise<any> => {
+  if (tableName !== 'transactions_epargne') {
+    return data;
+  }
+  return normalizeTransactionEpargneForUpload(data);
+};
+
+const normalizeTransactionEpargneForUpload = async (data: any): Promise<any> => {
+  const normalized = { ...data };
+  const typeTransaction = String(normalized.type_transaction || '').trim();
+
+  // Non-virement transactions should not send virement fields.
+  if (typeTransaction !== 'V') {
+    normalized.virement_from = null;
+    normalized.virement_to = null;
+    return normalized;
+  }
+
+  const rawFrom = String(normalized.virement_from || '').trim();
+  if (!rawFrom) {
+    throw new Error('Virement invalide: compte emetteur manquant (virement_from).');
+  }
+
+  // Canonical value for virement_from is no_compte (normal account number).
+  const byNoCompte = await db.comptes_epargne.where('no_compte').equals(rawFrom).first();
+  if (byNoCompte?.no_compte) {
+    normalized.virement_from = byNoCompte.no_compte;
+    return normalized;
+  }
+
+  // Backward compatibility: old payloads may still hold no_compte_ancien
+  const byLegacy = await db.comptes_epargne.where('no_compte_ancien').equals(rawFrom).first();
+  if (byLegacy?.no_compte) {
+    normalized.virement_from = byLegacy.no_compte;
+    return normalized;
+  }
+
+  const byId = await db.comptes_epargne.get(rawFrom);
+  if (byId?.no_compte) {
+    normalized.virement_from = byId.no_compte;
+    return normalized;
+  }
+
+  throw new Error(`Virement invalide: impossible de resoudre le compte emetteur "${rawFrom}" vers un no_compte.`);
 };
 
 const isImageDataUrl = (value: unknown): value is string => {
