@@ -27,11 +27,19 @@ const StatCard: React.FC<{ title: string; value: string | number; count?: number
     </div>
 );
 
+const toLocalDateISO = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
 const Parametres: React.FC = () => {
     const { profile } = useAuthStore();
     const userId = profile?.user_id || '';
     const [stats, setStats] = useState<AgentStats | null>(null);
     const [dateFilter, setDateFilter] = useState<DateFilter>({ type: 'today' });
+    const [datePreset, setDatePreset] = useState<'today' | 'yesterday'>('today');
     const unsyncedItems = useLiveQuery(() => getUnsyncedStats(), []);
     const { showModal, hideModal } = useModal();
 
@@ -52,6 +60,20 @@ const Parametres: React.FC = () => {
         };
         fetchStats();
     }, [dateFilter, userId]);
+
+    const handleDatePresetChange = (preset: 'today' | 'yesterday') => {
+        setDatePreset(preset);
+        if (preset === 'today') {
+            setDateFilter({ type: 'today' });
+            return;
+        }
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        setDateFilter({
+            type: 'specific',
+            date: toLocalDateISO(yesterday),
+        });
+    };
 
     const handleSync = async () => {
         setIsSyncing(true);
@@ -487,9 +509,13 @@ const Parametres: React.FC = () => {
                     </div>
                 )}
                 <div className="mb-4">
-                    <select onChange={(e) => setDateFilter({ type: e.target.value as any })} className="p-2 border rounded-md">
+                    <select
+                        value={datePreset}
+                        onChange={(e) => handleDatePresetChange(e.target.value as 'today' | 'yesterday')}
+                        className="p-2 border rounded-md"
+                    >
                         <option value="today">Aujourd'hui</option>
-                        <option value="all">Tout</option>
+                        <option value="yesterday">Hier</option>
                     </select>
                 </div>
                 <div className="grid grid-cols-2 gap-3 sm:gap-4 max-h-[60vh] overflow-y-auto overscroll-contain p-2 sm:p-3 pr-2 pb-24 md:pb-3">

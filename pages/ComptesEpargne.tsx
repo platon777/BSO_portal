@@ -20,6 +20,7 @@ import { copyToClipboard } from '../utils/clipboard';
 import { getSuccursaleLabel } from '../utils/succursale';
 
 type SortOption = 'created_desc' | 'created_asc' | 'updated_desc' | 'updated_asc';
+type ViewMode = 'comptes' | 'transactions';
 
 interface ComptesEpargneProps {
   onViewDetails?: (id: string) => void;
@@ -29,7 +30,7 @@ const typeLabels: Record<string, string> = {
   D: 'Depot',
   R: 'Retrait',
   FL: 'Nouveau Livret',
-  S: 'Frais Auto',
+  S: 'Frais Service',
   V: 'Virement',
 };
 
@@ -53,6 +54,7 @@ const ComptesEpargne: React.FC<ComptesEpargneProps> = ({ onViewDetails }) => {
   const canViewBalances = profile?.role === UserRole.ADMIN;
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOption, setSortOption] = useState<SortOption>('created_desc');
+  const [activeView, setActiveView] = useState<ViewMode>('comptes');
   const [currentPageComptes, setCurrentPageComptes] = useState(1);
   const [itemsPerPageComptes, setItemsPerPageComptes] = useState(10);
   const [currentPageTransactions, setCurrentPageTransactions] = useState(1);
@@ -270,6 +272,24 @@ const ComptesEpargne: React.FC<ComptesEpargneProps> = ({ onViewDetails }) => {
   return (
     <SecureWrapper>
       <div className="space-y-6">
+        <div className="bg-white rounded-lg border border-gray-200 p-1 inline-flex w-full sm:w-auto">
+          <button
+            type="button"
+            onClick={() => setActiveView('comptes')}
+            className={`flex-1 sm:flex-none px-4 py-2 text-sm font-medium rounded-md transition-colors ${activeView === 'comptes' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
+          >
+            Comptes ({sortedComptes.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveView('transactions')}
+            className={`flex-1 sm:flex-none px-4 py-2 text-sm font-medium rounded-md transition-colors ${activeView === 'transactions' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
+          >
+            Transactions ({data?.transactions?.length || 0})
+          </button>
+        </div>
+
+        {activeView === 'comptes' && (
         <div>
           <div className="flex justify-between items-center mb-4">
             <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Comptes d'Epargne</h1>
@@ -314,6 +334,7 @@ const ComptesEpargne: React.FC<ComptesEpargneProps> = ({ onViewDetails }) => {
                   <div>
                     <p className="font-mono text-sm font-semibold text-gray-900 cursor-pointer" onClick={(e) => { e.stopPropagation(); copyToClipboard(compte.no_compte, 'Numero de compte'); }}>{compte.no_compte || '-'}</p>
                     <p className="text-sm text-gray-700">{compte.personne ? `${compte.personne.prenom} ${compte.personne.nom}` : 'N/A'}</p>
+                    <p className="text-xs text-gray-500">Code ancien: {compte.no_compte_ancien || '-'}</p>
                   </div>
                   <span className={`px-2 text-xs font-semibold rounded-full ${compte.statut === 'Actif' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{compte.statut}</span>
                 </div>
@@ -439,7 +460,9 @@ const ComptesEpargne: React.FC<ComptesEpargneProps> = ({ onViewDetails }) => {
 
           <FAB onClick={handleAddCompte} label="Creer un compte epargne" />
         </div>
+        )}
 
+        {activeView === 'transactions' && (
         <div>
           <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-4">Dernieres Transactions Epargne</h2>
 
@@ -509,6 +532,7 @@ const ComptesEpargne: React.FC<ComptesEpargneProps> = ({ onViewDetails }) => {
             <Pagination currentPage={currentPageTransactions} totalPages={totalPagesTransactions} onPageChange={setCurrentPageTransactions} itemsPerPage={itemsPerPageTransactions} totalItems={data?.transactions?.length || 0} onItemsPerPageChange={(v) => { setItemsPerPageTransactions(v); setCurrentPageTransactions(1); }} />
           </div>
         </div>
+        )}
       </div>
     </SecureWrapper>
   );

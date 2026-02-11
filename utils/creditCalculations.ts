@@ -5,15 +5,28 @@ const toSafeNumber = (value: unknown): number => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
+const normalizeMonthlyRatePercent = (value: unknown): number => {
+  const raw = toSafeNumber(value);
+  if (raw > 0 && raw < 1) {
+    // Backward compatibility: old decimal format (e.g. 0.07) -> 7
+    return raw * 100;
+  }
+  if (raw > 100 && raw <= 10000) {
+    // Defensive normalization for accidental double-scaling (e.g. 1000 -> 10)
+    return raw / 100;
+  }
+  return raw;
+};
+
 export const calculateCreditFinalCapital = (
   montantPrete: number,
   tauxInteretMensuel: number,
   dureeMois: number
 ): number => {
   const principal = toSafeNumber(montantPrete);
-  const taux = toSafeNumber(tauxInteretMensuel);
+  const tauxPercent = normalizeMonthlyRatePercent(tauxInteretMensuel);
   const duree = toSafeNumber(dureeMois);
-  return principal * (1 + taux * duree);
+  return principal * (1 + (tauxPercent / 100) * duree);
 };
 
 export const getCreditFinalCapital = (

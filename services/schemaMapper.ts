@@ -116,6 +116,18 @@ const toNullableInteger = (value: unknown): number | null => {
   return null;
 };
 
+const normalizeRatePercentForSupabase = (value: unknown): number => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return 0;
+  if (parsed > 0 && parsed < 1) {
+    return Math.round(parsed * 100);
+  }
+  if (parsed > 100 && parsed <= 10000) {
+    return Math.round(parsed / 100);
+  }
+  return Math.max(0, Math.round(parsed));
+};
+
 const mapPersonneToSupabase = (personne: Personne, userId: string): any => {
   // Exclude fields that don't exist in Supabase schema
   const { id_plan, montant, ...personneData } = personne;
@@ -179,6 +191,7 @@ const mapCompteCreditToSupabase = (compte: CompteCredit, userId: string): any =>
 
   return {
     ...compteData,
+    taux_interet: normalizeRatePercentForSupabase(compte.taux_interet),
     created_by: userId,
     updated_by: userId,
     collecteur: null, // Field not in local schema

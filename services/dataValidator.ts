@@ -108,9 +108,6 @@ const validateCompteCredit = (data: any, errors: string[], action: string) => {
     if (!data.paiement_journalier || Number(data.paiement_journalier) <= 0) {
       errors.push('Paiement journalier must be greater than 0');
     }
-    if (data.fonds_garantie === undefined || data.fonds_garantie === null || data.fonds_garantie === '') {
-      errors.push('Fonds garantie is required');
-    }
     if (data.penalites === undefined || data.penalites === null || data.penalites === '') {
       errors.push('Penalites is required');
     }
