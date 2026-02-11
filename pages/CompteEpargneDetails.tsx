@@ -3,6 +3,9 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../services/database';
 import { copyToClipboard } from '../utils/clipboard';
 import SecureWrapper from '../components/common/SecureWrapper';
+import { getCreditFinalCapital } from '../utils/creditCalculations';
+import { useAuthStore } from '../stores/authStore';
+import { UserRole } from '../types/auth';
 
 interface CompteEpargneDetailsProps {
   compteId: string;
@@ -24,6 +27,8 @@ const formatValue = (value: unknown) => {
 };
 
 const CompteEpargneDetails: React.FC<CompteEpargneDetailsProps> = ({ compteId, onBack, onOpenCreditDetails }) => {
+  const { profile } = useAuthStore();
+  const canViewBalances = profile?.role === UserRole.ADMIN;
   const data = useLiveQuery(async () => {
     const safeCompteId = typeof compteId === 'string' ? compteId.trim() : '';
     if (!safeCompteId) {
@@ -90,7 +95,7 @@ const CompteEpargneDetails: React.FC<CompteEpargneDetailsProps> = ({ compteId, o
     { label: 'Numero compte', value: compte.no_compte },
     { label: 'Numero ancien', value: compte.no_compte_ancien },
     { label: 'ID plan', value: compte.id_plan },
-    { label: 'Solde actuel', value: compte.solde_actuel },
+    ...(canViewBalances ? [{ label: 'Solde actuel', value: compte.solde_actuel }] : []),
     { label: 'Fonds garantie', value: compte.fonds_garantie },
     { label: 'Statut', value: compte.statut },
     { label: 'Date creation metier', value: formatDate(compte.date_creation) },
@@ -152,7 +157,7 @@ const CompteEpargneDetails: React.FC<CompteEpargneDetailsProps> = ({ compteId, o
               <div key={credit.id_compte_credit} className="p-3 rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-between gap-3">
                 <div>
                   <p className="font-medium text-gray-900">{credit.no_compte}</p>
-                  <p className="text-xs text-gray-600">Montant prete: {formatValue(credit.montant_prete)} HTG</p>
+                  <p className="text-xs text-gray-600">Capital final: {formatValue(getCreditFinalCapital(credit))} HTG</p>
                 </div>
                 {onOpenCreditDetails && (
                   <button
@@ -177,8 +182,8 @@ const CompteEpargneDetails: React.FC<CompteEpargneDetailsProps> = ({ compteId, o
                   <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
                   <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
                   <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Montant</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Solde avant declare</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Solde apres declare</th>
+                  {canViewBalances && <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Solde avant declare</th>}
+                  {canViewBalances && <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Solde apres declare</th>}
                   <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Agent</th>
                 </tr>
               </thead>
@@ -188,8 +193,8 @@ const CompteEpargneDetails: React.FC<CompteEpargneDetailsProps> = ({ compteId, o
                     <td className="px-3 py-2 text-sm text-gray-700">{formatDate(tx.date_transaction)}</td>
                     <td className="px-3 py-2 text-sm text-gray-700">{tx.type_transaction}</td>
                     <td className="px-3 py-2 text-sm text-gray-900 font-medium">{formatValue(tx.montant)}</td>
-                    <td className="px-3 py-2 text-sm text-gray-700">{formatValue(tx.solde_avant_transaction_declare)}</td>
-                    <td className="px-3 py-2 text-sm text-gray-700">{formatValue(tx.solde_apres_transaction_declare)}</td>
+                    {canViewBalances && <td className="px-3 py-2 text-sm text-gray-700">{formatValue(tx.solde_avant_transaction_declare)}</td>}
+                    {canViewBalances && <td className="px-3 py-2 text-sm text-gray-700">{formatValue(tx.solde_apres_transaction_declare)}</td>}
                     <td className="px-3 py-2 text-sm text-gray-700">{tx.created_by || '-'}</td>
                   </tr>
                 ))}

@@ -30,6 +30,7 @@ const BATCH_SIZE = 50; // Process 50 items at a time
 const MAX_RETRY_COUNT = 3;
 const PHOTO_BUCKET = 'bso';
 const PHOTO_CLIENT_FOLDER = 'photo_client';
+const PHOTO_AUTHORIZED_FOLDER = 'photo_client';
 
 // Table dependency order (important for foreign keys)
 const TABLE_ORDER = [
@@ -356,7 +357,7 @@ const uploadSyncItem = async (item: SyncQueueItem, userId: string): Promise<void
     switch (item.action) {
       case 'add': {
         let mappedData = mapLocalToSupabase(tableName, item.data, userId);
-        mappedData = await uploadPersonPhotoIfNeeded(item, mappedData);
+        mappedData = await uploadImageFieldsIfNeeded(item, mappedData);
         const { error } = await supabase.from(tableName).insert(mappedData);
         if (error) throw error;
         break;
@@ -379,7 +380,7 @@ const uploadSyncItem = async (item: SyncQueueItem, userId: string): Promise<void
           const fullData = await db.table(tableName).get(item.pk);
           if (fullData) {
             let mappedFullData = mapLocalToSupabase(tableName, fullData, userId);
-            mappedFullData = await uploadPersonPhotoIfNeeded(item, mappedFullData);
+            mappedFullData = await uploadImageFieldsIfNeeded(item, mappedFullData);
             const { error } = await supabase.from(tableName).insert(mappedFullData);
             if (error) throw error;
           }
@@ -393,7 +394,7 @@ const uploadSyncItem = async (item: SyncQueueItem, userId: string): Promise<void
         if (localUpdatedAt >= serverUpdatedAt) {
           // Local is newer or same, update server
           let mappedData = mapLocalToSupabase(tableName, item.data, userId);
-          mappedData = await uploadPersonPhotoIfNeeded(item, mappedData);
+          mappedData = await uploadImageFieldsIfNeeded(item, mappedData);
 
           const { error } = await supabase
             .from(tableName)
@@ -452,18 +453,32 @@ const isStorageRlsError = (error: any): boolean => {
   return message.includes('row-level security') || message.includes('violates row-level security policy');
 };
 
-const uploadPersonPhotoIfNeeded = async (item: SyncQueueItem, mappedData: any): Promise<any> => {
-  if (item.table !== 'personnes') {
+const uploadImageFieldsIfNeeded = async (item: SyncQueueItem, mappedData: any): Promise<any> => {
+  const configByTable: Record<string, { field: string; folder: string; localTable: 'personnes' | 'comptes_epargne' }> = {
+    personnes: {
+      field: 'photo_identification',
+      folder: PHOTO_CLIENT_FOLDER,
+      localTable: 'personnes',
+    },
+    comptes_epargne: {
+      field: 'photo_personne_autorisee',
+      folder: PHOTO_AUTHORIZED_FOLDER,
+      localTable: 'comptes_epargne',
+    },
+  };
+
+  const config = configByTable[item.table];
+  if (!config) {
     return mappedData;
   }
 
-  const photoValue = mappedData?.photo_identification;
+  const photoValue = mappedData?.[config.field];
   if (!isImageDataUrl(photoValue)) {
     return mappedData;
   }
 
   const { blob, extension } = dataUrlToBlob(photoValue);
-  const path = `${PHOTO_CLIENT_FOLDER}/${item.pk}_${item.timestamp}.${extension}`;
+  const path = `${config.folder}/${item.pk}_${item.timestamp}_${config.field}.${extension}`;
 
   const { error: uploadError } = await supabase.storage
     .from(PHOTO_BUCKET)
@@ -474,9 +489,9 @@ const uploadPersonPhotoIfNeeded = async (item: SyncQueueItem, mappedData: any): 
 
   if (uploadError) {
     // If storage policy is not configured yet, keep sync alive by falling back
-    // to the existing value (usually a data URL) in personnes.photo_identification.
+    // to the existing local value (usually a data URL).
     if (isStorageRlsError(uploadError)) {
-      console.warn('[Sync] Upload photo bloque par RLS Storage. Fallback en photo_identification locale.', uploadError);
+      console.warn(`[Sync] Upload photo bloque par RLS Storage. Fallback en ${config.field} locale.`, uploadError);
       return mappedData;
     }
     throw uploadError;
@@ -489,14 +504,21 @@ const uploadPersonPhotoIfNeeded = async (item: SyncQueueItem, mappedData: any): 
     throw new Error('URL publique de la photo introuvable apres upload');
   }
 
-  await db.personnes.update(item.pk, {
-    photo_identification: publicUrl,
-    updated_at: new Date().toISOString(),
-  });
+  if (config.localTable === 'personnes') {
+    await db.personnes.update(item.pk, {
+      photo_identification: publicUrl,
+      updated_at: new Date().toISOString(),
+    });
+  } else if (config.localTable === 'comptes_epargne') {
+    await db.comptes_epargne.update(item.pk, {
+      photo_personne_autorisee: publicUrl,
+      updated_at: new Date().toISOString(),
+    });
+  }
 
   return {
     ...mappedData,
-    photo_identification: publicUrl,
+    [config.field]: publicUrl,
   };
 };
 

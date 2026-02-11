@@ -68,6 +68,25 @@ export class MySubClassedDexie extends Dexie {
       transactions_credit: 'id_transaction_credit, id_compte_credit, no_compte, type_transaction, montant, solde_avant_transaction, date_transaction, montant_pret, solde_credit, created_at, created_by, versement_declare, updated_at',
       syncQueue: '++id, table, pk, status, timestamp, retry_count',
     });
+
+    // Version 7: Add update fields from feedback A/B/C
+    this.version(7).stores({
+      personnes: 'id_personne, code_client, code_client_ancien, pseudo, lieu_de_travail, occupation, geocode, prenom, nom, piece_identification, email, numero_telephone, adresse, sexe, date_naissance, nif_cin, photo_identification, date_creation, statut, created_at, &unique_id, id_plan, montant, created_by, updated_by, updated_at',
+      comptes_epargne: 'id_compte_epargne, id_personne, no_compte, no_compte_ancien, id_plan, type_compte_epargne, categorie_compte_epargne, photo_personne_autorisee, solde_actuel, fonds_garantie, statut, date_creation, succursale, duree, person_allowed, piece_identification_allowed, nif_cin_allowed, photo_allowed, created_at, created_by, updated_by, updated_at',
+      comptes_credit: 'id_compte_credit, id_personne, no_compte, ancien_code, id_compte_epargne, montant_prete, taux_interet, paiement_journalier, duree_credit_mois, fonds_garantie, penalites, statut, date_creation, date_debut, date_fin, created_at, created_by, updated_by, paiement_rembourse, montant_deja_paye_manuellement, updated_at',
+      transactions_epargne: 'id_transaction_epargne, id_compte_epargne, no_compte, type_transaction, montant, categorie_compte_epargne, solde_declare, virement_from, virement_to, frais_auto, monnaie_client, remise_client, type_frais_livret, solde_avant_transaction, solde_avant_transaction_declare, date_transaction, solde_apres_transactions, solde_apres_transaction_declare, created_at, created_by, updated_at',
+      transactions_credit: 'id_transaction_credit, id_compte_credit, no_compte, type_transaction, montant, solde_avant_transaction, date_transaction, montant_pret, solde_credit, created_at, created_by, versement_declare, updated_at',
+      syncQueue: '++id, table, pk, status, timestamp, retry_count',
+    }).upgrade(tx => {
+      return tx.table('transactions_epargne').toCollection().modify(item => {
+        if (item.frais_auto === undefined) {
+          item.frais_auto = 0;
+        }
+        if (item.remise_client === undefined) {
+          item.remise_client = 0;
+        }
+      });
+    });
   }
 
   private async addToSyncQueue(action: 'add' | 'update' | 'delete', table: SyncQueueItem['table'], pk: string, data: any) {

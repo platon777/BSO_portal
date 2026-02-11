@@ -3,6 +3,9 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../services/database';
 import { copyToClipboard } from '../utils/clipboard';
 import SecureWrapper from '../components/common/SecureWrapper';
+import { getCreditFinalCapital, getCreditMontantRestant, getCreditTotalRembourse } from '../utils/creditCalculations';
+import { useAuthStore } from '../stores/authStore';
+import { UserRole } from '../types/auth';
 
 interface CompteCreditDetailsProps {
   compteId: string;
@@ -23,6 +26,8 @@ const formatValue = (value: unknown) => {
 };
 
 const CompteCreditDetails: React.FC<CompteCreditDetailsProps> = ({ compteId, onBack }) => {
+  const { profile } = useAuthStore();
+  const canViewBalances = profile?.role === UserRole.ADMIN;
   const data = useLiveQuery(async () => {
     const safeCompteId = typeof compteId === 'string' ? compteId.trim() : '';
     if (!safeCompteId) {
@@ -82,9 +87,9 @@ const CompteCreditDetails: React.FC<CompteCreditDetailsProps> = ({ compteId, onB
   }
 
   const { compte, personne, compteEpargne, transactions } = data;
-  const paiementManuel = compte.montant_deja_paye_manuellement || 0;
-  const totalRembourse = (compte.paiement_rembourse || 0) + paiementManuel;
-  const montantRestant = (compte.montant_prete || 0) - totalRembourse;
+  const totalRembourse = getCreditTotalRembourse(compte);
+  const capitalFinal = getCreditFinalCapital(compte);
+  const montantRestant = getCreditMontantRestant(compte);
 
   const detailItems: Array<{ label: string; value: unknown }> = [
     { label: 'ID compte', value: compte.id_compte_credit },
@@ -93,15 +98,18 @@ const CompteCreditDetails: React.FC<CompteCreditDetailsProps> = ({ compteId, onB
     { label: 'Code ancien', value: compte.ancien_code },
     { label: 'ID compte epargne', value: compte.id_compte_epargne },
     { label: 'Montant prete', value: compte.montant_prete },
-    { label: 'Taux interet (%)', value: compte.taux_interet },
+    { label: 'Capital final calcule', value: capitalFinal },
+    { label: 'Taux interet (decimal)', value: compte.taux_interet },
     { label: 'Paiement journalier', value: compte.paiement_journalier },
     { label: 'Duree (mois)', value: compte.duree_credit_mois },
     { label: 'Fonds garantie', value: compte.fonds_garantie },
     { label: 'Penalites', value: compte.penalites },
-    { label: 'Paiement rembourse', value: compte.paiement_rembourse },
-    { label: 'Montant deja paye manuellement', value: compte.montant_deja_paye_manuellement },
-    { label: 'Total rembourse', value: totalRembourse },
-    { label: 'Montant restant', value: montantRestant },
+    ...(canViewBalances ? [
+      { label: 'Paiement rembourse', value: compte.paiement_rembourse },
+      { label: 'Montant deja paye manuellement', value: compte.montant_deja_paye_manuellement },
+      { label: 'Total rembourse', value: totalRembourse },
+      { label: 'Montant restant', value: montantRestant },
+    ] : []),
     { label: 'Date creation metier', value: formatDate(compte.date_creation) },
     { label: 'Statut', value: compte.statut },
     { label: 'Cree le', value: formatDate(compte.created_at) },
@@ -142,7 +150,7 @@ const CompteCreditDetails: React.FC<CompteCreditDetailsProps> = ({ compteId, onB
               <div className="p-3 rounded-lg border border-indigo-200 bg-indigo-50">
                 <p className="text-xs uppercase tracking-wide text-indigo-700">Compte epargne lie</p>
                 <p className="text-sm font-semibold text-indigo-900">{compteEpargne.no_compte}</p>
-                <p className="text-xs text-indigo-800">Solde: {(compteEpargne.solde_actuel ?? 0).toFixed(2)} HTG</p>
+                {canViewBalances && <p className="text-xs text-indigo-800">Solde: {(compteEpargne.solde_actuel ?? 0).toFixed(2)} HTG</p>}
               </div>
             )}
           </div>
@@ -166,7 +174,7 @@ const CompteCreditDetails: React.FC<CompteCreditDetailsProps> = ({ compteId, onB
                   <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
                   <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
                   <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Montant</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Solde avant</th>
+                  {canViewBalances && <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Solde avant</th>}
                   <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Versement declare</th>
                   <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Agent</th>
                 </tr>
@@ -177,7 +185,7 @@ const CompteCreditDetails: React.FC<CompteCreditDetailsProps> = ({ compteId, onB
                     <td className="px-3 py-2 text-sm text-gray-700">{formatDate(tx.date_transaction)}</td>
                     <td className="px-3 py-2 text-sm text-gray-700">{tx.type_transaction}</td>
                     <td className="px-3 py-2 text-sm text-gray-900 font-medium">{formatValue(tx.montant)}</td>
-                    <td className="px-3 py-2 text-sm text-gray-700">{formatValue(tx.solde_avant_transaction)}</td>
+                    {canViewBalances && <td className="px-3 py-2 text-sm text-gray-700">{formatValue(tx.solde_avant_transaction)}</td>}
                     <td className="px-3 py-2 text-sm text-gray-700">{formatValue(tx.versement_declare)}</td>
                     <td className="px-3 py-2 text-sm text-gray-700">{tx.created_by || '-'}</td>
                   </tr>

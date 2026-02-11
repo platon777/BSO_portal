@@ -278,11 +278,11 @@ const Parametres: React.FC = () => {
                 <div className="flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-4">
                     <button onClick={handleSync} className="flex items-center justify-center sm:justify-start px-4 py-3 sm:py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 min-h-[44px]">
                         <RefreshCwIcon className="w-4 h-4 mr-2" />
-                        Synchroniser
+                        Envoyer donnees
                     </button>
                     <button onClick={handleForceDownload} className="flex items-center justify-center sm:justify-start px-4 py-3 sm:py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 min-h-[44px]">
                         <DownloadCloudIcon className="w-4 h-4 mr-2" />
-                        Forcer Téléchargement
+                        Recevoir donnees
                     </button>
                     <button onClick={handleRetryFailed} className="flex items-center justify-center sm:justify-start px-4 py-3 sm:py-2 text-sm font-medium text-white bg-orange-500 rounded-lg hover:bg-orange-600 disabled:bg-gray-400 min-h-[44px]" disabled={!unsyncedItems?.some(i => i.status === 'failed')}>
                         <RotateCcwIcon className="w-4 h-4 mr-2" />
@@ -529,3 +529,4 @@ const Parametres: React.FC = () => {
 };
 
 export default Parametres;
+

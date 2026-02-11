@@ -3,6 +3,9 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../services/database';
 import { copyToClipboard } from '../utils/clipboard';
 import SecureWrapper from '../components/common/SecureWrapper';
+import { getCreditFinalCapital } from '../utils/creditCalculations';
+import { useAuthStore } from '../stores/authStore';
+import { UserRole } from '../types/auth';
 
 interface ClientDetailsProps {
   clientId: string;
@@ -24,6 +27,8 @@ const formatValue = (value: unknown) => {
 };
 
 const ClientDetails: React.FC<ClientDetailsProps> = ({ clientId, onBack, onOpenEpargneDetails, onOpenCreditDetails }) => {
+  const { profile } = useAuthStore();
+  const canViewBalances = profile?.role === UserRole.ADMIN;
   const data = useLiveQuery(async () => {
     const client = await db.personnes.get(clientId);
     if (!client) {
@@ -141,7 +146,7 @@ const ClientDetails: React.FC<ClientDetailsProps> = ({ clientId, onBack, onOpenE
                 <div key={compte.id_compte_epargne} className="p-3 rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-between gap-3">
                   <div>
                     <p className="font-medium text-gray-900">{compte.no_compte || '-'}</p>
-                    <p className="text-xs text-gray-600">Solde: {(compte.solde_actuel ?? 0).toFixed(2)} HTG</p>
+                    {canViewBalances && <p className="text-xs text-gray-600">Solde: {(compte.solde_actuel ?? 0).toFixed(2)} HTG</p>}
                   </div>
                   {onOpenEpargneDetails && (
                     <button
@@ -165,7 +170,7 @@ const ClientDetails: React.FC<ClientDetailsProps> = ({ clientId, onBack, onOpenE
                 <div key={compte.id_compte_credit} className="p-3 rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-between gap-3">
                   <div>
                     <p className="font-medium text-gray-900">{compte.no_compte || '-'}</p>
-                    <p className="text-xs text-gray-600">Montant prete: {(compte.montant_prete ?? 0).toFixed(2)} HTG</p>
+                    <p className="text-xs text-gray-600">Capital final: {getCreditFinalCapital(compte).toFixed(2)} HTG</p>
                   </div>
                   {onOpenCreditDetails && (
                     <button
