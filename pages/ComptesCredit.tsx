@@ -46,6 +46,7 @@ const computeMissedPayments = (compte: CompteCreditEnriched, paymentsCount: numb
 const ComptesCredit: React.FC<ComptesCreditProps> = ({ onViewDetails }) => {
   const { showModal, hideModal } = useModal();
   const { profile } = useAuthStore();
+  const canViewBalances = profile?.role === UserRole.ADMIN;
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOption, setSortOption] = useState<SortOption>('created_desc');
   const [currentPageComptes, setCurrentPageComptes] = useState(1);
@@ -306,8 +307,8 @@ const ComptesCredit: React.FC<ComptesCreditProps> = ({ onViewDetails }) => {
                   <div className="bg-gray-50 rounded-lg p-3 mb-3 space-y-1">
                     <div className="flex justify-between text-sm"><span className="text-gray-600">Prete</span><span className="font-semibold">{(compte.montant_prete || 0).toFixed(2)}</span></div>
                     <div className="flex justify-between text-sm"><span className="text-gray-600">Capital final</span><span className="font-semibold">{capitalFinal.toFixed(2)}</span></div>
-                    <div className="flex justify-between text-sm"><span className="text-gray-600">Rembourse</span><span className="text-green-600 font-semibold">{totalRembourse.toFixed(2)}</span></div>
-                    <div className="flex justify-between text-sm border-t pt-1"><span className="text-gray-800 font-semibold">Restant</span><span className="text-red-600 font-bold">{restant.toFixed(2)}</span></div>
+                    {canViewBalances && <div className="flex justify-between text-sm"><span className="text-gray-600">Rembourse</span><span className="text-green-600 font-semibold">{totalRembourse.toFixed(2)}</span></div>}
+                    {canViewBalances && <div className="flex justify-between text-sm border-t pt-1"><span className="text-gray-800 font-semibold">Restant</span><span className="text-red-600 font-bold">{restant.toFixed(2)}</span></div>}
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 text-sm mb-3">
@@ -340,9 +341,9 @@ const ComptesCredit: React.FC<ComptesCreditProps> = ({ onViewDetails }) => {
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Client</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Montant Prete</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Capital Final</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Paye Manuel</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rembourse Total</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Restant</th>
+                  {canViewBalances && <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Paye Manuel</th>}
+                  {canViewBalances && <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rembourse Total</th>}
+                  {canViewBalances && <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Restant</th>}
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date Fin</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Agent</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
@@ -367,9 +368,9 @@ const ComptesCredit: React.FC<ComptesCreditProps> = ({ onViewDetails }) => {
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{compte.personne ? `${compte.personne.prenom} ${compte.personne.nom}` : 'N/A'}</td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 font-semibold">{(compte.montant_prete || 0).toFixed(2)}</td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-semibold">{capitalFinal.toFixed(2)}</td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-blue-600">{paiementManuel.toFixed(2)}</td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-green-600">{totalRembourse.toFixed(2)}</td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-red-600 font-semibold">{restant.toFixed(2)}</td>
+                        {canViewBalances && <td className="px-4 py-3 whitespace-nowrap text-sm text-blue-600">{paiementManuel.toFixed(2)}</td>}
+                        {canViewBalances && <td className="px-4 py-3 whitespace-nowrap text-sm text-green-600">{totalRembourse.toFixed(2)}</td>}
+                        {canViewBalances && <td className="px-4 py-3 whitespace-nowrap text-sm text-red-600 font-semibold">{restant.toFixed(2)}</td>}
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{compte.date_fin ? new Date(compte.date_fin).toLocaleDateString('fr-FR') : '-'}</td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{getAgentName(compte.created_by)}</td>
                         <td className="px-4 py-3 whitespace-nowrap"><span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${compte.statut === 'Actif' ? 'bg-green-100 text-green-800' : (compte.statut === 'Paye' || compte.statut === 'Payé') ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'}`}>{compte.statut}</span></td>
@@ -424,7 +425,7 @@ const ComptesCredit: React.FC<ComptesCreditProps> = ({ onViewDetails }) => {
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Client</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Montant</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Solde Avant</th>
+                  {canViewBalances && <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Solde Avant</th>}
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Versement Declare</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Agent</th>
                 </tr></thead>
@@ -443,7 +444,7 @@ const ComptesCredit: React.FC<ComptesCreditProps> = ({ onViewDetails }) => {
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{tx.client_name || '-'}</td>
                         <td className="px-4 py-3 whitespace-nowrap"><span className={`px-2 py-1 text-xs font-semibold rounded ${typeColors[tx.type_transaction] || 'bg-gray-100 text-gray-800'}`}>{tx.type_transaction}</span></td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-gray-900">{tx.montant.toFixed(2)}</td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{tx.solde_avant_transaction.toFixed(2)}</td>
+                        {canViewBalances && <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{tx.solde_avant_transaction.toFixed(2)}</td>}
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{tx.versement_declare !== undefined && tx.versement_declare !== null ? tx.versement_declare.toFixed(2) : '-'}</td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{getAgentName(tx.created_by)}</td>
                       </tr>);

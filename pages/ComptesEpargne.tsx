@@ -49,6 +49,7 @@ const getSortTimestamp = (compte: CompteEpargneAvecPersonne, sortOption: SortOpt
 const ComptesEpargne: React.FC<ComptesEpargneProps> = ({ onViewDetails }) => {
   const { showModal, hideModal } = useModal();
   const { profile } = useAuthStore();
+  const canViewBalances = profile?.role === UserRole.ADMIN;
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOption, setSortOption] = useState<SortOption>('created_desc');
   const [currentPageComptes, setCurrentPageComptes] = useState(1);
@@ -291,10 +292,12 @@ const ComptesEpargne: React.FC<ComptesEpargneProps> = ({ onViewDetails }) => {
                   <span className={`px-2 text-xs font-semibold rounded-full ${compte.statut === 'Actif' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{compte.statut}</span>
                 </div>
 
-                <div className="bg-blue-50 rounded-lg p-3 mb-3">
-                  <p className="text-xs text-blue-600">Solde Actuel</p>
-                  <p className="text-xl font-bold text-blue-900">{(compte.solde_actuel ?? 0).toFixed(2)} HTG</p>
-                </div>
+                {canViewBalances && (
+                  <div className="bg-blue-50 rounded-lg p-3 mb-3">
+                    <p className="text-xs text-blue-600">Solde Actuel</p>
+                    <p className="text-xl font-bold text-blue-900">{(compte.solde_actuel ?? 0).toFixed(2)} HTG</p>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-2 text-sm mb-3">
                   <div><span className="text-gray-500 text-xs">Categorie</span><p>{compte.categorie_compte_epargne || '-'}</p></div>
@@ -325,7 +328,7 @@ const ComptesEpargne: React.FC<ComptesEpargneProps> = ({ onViewDetails }) => {
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">N Compte</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">N Ancien</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Client</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Solde Actuel</th>
+                    {canViewBalances && <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Solde Actuel</th>}
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Categorie</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date Creation</th>
@@ -349,7 +352,7 @@ const ComptesEpargne: React.FC<ComptesEpargneProps> = ({ onViewDetails }) => {
                       <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 cursor-pointer hover:text-blue-600" onClick={() => copyToClipboard(compte.no_compte, 'Numero de compte')} title="Cliquer pour copier">{compte.no_compte || '-'}</td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{compte.no_compte_ancien || '-'}</td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{compte.personne ? `${compte.personne.prenom} ${compte.personne.nom}` : 'N/A'}</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 font-semibold">{(compte.solde_actuel ?? 0).toFixed(2)}</td>
+                      {canViewBalances && <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 font-semibold">{(compte.solde_actuel ?? 0).toFixed(2)}</td>}
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{compte.categorie_compte_epargne || '-'}</td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{compte.type_compte_epargne || '-'}</td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{new Date(compte.date_creation).toLocaleDateString('fr-FR')}</td>
@@ -405,8 +408,8 @@ const ComptesEpargne: React.FC<ComptesEpargneProps> = ({ onViewDetails }) => {
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Client</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Montant</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Solde Avant (Declare)</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Solde Apres (Declare)</th>
+                    {canViewBalances && <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Solde Avant (Declare)</th>}
+                    {canViewBalances && <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Solde Apres (Declare)</th>}
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Agent</th>
                   </tr>
                 </thead>
@@ -425,8 +428,8 @@ const ComptesEpargne: React.FC<ComptesEpargneProps> = ({ onViewDetails }) => {
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{tx.client_name || '-'}</td>
                       <td className="px-4 py-3 whitespace-nowrap"><span className={`px-2 py-1 text-xs font-semibold rounded ${typeColors[tx.type_transaction] || 'bg-gray-100 text-gray-800'}`}>{typeLabels[tx.type_transaction] || tx.type_transaction}</span></td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-gray-900">{(tx.montant ?? 0).toFixed(2)}</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{(tx.solde_avant_transaction_declare ?? 0).toFixed(2)}</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{(tx.solde_apres_transaction_declare ?? 0).toFixed(2)}</td>
+                      {canViewBalances && <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{(tx.solde_avant_transaction_declare ?? 0).toFixed(2)}</td>}
+                      {canViewBalances && <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{(tx.solde_apres_transaction_declare ?? 0).toFixed(2)}</td>}
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{getAgentName(tx.created_by)}</td>
                     </tr>
                   ))}

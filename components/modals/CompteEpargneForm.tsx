@@ -34,7 +34,8 @@ const readFileAsDataUrl = (file: File): Promise<string> =>
 const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, onCancel }) => {
   const { profile } = useAuthStore();
   const [formData, setFormData] = useState<Partial<CompteEpargne>>({});
-  const photoInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const clients = useLiveQuery(() => db.personnes.toArray(), []);
 
@@ -281,10 +282,17 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                onClick={() => photoInputRef.current?.click()}
+                onClick={() => galleryInputRef.current?.click()}
                 className="px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
               >
                 Importer photo
+              </button>
+              <button
+                type="button"
+                onClick={() => cameraInputRef.current?.click()}
+                className="px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+              >
+                Prendre photo
               </button>
               {formData.photo_personne_autorisee && (
                 <button
@@ -299,12 +307,23 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
           </div>
 
           <input
-            ref={photoInputRef}
+            ref={galleryInputRef}
             type="file"
             accept="image/*"
             className="hidden"
             onChange={handlePhotoInputChange}
           />
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={handlePhotoInputChange}
+          />
+          <p className="mt-2 text-xs text-gray-500">
+            La photo est enregistree localement et sera synchronisee automatiquement vers Supabase.
+          </p>
         </div>
       </div>
 
