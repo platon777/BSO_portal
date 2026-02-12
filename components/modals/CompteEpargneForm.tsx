@@ -9,6 +9,7 @@ import SearchableSelect from '../common/SearchableSelect';
 import { useAuthStore } from '../../stores/authStore';
 import toast from 'react-hot-toast';
 import { getSuccursaleLabel, getSuccursaleOptions } from '../../utils/succursale';
+import { supabase } from '../../services/supabase';
 
 interface CompteEpargneFormProps {
   compte?: CompteEpargne;
@@ -17,6 +18,12 @@ interface CompteEpargneFormProps {
 }
 
 const MAX_PHOTO_SIZE_BYTES = 8 * 1024 * 1024;
+const PLAN_CACHE_KEY = 'bso_offres_plans_cache_v1';
+
+interface PlanOption {
+  id: number;
+  nom_plan: string;
+}
 
 const parseNumber = (value: string): number => {
   if (value === '' || value === null || value === undefined) return 0;
@@ -35,6 +42,8 @@ const readFileAsDataUrl = (file: File): Promise<string> =>
 const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, onCancel }) => {
   const { profile } = useAuthStore();
   const [formData, setFormData] = useState<Partial<CompteEpargne>>({});
+  const [planOptions, setPlanOptions] = useState<PlanOption[]>([]);
+  const [plansLoading, setPlansLoading] = useState(false);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
@@ -55,6 +64,62 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
     }
   }, [compte]);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadPlanCache = () => {
+      try {
+        const raw = localStorage.getItem(PLAN_CACHE_KEY);
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return;
+        const cachedPlans = parsed
+          .map((item: any) => ({ id: Number(item.id), nom_plan: String(item.nom_plan || '') }))
+          .filter((item: PlanOption) => Number.isFinite(item.id) && item.id > 0 && item.nom_plan);
+        if (cachedPlans.length > 0 && isMounted) {
+          setPlanOptions(cachedPlans);
+        }
+      } catch (error) {
+        console.warn('[CompteEpargneForm] Impossible de charger le cache des plans', error);
+      }
+    };
+
+    const fetchPlans = async () => {
+      setPlansLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('offres_plans')
+          .select('id_plan, nom_plan')
+          .order('id_plan', { ascending: true });
+
+        if (error) {
+          console.warn('[CompteEpargneForm] Chargement offres_plans echoue', error);
+          return;
+        }
+
+        const fetchedPlans = (data || [])
+          .map((item: any) => ({ id: Number(item.id_plan), nom_plan: String(item.nom_plan || '') }))
+          .filter((item: PlanOption) => Number.isFinite(item.id) && item.id > 0 && item.nom_plan);
+
+        if (isMounted && fetchedPlans.length > 0) {
+          setPlanOptions(fetchedPlans);
+          localStorage.setItem(PLAN_CACHE_KEY, JSON.stringify(fetchedPlans));
+        }
+      } finally {
+        if (isMounted) {
+          setPlansLoading(false);
+        }
+      }
+    };
+
+    loadPlanCache();
+    fetchPlans();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     const isNumber = ['solde_actuel', 'fonds_garantie', 'id_plan'].includes(name);
@@ -63,6 +128,14 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
 
   const handleClientChange = (clientId: string | null) => {
     setFormData(prev => ({ ...prev, id_personne: clientId || undefined }));
+  };
+
+  const handlePlanChange = (planId: string | null) => {
+    const parsedPlanId = planId ? Number(planId) : undefined;
+    setFormData(prev => ({
+      ...prev,
+      id_plan: parsedPlanId && Number.isFinite(parsedPlanId) ? parsedPlanId : undefined,
+    }));
   };
 
   const handlePhotoInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -102,6 +175,26 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
 
   const succursaleOptions = useMemo(() => getSuccursaleOptions(), []);
 
+  const mergedPlanOptions = useMemo(() => {
+    const map = new Map<number, PlanOption>();
+    planOptions.forEach((plan) => map.set(plan.id, plan));
+
+    const currentPlanId = Number(formData.id_plan);
+    if (Number.isFinite(currentPlanId) && currentPlanId > 0 && !map.has(currentPlanId)) {
+      map.set(currentPlanId, { id: currentPlanId, nom_plan: `Plan #${currentPlanId}` });
+    }
+
+    return Array.from(map.values()).sort((a, b) => a.id - b.id);
+  }, [planOptions, formData.id_plan]);
+
+  const searchablePlanOptions = useMemo(() => {
+    return mergedPlanOptions.map((plan) => ({
+      id: String(plan.id),
+      label: plan.nom_plan,
+      subLabel: `Plan ID: ${plan.id}`,
+    }));
+  }, [mergedPlanOptions]);
+
   const validateRequired = () => {
     if (!formData.id_personne) {
       toast.error('Veuillez selectionner un client.');
@@ -117,6 +210,10 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
     }
     if (!formData.id_plan) {
       toast.error('Plan est obligatoire.');
+      return false;
+    }
+    if (!mergedPlanOptions.some((plan) => plan.id === Number(formData.id_plan))) {
+      toast.error('Le plan selectionne est invalide.');
       return false;
     }
     if (!String(formData.type_compte_epargne || '').trim()) {
@@ -247,7 +344,20 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
           ))}
         </Select>
 
-        <Input type="number" label="Plan (ID)" name="id_plan" value={formData.id_plan ?? ''} onChange={handleChange} required />
+        <div className="space-y-1">
+          <SearchableSelect
+            label="Plan"
+            options={searchablePlanOptions}
+            value={formData.id_plan ? String(formData.id_plan) : null}
+            onChange={handlePlanChange}
+            placeholder="Rechercher un plan..."
+            required
+          />
+          {plansLoading && <p className="text-xs text-gray-500">Chargement des plans...</p>}
+          {!plansLoading && mergedPlanOptions.length === 0 && (
+            <p className="text-xs text-orange-600">Aucun plan disponible. Synchronisez ou verifiez la connexion.</p>
+          )}
+        </div>
 
         <Select label="Type Compte Epargne" name="type_compte_epargne" value={formData.type_compte_epargne || ''} onChange={handleChange} required>
           <option value="">Selectionner...</option>
