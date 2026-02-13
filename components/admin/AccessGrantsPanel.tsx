@@ -67,6 +67,9 @@ type AgentActionAuditRow = {
   grant_id: string | null;
   admin_id: string | null;
   admin_full_name: string | null;
+  changes?: any;
+  before_data?: any;
+  after_data?: any;
 };
 
 const getScopeLabel = (scopeType?: string | null) => {
@@ -179,8 +182,8 @@ const AccessGrantsPanel: React.FC = () => {
       }
 
       const { data: agentActionsData, error: agentActionsError } = await supabase
-        .from('agent_action_audit')
-        .select('id, occurred_at, actor_id, actor_full_name, action, target_table, target_id, scope_type, client_id, client_full_name, client_code, no_compte, transaction_type, grant_id, admin_id, admin_full_name')
+        .from('v_agent_action_monitoring_v2')
+        .select('id, occurred_at, actor_id, actor_full_name, action, target_table, target_id, scope_type, client_id, client_full_name, client_code, no_compte, transaction_type, grant_id, admin_id, admin_full_name, changes, before_data, after_data')
         .order('occurred_at', { ascending: false })
         .limit(100);
 
@@ -381,7 +384,31 @@ const AccessGrantsPanel: React.FC = () => {
                     <td className="px-3 py-2 text-gray-700">{r.no_compte || '-'}</td>
                     <td className="px-3 py-2 text-gray-700">{r.transaction_type || '-'}</td>
                     <td className="px-3 py-2 text-gray-800">{r.admin_full_name || getUserName(r.admin_id)}</td>
-                    <td className="px-3 py-2 text-gray-700 font-mono">{r.grant_id ? `${r.grant_id.slice(0, 8)}...` : '-'}</td>
+                    <td className="px-3 py-2 text-gray-700 font-mono">
+                      <details className="cursor-pointer">
+                        <summary className="text-blue-700 hover:text-blue-900">
+                          {r.grant_id ? `${r.grant_id.slice(0, 8)}...` : '-'}
+                        </summary>
+                        <div className="mt-2 space-y-2 text-xs">
+                          {r.action === 'UPDATE' ? (
+                            <div>
+                              <div className="font-semibold text-gray-700 mb-1">Changements</div>
+                              <pre className="p-2 bg-gray-100 rounded overflow-auto max-h-48">{JSON.stringify(r.changes || {}, null, 2)}</pre>
+                            </div>
+                          ) : null}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <div>
+                              <div className="font-semibold text-gray-700 mb-1">Avant</div>
+                              <pre className="p-2 bg-gray-100 rounded overflow-auto max-h-48">{JSON.stringify(r.before_data || {}, null, 2)}</pre>
+                            </div>
+                            <div>
+                              <div className="font-semibold text-gray-700 mb-1">Après</div>
+                              <pre className="p-2 bg-gray-100 rounded overflow-auto max-h-48">{JSON.stringify(r.after_data || {}, null, 2)}</pre>
+                            </div>
+                          </div>
+                        </div>
+                      </details>
+                    </td>
                   </tr>
                 ))}
               </tbody>
