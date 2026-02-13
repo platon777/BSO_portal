@@ -1,4 +1,4 @@
-
+﻿
 import React, { useState, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { getAgentStats, AgentStats, DateFilter, getUnsyncedStats, initialStats } from '../services/statistics';
@@ -12,6 +12,7 @@ import { uploadPendingChanges, downloadUpdatesFromServer, retryFailedSyncItems, 
 import { useAuthStore } from '../stores/authStore';
 import toast from 'react-hot-toast';
 import Dexie from 'dexie';
+import AccessGrantsPanel from '../components/admin/AccessGrantsPanel';
 
 const StatCard: React.FC<{ title: string; value: string | number; count?: number; amount?: string; color: string }> = ({ title, value, count, amount, color }) => (
     <div className={`bg-white p-4 rounded-lg shadow-md border-l-4 ${color} w-full`}>
@@ -469,6 +470,7 @@ const Parametres: React.FC = () => {
                     </div>
                 )}
             </div>
+            <AccessGrantsPanel />
 
             {/* Maintenance & Updates Section */}
             <div className="bg-white p-4 rounded-lg shadow-md mb-6">
@@ -555,4 +557,6 @@ const Parametres: React.FC = () => {
 };
 
 export default Parametres;
+
+
 

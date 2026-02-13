@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+﻿import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../services/supabase';
 import { UserRole } from '../../types/auth';
 import { toast } from 'react-hot-toast';
@@ -8,16 +8,22 @@ interface AccessGrantModalProps {
     clientId: string;
     clientName: string;
     transactionId?: string; // Optional transaction ID
+    transactionType?: 'epargne' | 'credit'; // If transactionId is provided
+    scopeType?: 'client' | 'compte_epargne' | 'compte_credit' | 'transaction_epargne' | 'transaction_credit';
+    compteEpargneId?: string;
+    compteCreditId?: string;
+    resourceLabel?: string;
     onClose: () => void;
 }
 
-const AccessGrantModal: React.FC<AccessGrantModalProps> = ({ clientId, clientName, transactionId, onClose }) => {
+const AccessGrantModal: React.FC<AccessGrantModalProps> = ({ clientId, clientName, transactionId, transactionType, scopeType, compteEpargneId, compteCreditId, resourceLabel, onClose }) => {
     const [agents, setAgents] = useState<any[]>([]);
     const [selectedAgent, setSelectedAgent] = useState('');
     const [duration, setDuration] = useState(60); // minutes
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const [reason, setReason] = useState('');
 
     useEffect(() => {
         const fetchAgents = async () => {
@@ -47,14 +53,27 @@ const AccessGrantModal: React.FC<AccessGrantModalProps> = ({ clientId, clientNam
     const handleGrant = async () => {
         if (!selectedAgent) return;
         setLoading(true);
-        const { error } = await accessService.grantAccess(selectedAgent, clientId, duration, transactionId);
+        const { error } = await accessService.grantAccess(
+            selectedAgent,
+            clientId,
+            duration,
+            transactionId,
+            transactionType,
+            reason.trim() || undefined,
+            scopeType,
+            compteEpargneId,
+            compteCreditId,
+            resourceLabel
+        );
         setLoading(false);
 
         if (error) {
             toast.error('Erreur: ' + error);
         } else {
-            const accessType = transactionId ? 'à la transaction' : 'au client';
-            toast.success(`Accès accordé ${accessType} pour ${clientName} pendant ${duration} minutes`);
+            const accessType = transactionId
+                ? (transactionType === 'credit' ? 'a la transaction credit' : 'a la transaction epargne')
+                : 'au client';
+            toast.success(`Acces accorde ${accessType} pour ${clientName} pendant ${duration} minutes`);
             onClose();
         }
     };
@@ -67,11 +86,11 @@ const AccessGrantModal: React.FC<AccessGrantModalProps> = ({ clientId, clientNam
 
     return (
         <div className="p-4">
-            <h3 className="text-lg font-bold mb-4">Accorder l'accès temporaire</h3>
+            <h3 className="text-lg font-bold mb-4">Accorder l'acces temporaire</h3>
             <p className="mb-2">Client: <strong>{clientName}</strong></p>
             {transactionId && (
                 <div className="mb-4 p-2 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">
-                    ⚠️ Vous accordez l'accès uniquement à une transaction spécifique.
+                    Attention: vous accordez l'acces uniquement a une transaction specifique.
                 </div>
             )}
 
@@ -129,13 +148,25 @@ const AccessGrantModal: React.FC<AccessGrantModalProps> = ({ clientId, clientNam
             </div>
 
             <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700">Durée (minutes)</label>
+                <label className="block text-sm font-medium text-gray-700">Duree (minutes)</label>
                 <input
                     type="number"
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                     value={duration}
                     onChange={(e) => setDuration(Number(e.target.value))}
                     min="1"
+                />
+            </div>
+
+            <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700">Raison (optionnel)</label>
+                <input
+                    type="text"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    placeholder="Ex: correction, validation, suppression..."
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    maxLength={200}
                 />
             </div>
 
@@ -159,3 +190,6 @@ const AccessGrantModal: React.FC<AccessGrantModalProps> = ({ clientId, clientNam
 };
 
 export default AccessGrantModal;
+
+
+

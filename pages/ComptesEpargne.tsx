@@ -153,7 +153,7 @@ const ComptesEpargne: React.FC<ComptesEpargneProps> = ({ onViewDetails }) => {
   };
 
   const handleEditCompte = async (compte: CompteEpargneAvecPersonne) => {
-    const hasAccess = await accessService.hasAccess(compte.id_personne);
+    const hasAccess = await accessService.hasAccessToCompteEpargne(compte.id_personne, compte.id_compte_epargne);
     if (!hasAccess) {
       toast.error('Acces refuse. Demandez un acces temporaire a un administrateur.');
       return;
@@ -162,7 +162,7 @@ const ComptesEpargne: React.FC<ComptesEpargneProps> = ({ onViewDetails }) => {
   };
 
   const handleDeleteCompte = async (compte: CompteEpargneAvecPersonne) => {
-    const hasAccess = await accessService.hasAccess(compte.id_personne);
+    const hasAccess = await accessService.hasAccessToCompteEpargne(compte.id_personne, compte.id_compte_epargne);
     if (!hasAccess) {
       toast.error('Acces refuse. Demandez un acces temporaire a un administrateur.');
       return;
@@ -187,6 +187,9 @@ const ComptesEpargne: React.FC<ComptesEpargneProps> = ({ onViewDetails }) => {
     showModal('Accorder acces', <AccessGrantModal
       clientId={compte.id_personne}
       clientName={`${compte.personne.prenom} ${compte.personne.nom}`}
+      scopeType="compte_epargne"
+      compteEpargneId={compte.id_compte_epargne}
+      resourceLabel={`Compte épargne ${compte.no_compte || ''}`.trim()}
       onClose={hideModal}
     />);
   };
@@ -200,7 +203,7 @@ const ComptesEpargne: React.FC<ComptesEpargneProps> = ({ onViewDetails }) => {
       toast.error('Impossible de verifier l acces');
       return;
     }
-    const hasAccess = await accessService.hasAccess(tx.id_personne);
+    const hasAccess = await accessService.hasAccess(tx.id_personne, tx.id_transaction_epargne);
     if (!hasAccess) {
       toast.error('Acces refuse. Demandez un acces temporaire a un administrateur.');
       return;
@@ -220,7 +223,7 @@ const ComptesEpargne: React.FC<ComptesEpargneProps> = ({ onViewDetails }) => {
       toast.error('Impossible de verifier l acces');
       return;
     }
-    const hasAccess = await accessService.hasAccess(tx.id_personne);
+    const hasAccess = await accessService.hasAccess(tx.id_personne, tx.id_transaction_epargne);
     if (!hasAccess) {
       toast.error('Acces refuse. Demandez un acces temporaire a un administrateur.');
       return;
@@ -245,6 +248,9 @@ const ComptesEpargne: React.FC<ComptesEpargneProps> = ({ onViewDetails }) => {
     showModal('Accorder acces', <AccessGrantModal
       clientId={tx.id_personne}
       clientName={tx.client_name || 'Client'}
+      transactionId={tx.id_transaction_epargne}
+      transactionType="epargne"
+      scopeType="transaction_epargne"
       onClose={hideModal}
     />);
   };

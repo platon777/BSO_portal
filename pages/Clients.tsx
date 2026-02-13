@@ -138,7 +138,15 @@ const Clients: React.FC<ClientsProps> = ({ onViewDetails }) => {
     };
 
     const handleGrantAccess = (client: Personne) => {
-        showModal('Accorder acces', <AccessGrantModal clientId={client.id_personne} clientName={client.prenom + ' ' + client.nom} onClose={hideModal} />);
+        showModal('Accorder acces', (
+            <AccessGrantModal
+                clientId={client.id_personne}
+                clientName={client.prenom + ' ' + client.nom}
+                scopeType="client"
+                resourceLabel={`Client ${client.prenom} ${client.nom}`}
+                onClose={hideModal}
+            />
+        ));
     };
 
     const handlePreviewPhoto = (client: Personne) => {
