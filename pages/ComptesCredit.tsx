@@ -157,7 +157,7 @@ const ComptesCredit: React.FC<ComptesCreditProps> = ({ onViewDetails }) => {
   };
 
   const handleEditCompte = async (compte: CompteCreditEnriched) => {
-    const hasAccess = await accessService.hasAccess(compte.id_personne);
+    const hasAccess = await accessService.hasAccessToCompteCredit(compte.id_personne, compte.id_compte_credit);
     if (!hasAccess) {
       toast.error('Acces refuse. Demandez un acces temporaire a un administrateur.');
       return;
@@ -166,7 +166,7 @@ const ComptesCredit: React.FC<ComptesCreditProps> = ({ onViewDetails }) => {
   };
 
   const handleDeleteCompte = async (compte: CompteCreditEnriched) => {
-    const hasAccess = await accessService.hasAccess(compte.id_personne);
+    const hasAccess = await accessService.hasAccessToCompteCredit(compte.id_personne, compte.id_compte_credit);
     if (!hasAccess) {
       toast.error('Acces refuse. Demandez un acces temporaire a un administrateur.');
       return;
@@ -190,6 +190,9 @@ const ComptesCredit: React.FC<ComptesCreditProps> = ({ onViewDetails }) => {
     showModal('Accorder acces', <AccessGrantModal
       clientId={compte.id_personne}
       clientName={`${compte.personne.prenom} ${compte.personne.nom}`}
+      scopeType="compte_credit"
+      compteCreditId={compte.id_compte_credit}
+      resourceLabel={`Compte crédit ${compte.no_compte || ''}`.trim()}
       onClose={hideModal}
     />);
   };
@@ -249,6 +252,8 @@ const ComptesCredit: React.FC<ComptesCreditProps> = ({ onViewDetails }) => {
       clientId={tx.id_personne}
       clientName={tx.client_name || 'Client inconnu'}
       transactionId={tx.id_transaction_credit}
+      transactionType="credit"
+      scopeType="transaction_credit"
       onClose={hideModal}
     />);
   };
