@@ -13,7 +13,7 @@ import { supabase } from '../../services/supabase';
 
 // Generate Haiti timezone ISO string (UTC-5 / America/Port-au-Prince)
 const getNowHaitiISO = (): string => {
-  return new Date().toLocaleString('sv-SE', { timeZone: 'America/Port-au-Prince' }).replace(' ', 'T') + '.000Z';
+  return new Date().toLocaleString('sv-SE', { timeZone: 'America/Port-au-Prince' }).replace(' ', 'T');
 };
 
 interface CompteEpargneFormProps {
@@ -366,6 +366,7 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
 
         <Select label="Type Compte Epargne" name="type_compte_epargne" value={formData.type_compte_epargne || ''} onChange={handleChange} required>
           <option value="">Selectionner...</option>
+          <option value="Nouveau Compte">Nouveau Compte</option>
           <option value="Compte Upgrade">Compte Upgrade</option>
           <option value="Compte Staff">Compte Staff</option>
           <option value="Compte Bloque">Compte Bloque</option>

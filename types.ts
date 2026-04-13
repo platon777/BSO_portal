@@ -39,7 +39,7 @@ export interface CompteEpargne {
   no_compte: string;
   no_compte_ancien?: string;
   id_plan?: number;
-  type_compte_epargne?: 'Compte Upgrade' | 'Compte Staff' | 'Compte Bloque';
+  type_compte_epargne?: 'Nouveau Compte' | 'Compte Upgrade' | 'Compte Staff' | 'Compte Bloque';
   categorie_compte_epargne?: 'Epargne' | 'Fonds Garantie' | 'Grandon';
   photo_personne_autorisee?: string;
   solde_actuel: number;

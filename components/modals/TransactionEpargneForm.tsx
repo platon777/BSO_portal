@@ -26,7 +26,7 @@ const parseNumber = (value: string): number => {
 
 // Generate Haiti timezone ISO string (UTC-5 / America/Port-au-Prince)
 const getNowHaitiISO = (): string => {
-  return new Date().toLocaleString('sv-SE', { timeZone: 'America/Port-au-Prince' }).replace(' ', 'T') + '.000Z';
+  return new Date().toLocaleString('sv-SE', { timeZone: 'America/Port-au-Prince' }).replace(' ', 'T');
 };
 
 const BENEFICIARY_PAGE_SIZE = 20;
@@ -323,7 +323,7 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
           placeholder="Entrer une valeur libre..."
         />
 
-        <Input type="number" label="Remise Client" name="remise_client" value={formData.remise_client ?? ''} onChange={handleChange} step="0.01" />
+        <Input type="number" label="Remise Client" name="remise_client" value={formData.remise_client || ''} onChange={handleChange} step="0.01" />
       </div>
 
       <div className="grid grid-cols-2 gap-4">

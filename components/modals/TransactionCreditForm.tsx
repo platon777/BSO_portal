@@ -21,7 +21,7 @@ const parseNumber = (value: string): number => {
 };
 
 const getNowHaitiISO = (): string => {
-  return new Date().toLocaleString('sv-SE', { timeZone: 'America/Port-au-Prince' }).replace(' ', 'T') + '.000Z';
+  return new Date().toLocaleString('sv-SE', { timeZone: 'America/Port-au-Prince' }).replace(' ', 'T');
 };
 
 const TransactionCreditForm: React.FC<TransactionCreditFormProps> = ({ compteCredit, transaction, onSave, onCancel }) => {
