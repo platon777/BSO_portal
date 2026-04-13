@@ -9,6 +9,11 @@ import SearchableSelect from '../common/SearchableSelect';
 import { useAuthStore } from '../../stores/authStore';
 import toast from 'react-hot-toast';
 
+// Generate Haiti timezone ISO string (UTC-5 / America/Port-au-Prince)
+const getNowHaitiISO = (): string => {
+  return new Date().toLocaleString('sv-SE', { timeZone: 'America/Port-au-Prince' }).replace(' ', 'T') + '.000Z';
+};
+
 interface CompteCreditFormProps {
   compte?: CompteCredit;
   onSave: () => void;
@@ -56,7 +61,7 @@ const CompteCreditForm: React.FC<CompteCreditFormProps> = ({ compte, onSave, onC
         taux_interet: normalizeRatePercentForForm(compte.taux_interet),
       });
     } else {
-      const nowIso = new Date().toISOString();
+      const nowIso = getNowHaitiISO();
       setFormData({
         paiement_rembourse: 0,
         montant_deja_paye_manuellement: 0,
@@ -175,7 +180,7 @@ const CompteCreditForm: React.FC<CompteCreditFormProps> = ({ compte, onSave, onC
         ...formData,
         taux_interet: normalizedRate,
         updated_by: userId,
-        updated_at: new Date().toISOString()
+        updated_at: getNowHaitiISO()
       });
     } else {
       const selectedCompteEpargne = comptesEpargne.find(c => c.id_compte_epargne === formData.id_compte_epargne);
@@ -184,7 +189,7 @@ const CompteCreditForm: React.FC<CompteCreditFormProps> = ({ compte, onSave, onC
         return;
       }
 
-      const nowIso = new Date().toISOString();
+      const nowIso = getNowHaitiISO();
       const newCompte: Omit<CompteCredit, 'id_compte_credit'> = {
         id_personne: formData.id_personne!,
         id_compte_epargne: formData.id_compte_epargne!,

@@ -20,6 +20,10 @@ const parseNumber = (value: string): number => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
+const getNowHaitiISO = (): string => {
+  return new Date().toLocaleString('sv-SE', { timeZone: 'America/Port-au-Prince' }).replace(' ', 'T') + '.000Z';
+};
+
 const TransactionCreditForm: React.FC<TransactionCreditFormProps> = ({ compteCredit, transaction, onSave, onCancel }) => {
   const { profile } = useAuthStore();
   const [formData, setFormData] = useState<Partial<TransactionCredit>>(transaction || {
@@ -69,18 +73,19 @@ const TransactionCreditForm: React.FC<TransactionCreditFormProps> = ({ compteCre
     if (transaction && transaction.id_transaction_credit) {
       await db.updateRecord('transactions_credit', transaction.id_transaction_credit, {
         ...formData,
-        updated_at: new Date().toISOString()
+        updated_at: getNowHaitiISO()
       });
     } else {
+      const nowIso = getNowHaitiISO();
       const newTransaction: Omit<TransactionCredit, 'id_transaction_credit'> = {
         id_compte_credit: formData.id_compte_credit!,
         no_compte: formData.no_compte!,
         solde_avant_transaction: formData.solde_avant_transaction!,
         type_transaction: formData.type_transaction!,
         montant: formData.montant!,
-        date_transaction: new Date().toISOString(),
+        date_transaction: nowIso,
         created_by: userId,
-        created_at: new Date().toISOString(),
+        created_at: nowIso,
         versement_declare: formData.versement_declare
       };
 
@@ -94,12 +99,14 @@ const TransactionCreditForm: React.FC<TransactionCreditFormProps> = ({ compteCre
     <form onSubmit={handleSubmit} className="space-y-4">
       <Input name="client" label="Client" value={`${compteCredit.personne?.prenom} ${compteCredit.personne?.nom}`} readOnly disabled />
       <Input name="no_compte_credit" label="Compte Credit" value={compteCredit.no_compte} readOnly disabled />
+      {compteCredit.ancien_code && (
+        <Input name="ancien_code" label="Ancien Compte Credit" value={compteCredit.ancien_code} readOnly disabled />
+      )}
 
       <Select label="Type de transaction" name="type_transaction" value={formData.type_transaction || ''} onChange={handleChange} required>
         <option value="">Selectionner le type</option>
         <option value="Paiement">Paiement</option>
         <option value="Penalite">Penalite</option>
-        <option value="Garantie">Fonds Garantie</option>
       </Select>
 
       <Input type="number" label="Montant" name="montant" value={formData.montant ?? ''} onChange={handleChange} required step="0.01" />

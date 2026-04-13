@@ -31,6 +31,7 @@ const typeLabels: Record<string, string> = {
   R: 'Retrait',
   FL: 'Nouveau Livret',
   S: 'Frais Service',
+  FA: 'Frais Auto',
   V: 'Virement',
 };
 
@@ -39,6 +40,7 @@ const typeColors: Record<string, string> = {
   R: 'bg-red-100 text-red-800',
   FL: 'bg-orange-100 text-orange-800',
   S: 'bg-yellow-100 text-yellow-800',
+  FA: 'bg-purple-100 text-purple-800',
   V: 'bg-blue-100 text-blue-800',
 };
 
@@ -233,7 +235,7 @@ const ComptesEpargne: React.FC<ComptesEpargneProps> = ({ onViewDetails }) => {
       title="Supprimer Transaction"
       message={`Voulez-vous vraiment supprimer cette transaction de ${tx.montant} ?`}
       onConfirm={async () => {
-        await db.transactions_epargne.delete(tx.id_transaction_epargne);
+        await db.deleteRecord('transactions_epargne', tx.id_transaction_epargne);
         hideModal();
       }}
       onCancel={hideModal}

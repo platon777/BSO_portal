@@ -235,7 +235,7 @@ const ComptesCredit: React.FC<ComptesCreditProps> = ({ onViewDetails }) => {
       title="Supprimer Transaction"
       message={`Voulez-vous vraiment supprimer cette transaction de ${tx.montant} ?`}
       onConfirm={async () => {
-        await db.transactions_credit.delete(tx.id_transaction_credit);
+        await db.deleteRecord('transactions_credit', tx.id_transaction_credit);
         hideModal();
       }}
       onCancel={hideModal}
@@ -330,8 +330,8 @@ const ComptesCredit: React.FC<ComptesCreditProps> = ({ onViewDetails }) => {
                   </div>
 
                   <div className="bg-gray-50 rounded-lg p-3 mb-3 space-y-1">
-                    <div className="flex justify-between text-sm"><span className="text-gray-600">Prete</span><span className="font-semibold">{(compte.montant_prete || 0).toFixed(2)}</span></div>
-                    <div className="flex justify-between text-sm"><span className="text-gray-600">Capital final</span><span className="font-semibold">{capitalFinal.toFixed(2)}</span></div>
+                    {canViewBalances && <div className="flex justify-between text-sm"><span className="text-gray-600">Prete</span><span className="font-semibold">{(compte.montant_prete || 0).toFixed(2)}</span></div>}
+                    {canViewBalances && <div className="flex justify-between text-sm"><span className="text-gray-600">Capital final</span><span className="font-semibold">{capitalFinal.toFixed(2)}</span></div>}
                     {canViewBalances && <div className="flex justify-between text-sm"><span className="text-gray-600">Rembourse</span><span className="text-green-600 font-semibold">{totalRembourse.toFixed(2)}</span></div>}
                     {canViewBalances && <div className="flex justify-between text-sm border-t pt-1"><span className="text-gray-800 font-semibold">Restant</span><span className="text-red-600 font-bold">{restant.toFixed(2)}</span></div>}
                   </div>
@@ -365,8 +365,8 @@ const ComptesCredit: React.FC<ComptesCreditProps> = ({ onViewDetails }) => {
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">N Compte</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Code Ancien</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Client</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Montant Prete</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Capital Final</th>
+                  {canViewBalances && <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Montant Prete</th>}
+                  {canViewBalances && <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Capital Final</th>}
                   {canViewBalances && <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Paye Manuel</th>}
                   {canViewBalances && <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rembourse Total</th>}
                   {canViewBalances && <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Restant</th>}
@@ -392,8 +392,8 @@ const ComptesCredit: React.FC<ComptesCreditProps> = ({ onViewDetails }) => {
                         <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 cursor-pointer hover:text-blue-600" onClick={() => copyToClipboard(compte.no_compte, 'Numero de compte')} title="Cliquer pour copier">{compte.no_compte}</td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{compte.ancien_code || '-'}</td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{compte.personne ? `${compte.personne.prenom} ${compte.personne.nom}` : 'N/A'}</td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 font-semibold">{(compte.montant_prete || 0).toFixed(2)}</td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-semibold">{capitalFinal.toFixed(2)}</td>
+                        {canViewBalances && <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 font-semibold">{(compte.montant_prete || 0).toFixed(2)}</td>}
+                        {canViewBalances && <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-semibold">{capitalFinal.toFixed(2)}</td>}
                         {canViewBalances && <td className="px-4 py-3 whitespace-nowrap text-sm text-blue-600">{paiementManuel.toFixed(2)}</td>}
                         {canViewBalances && <td className="px-4 py-3 whitespace-nowrap text-sm text-green-600">{totalRembourse.toFixed(2)}</td>}
                         {canViewBalances && <td className="px-4 py-3 whitespace-nowrap text-sm text-red-600 font-semibold">{restant.toFixed(2)}</td>}

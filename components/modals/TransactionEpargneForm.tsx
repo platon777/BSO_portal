@@ -24,6 +24,11 @@ const parseNumber = (value: string): number => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
+// Generate Haiti timezone ISO string (UTC-5 / America/Port-au-Prince)
+const getNowHaitiISO = (): string => {
+  return new Date().toLocaleString('sv-SE', { timeZone: 'America/Port-au-Prince' }).replace(' ', 'T') + '.000Z';
+};
+
 const BENEFICIARY_PAGE_SIZE = 20;
 const SEARCH_MATCH_LIMIT = 120;
 
@@ -189,7 +194,7 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
 
     if (formData.type_transaction === 'D') {
       solde_apres_transactions += montant;
-    } else if (formData.type_transaction === 'R' || formData.type_transaction === 'FL' || formData.type_transaction === 'S' || formData.type_transaction === 'V') {
+    } else if (formData.type_transaction === 'R' || formData.type_transaction === 'FL' || formData.type_transaction === 'S' || formData.type_transaction === 'FA' || formData.type_transaction === 'V') {
       solde_apres_transactions -= montant;
       if (solde_apres_transactions < 0) {
         toast.error(`Solde insuffisant. Solde disponible: ${formData.solde_avant_transaction || 0}`);
@@ -200,7 +205,7 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
     if (transaction && transaction.id_transaction_epargne) {
       await db.updateRecord('transactions_epargne', transaction.id_transaction_epargne, {
         ...formData,
-        categorie_compte_epargne: formData.categorie_compte_epargne || 'Epargne',
+        categorie_compte_epargne: compteEpargne.categorie_compte_epargne || 'Epargne',
         virement_from: formData.type_transaction === 'V'
           ? String(formData.virement_from || compteEpargne.no_compte || '').trim()
           : undefined,
@@ -208,16 +213,16 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
           ? String(formData.virement_to || '').trim()
           : undefined,
         solde_apres_transactions,
-        updated_at: new Date().toISOString()
+        updated_at: getNowHaitiISO()
       });
     } else {
-      const nowIso = new Date().toISOString();
+      const nowIso = getNowHaitiISO();
       const newTransaction: Omit<TransactionEpargne, 'id_transaction_epargne'> = {
         id_compte_epargne: formData.id_compte_epargne!,
         no_compte: formData.no_compte!,
         type_transaction: formData.type_transaction!,
         montant: formData.montant!,
-        categorie_compte_epargne: formData.categorie_compte_epargne || 'Epargne',
+        categorie_compte_epargne: compteEpargne.categorie_compte_epargne || 'Epargne',
         solde_declare: formData.solde_declare,
         virement_from: formData.type_transaction === 'V'
           ? String(formData.virement_from || compteEpargne.no_compte || '').trim()
@@ -229,8 +234,8 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
         monnaie_client: formData.monnaie_client,
         remise_client: formData.remise_client,
         solde_avant_transaction: formData.solde_avant_transaction!,
-        solde_avant_transaction_declare: formData.solde_avant_transaction_declare!,
-        solde_apres_transaction_declare: formData.solde_apres_transaction_declare!,
+        solde_avant_transaction_declare: formData.solde_avant_transaction_declare ?? 0,
+        solde_apres_transaction_declare: formData.solde_apres_transaction_declare ?? 0,
         date_transaction: nowIso,
         created_by: userId,
         created_at: nowIso,
@@ -239,10 +244,25 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
 
       await db.addRecord('transactions_epargne', newTransaction);
 
+      // Update sender account balance
       await db.updateRecord('comptes_epargne', formData.id_compte_epargne!, {
         solde_actuel: solde_apres_transactions,
         updated_at: nowIso
       });
+
+      // For virements: update beneficiary balance locally only (no sync queue)
+      // The Supabase trigger update_savings_balance() handles the beneficiary credit on sync
+      if (formData.type_transaction === 'V' && formData.virement_to) {
+        const beneficiaryCompte = await db.comptes_epargne.where('no_compte').equals(formData.virement_to).first();
+        if (beneficiaryCompte) {
+          const newBeneficiarySolde = (beneficiaryCompte.solde_actuel || 0) + montant;
+          // Direct Dexie update - not through db.updateRecord() to avoid creating a sync queue item
+          await db.comptes_epargne.update(beneficiaryCompte.id_compte_epargne, {
+            solde_actuel: newBeneficiarySolde,
+            updated_at: nowIso,
+          });
+        }
+      }
     }
 
     onSave();
@@ -252,12 +272,10 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
     <form onSubmit={handleSubmit} className="space-y-4">
       <Input name="client" label="Client" value={`${compteEpargne.personne?.prenom} ${compteEpargne.personne?.nom}`} readOnly disabled />
       <Input name="no_compte_epargne" label="Compte Epargne" value={compteEpargne.no_compte} readOnly disabled />
-
-      <Select label="Categorie Compte Epargne" name="categorie_compte_epargne" value={formData.categorie_compte_epargne || 'Epargne'} onChange={handleChange}>
-        <option value="Epargne">Epargne</option>
-        <option value="Fonds Garantie">Fonds Garantie</option>
-        <option value="Grandon">Grandon</option>
-      </Select>
+      {compteEpargne.no_compte_ancien && (
+        <Input name="no_compte_ancien" label="Code Ancien" value={compteEpargne.no_compte_ancien} readOnly disabled />
+      )}
+      <Input name="categorie_compte_epargne_display" label="Categorie Compte Epargne" value={compteEpargne.categorie_compte_epargne || 'Epargne'} readOnly disabled />
 
       <Select label="Type de transaction" name="type_transaction" value={formData.type_transaction || ''} onChange={handleChange} required>
         <option value="">Selectionner le type</option>
@@ -265,6 +283,7 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
         <option value="R">Retrait</option>
         <option value="FL">Nouveau Livret</option>
         <option value="S">Frais Service</option>
+        <option value="FA">Frais Auto</option>
         <option value="V">Virement</option>
       </Select>
 
@@ -294,9 +313,7 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Input type="number" label="Frais Service" name="frais_auto" value={formData.frais_auto ?? 0} onChange={handleChange} step="0.01" />
-
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Input
           type="text"
           label="Monnaie Client"
@@ -306,12 +323,12 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
           placeholder="Entrer une valeur libre..."
         />
 
-        <Input type="number" label="Remise Client" name="remise_client" value={formData.remise_client ?? 0} onChange={handleChange} step="0.01" />
+        <Input type="number" label="Remise Client" name="remise_client" value={formData.remise_client ?? ''} onChange={handleChange} step="0.01" />
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        <Input type="number" label="Solde Avant Declare" name="solde_avant_transaction_declare" value={formData.solde_avant_transaction_declare ?? 0} onChange={handleChange} required step="0.01" />
-        <Input type="number" label="Solde Apres Declare" name="solde_apres_transaction_declare" value={formData.solde_apres_transaction_declare ?? 0} onChange={handleChange} required step="0.01" />
+        <Input type="number" label="Solde Avant Declare" name="solde_avant_transaction_declare" value={formData.solde_avant_transaction_declare ?? ''} onChange={handleChange} required step="0.01" />
+        <Input type="number" label="Solde Apres Declare" name="solde_apres_transaction_declare" value={formData.solde_apres_transaction_declare ?? ''} onChange={handleChange} required step="0.01" />
       </div>
 
       <div className="pt-4 flex flex-col-reverse sm:flex-row sm:justify-end gap-2">

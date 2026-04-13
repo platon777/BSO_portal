@@ -11,6 +11,11 @@ import toast from 'react-hot-toast';
 import { getSuccursaleLabel, getSuccursaleOptions } from '../../utils/succursale';
 import { supabase } from '../../services/supabase';
 
+// Generate Haiti timezone ISO string (UTC-5 / America/Port-au-Prince)
+const getNowHaitiISO = (): string => {
+  return new Date().toLocaleString('sv-SE', { timeZone: 'America/Port-au-Prince' }).replace(' ', 'T') + '.000Z';
+};
+
 interface CompteEpargneFormProps {
   compte?: CompteEpargne;
   onSave: () => void;
@@ -252,7 +257,7 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
       await db.updateRecord('comptes_epargne', compte.id_compte_epargne, {
         ...formData,
         updated_by: userId,
-        updated_at: new Date().toISOString()
+        updated_at: getNowHaitiISO()
       });
     } else {
       const selectedClient = clients?.find(c => c.id_personne === formData.id_personne);
@@ -261,7 +266,7 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
         return;
       }
 
-      const nowIso = new Date().toISOString();
+      const nowIso = getNowHaitiISO();
       const newCompte: Omit<CompteEpargne, 'id_compte_epargne'> = {
         id_personne: formData.id_personne!,
         no_compte: generateCustomCode(selectedClient.code_client),
@@ -308,7 +313,7 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
 
         await db.updateRecord('comptes_epargne', compteId, {
           solde_actuel: initialBalance,
-          updated_at: new Date().toISOString()
+          updated_at: getNowHaitiISO()
         });
       }
     }

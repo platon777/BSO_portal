@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useMemo } from 'react';
 import { Personne } from '../../types';
 import Input from '../common/Input';
 import Select from '../common/Select';
@@ -6,6 +6,12 @@ import { db } from '../../services/database';
 import { generateUserCode } from '../../services/codeGenerator';
 import { useAuthStore } from '../../stores/authStore';
 import toast from 'react-hot-toast';
+import { SECTEURS, ACTIVITES_PAR_SECTEUR, CAPACITES_DISTRIBUTION, POINTS_DE_VENTE, Secteur } from '../../data/occupationData';
+
+// Generate Haiti timezone ISO string (UTC-5 / America/Port-au-Prince)
+const getNowHaitiISO = (): string => {
+  return new Date().toLocaleString('sv-SE', { timeZone: 'America/Port-au-Prince' }).replace(' ', 'T') + '.000Z';
+};
 
 interface ClientFormProps {
   client?: Personne;
@@ -71,6 +77,39 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSave, onCancel }) => 
     setFormData((prev) => ({ ...prev, photo_identification: '' }));
   };
 
+  const selectedSecteurs = useMemo(() => {
+    if (!formData.secteur) return [] as string[];
+    return formData.secteur.split(',').map(s => s.trim()).filter(Boolean);
+  }, [formData.secteur]);
+
+  const availableActivites = useMemo(() => {
+    const activites = new Set<string>();
+    selectedSecteurs.forEach(s => {
+      const list = ACTIVITES_PAR_SECTEUR[s as Secteur];
+      if (list) list.forEach(a => activites.add(a));
+    });
+    return Array.from(activites);
+  }, [selectedSecteurs]);
+
+  const handleSecteurToggle = (secteur: string) => {
+    const current = selectedSecteurs.includes(secteur)
+      ? selectedSecteurs.filter(s => s !== secteur)
+      : [...selectedSecteurs, secteur];
+    const newSecteur = current.join(', ');
+    // Check if current activite is still valid with new secteur selection
+    const newActivites = new Set<string>();
+    current.forEach(s => {
+      const list = ACTIVITES_PAR_SECTEUR[s as Secteur];
+      if (list) list.forEach(a => newActivites.add(a));
+    });
+    const activiteStillValid = formData.activite && newActivites.has(formData.activite);
+    setFormData(prev => ({
+      ...prev,
+      secteur: newSecteur || undefined,
+      activite: activiteStillValid ? prev.activite : undefined,
+    }));
+  };
+
   const validateRequired = () => {
     const requiredFields: Array<{ key: keyof Personne; label: string }> = [
       { key: 'nom', label: 'Nom' },
@@ -78,7 +117,6 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSave, onCancel }) => 
       { key: 'numero_telephone', label: 'Telephone' },
       { key: 'adresse', label: 'Adresse' },
       { key: 'lieu_de_travail', label: 'Lieu de travail' },
-      { key: 'occupation', label: 'Occupation' },
     ];
 
     for (const field of requiredFields) {
@@ -87,6 +125,16 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSave, onCancel }) => 
         toast.error(`${field.label} est obligatoire.`);
         return false;
       }
+    }
+
+    if (!formData.secteur) {
+      toast.error('Secteur est obligatoire.');
+      return false;
+    }
+
+    if (!formData.activite) {
+      toast.error('Activité est obligatoire.');
+      return false;
     }
 
     if (!formData.photo_identification) {
@@ -130,10 +178,10 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSave, onCancel }) => 
       await db.updateRecord('personnes', client.id_personne, {
         ...formData,
         updated_by: String(profileId),
-        updated_at: new Date().toISOString(),
+        updated_at: getNowHaitiISO(),
       });
     } else {
-      const nowIso = new Date().toISOString();
+      const nowIso = getNowHaitiISO();
       const newClientData = {
         ...formData,
         code_client: generateUserCode(formData.prenom, formData.nom),
@@ -185,7 +233,51 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSave, onCancel }) => 
         />
 
         <Input label="Lieu de travail" name="lieu_de_travail" value={formData.lieu_de_travail || ''} onChange={handleChange} required />
-        <Input label="Occupation" name="occupation" value={formData.occupation || ''} onChange={handleChange} required />
+
+        {/* Secteur - Multi-select */}
+        <div className="md:col-span-2">
+          <label className="block text-sm font-medium text-gray-700 mb-1">Secteur *</label>
+          <div className="border border-gray-300 rounded-md p-2 max-h-40 overflow-y-auto bg-white">
+            {SECTEURS.map(secteur => (
+              <label key={secteur} className="flex items-center gap-2 py-1 px-1 hover:bg-gray-50 rounded cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={selectedSecteurs.includes(secteur)}
+                  onChange={() => handleSecteurToggle(secteur)}
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span className="text-sm text-gray-700">{secteur}</span>
+              </label>
+            ))}
+          </div>
+          {selectedSecteurs.length > 0 && (
+            <p className="mt-1 text-xs text-gray-500">Sélectionné(s) : {selectedSecteurs.join(', ')}</p>
+          )}
+        </div>
+
+        {/* Activité - filtré selon secteur */}
+        <Select label="Activité *" name="activite" value={formData.activite || ''} onChange={handleChange} required>
+          <option value="">Sélectionner une activité</option>
+          {availableActivites.map(activite => (
+            <option key={activite} value={activite}>{activite}</option>
+          ))}
+        </Select>
+
+        {/* Capacité distribution */}
+        <Select label="Capacité distribution" name="capacite_distribution" value={formData.capacite_distribution || ''} onChange={handleChange}>
+          <option value="">Sélectionner</option>
+          {CAPACITES_DISTRIBUTION.map(cap => (
+            <option key={cap} value={cap}>{cap}</option>
+          ))}
+        </Select>
+
+        {/* Point de vente */}
+        <Select label="Point de vente" name="point_de_vente" value={formData.point_de_vente || ''} onChange={handleChange}>
+          <option value="">Sélectionner</option>
+          {POINTS_DE_VENTE.map(pdv => (
+            <option key={pdv} value={pdv}>{pdv}</option>
+          ))}
+        </Select>
 
         <Select label="Sexe" name="sexe" value={formData.sexe || 'M'} onChange={handleChange}>
           <option value="M">Masculin</option>

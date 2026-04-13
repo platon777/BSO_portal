@@ -521,23 +521,35 @@ const Parametres: React.FC = () => {
                     </select>
                 </div>
                 <div className="grid grid-cols-2 gap-3 sm:gap-4 max-h-[60vh] overflow-y-auto overscroll-contain p-2 sm:p-3 pr-2 pb-24 md:pb-3">
-                    {/* Comptes créés */}
-                    <StatCard title="Comptes Crédit Créés" value="" count={stats.comptes_credit_crees} amount="0,00 HTG" color="border-blue-100" />
-                    <StatCard title="Comptes Épargne Créés" value="" count={stats.comptes_epargne_crees} amount="0,00 HTG" color="border-blue-100" />
+                    {/* Ordre selon document: comptes, depot, retrait, solde cumule, nouveau carnet, virement, frais auto, frais service, credit, versement cumule, penalites, monnaie, remise, frais dossier, fonds garantie, total cash */}
+                    <StatCard title="Comptes Épargne Créés" value="" count={stats.comptes_epargne_crees} amount="" color="border-blue-100" />
+                    <StatCard title="Comptes Crédit Créés" value="" count={stats.comptes_credit_crees} amount="" color="border-blue-100" />
 
-                    {/* Transactions Épargne */}
-                    <StatCard title="Transactions Épargne Dépôt" value="" count={stats.transactions_epargne_depot} amount={`${stats.montant_transactions_epargne_depot.toFixed(2)} HTG`} color="border-green-100" />
-                    <StatCard title="Transactions Frais Services" value="" count={stats.transactions_epargne_frais_service} amount={`${stats.montant_transactions_epargne_frais_service.toFixed(2)} HTG`} color="border-green-100" />
-                    <StatCard title="Transactions Frais Livret" value="" count={stats.transactions_frais_livret} amount={`${stats.montant_transactions_frais_livret.toFixed(2)} HTG`} color="border-green-100" />
-                    <StatCard title="Transactions Épargne Retrait" value="" count={stats.transactions_epargne_retrait} amount={`${stats.montant_transactions_epargne_retrait.toFixed(2)} HTG`} color="border-red-100" />
+                    <StatCard title="Dépôt" value="" count={stats.transactions_epargne_depot} amount={`${stats.montant_transactions_epargne_depot.toFixed(2)} HTG`} color="border-green-100" />
+                    <StatCard title="Retrait" value="" count={stats.transactions_epargne_retrait} amount={`${stats.montant_transactions_epargne_retrait.toFixed(2)} HTG`} color="border-red-100" />
 
-                    {/* Transactions Crédit */}
-                    <StatCard title="Transactions Crédit Paiement" value="" count={stats.transactions_credit_paiement} amount={`${stats.montant_transactions_credit_paiement.toFixed(2)} HTG`} color="border-green-100" />
-                    <StatCard title="Transactions Fond Garantie" value="" count={stats.transactions_credit_garantie} amount="0,00 HTG" color="border-green-100" />
-                    <StatCard title="Transactions Crédit Pénalité" value="" count={stats.transactions_credit_penalite} amount={`${stats.montant_transactions_credit_penalite.toFixed(2)} HTG`} color="border-red-100" />
+                    <StatCard title="Solde Cumulé" value={`${stats.solde_cumule.toFixed(2)} HTG`} color="border-indigo-100" />
+                    <StatCard title="Nouveau Carnet (Frais Livret)" value="" count={stats.transactions_frais_livret} amount={`${stats.montant_transactions_frais_livret.toFixed(2)} HTG`} color="border-orange-100" />
 
-                    {/* Total Cash */}
-                    <StatCard title="Total Cash" value={`${stats.total_cash.toFixed(2)} HTG`} color="border-red-100" />
+                    <StatCard title="Virement" value="" count={stats.transactions_virement} amount={`${stats.montant_transactions_virement.toFixed(2)} HTG`} color="border-blue-100" />
+                    <StatCard title="Frais Auto" value="" count={stats.transactions_frais_auto} amount={`${stats.montant_transactions_frais_auto.toFixed(2)} HTG`} color="border-purple-100" />
+
+                    <StatCard title="Frais Service" value="" count={stats.transactions_epargne_frais_service} amount={`${stats.montant_transactions_epargne_frais_service.toFixed(2)} HTG`} color="border-yellow-100" />
+                    <StatCard title="Crédit (Paiement)" value="" count={stats.transactions_credit_paiement} amount={`${stats.montant_transactions_credit_paiement.toFixed(2)} HTG`} color="border-green-100" />
+
+                    <StatCard title="Versement Cumulé" value={`${stats.versement_cumule.toFixed(2)} HTG`} color="border-indigo-100" />
+                    <StatCard title="Pénalités" value="" count={stats.transactions_credit_penalite} amount={`${stats.montant_transactions_credit_penalite.toFixed(2)} HTG`} color="border-red-100" />
+
+                    <StatCard title="Monnaie" value={`${stats.montant_monnaie_client.toFixed(2)} HTG`} color="border-teal-100" />
+                    <StatCard title="Remise" value={`${stats.montant_remise_client.toFixed(2)} HTG`} color="border-pink-100" />
+
+                    <StatCard title="Frais Dossier" value={`${stats.montant_frais_dossier.toFixed(2)} HTG`} color="border-amber-100" />
+                    <StatCard title="Fonds Garantie" value="" count={stats.transactions_credit_garantie} amount={`${stats.montant_transactions_credit_garantie.toFixed(2)} HTG`} color="border-cyan-100" />
+
+                    {/* Total Cash - highlighted */}
+                    <div className="col-span-2">
+                        <StatCard title="Total Cash" value={`${stats.total_cash.toFixed(2)} HTG`} color="border-emerald-500" />
+                    </div>
                 </div>
             </div>
 

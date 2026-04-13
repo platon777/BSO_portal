@@ -137,6 +137,10 @@ const mapPersonneToSupabase = (personne: Personne, userId: string): any => {
     created_by: toNullableInteger(personne.created_by),
     updated_by: toNullableInteger(personne.updated_by),
     piece_identification: personne.piece_identification ? getIdentificationTypeId(personne.piece_identification) : null,
+    secteur: personne.secteur || null,
+    activite: personne.activite || null,
+    capacite_distribution: personne.capacite_distribution || null,
+    point_de_vente: personne.point_de_vente || null,
     // Do NOT send id_plan or montant - these don't exist in Supabase schema
   };
 };
@@ -147,6 +151,10 @@ const mapSupabaseToPersonne = (data: any): Personne => {
     created_by: data.created_by ? String(data.created_by) : '',
     updated_by: data.updated_by ? String(data.updated_by) : undefined,
     piece_identification: getIdentificationTypeName(data.piece_identification),
+    secteur: data.secteur || undefined,
+    activite: data.activite || undefined,
+    capacite_distribution: data.capacite_distribution || undefined,
+    point_de_vente: data.point_de_vente || undefined,
     id_plan: undefined, // Not in Supabase schema
     montant: undefined, // Not in Supabase schema
   };
@@ -164,6 +172,9 @@ const mapCompteEpargneToSupabase = (compte: CompteEpargne, userId: string): any 
     piece_identification_allowed: compte.piece_identification_allowed
       ? getIdentificationTypeId(String(compte.piece_identification_allowed))
       : null,
+    person_allowed: compte.person_allowed || null,
+    nif_cin_allowed: compte.nif_cin_allowed || null,
+    photo_allowed: compte.photo_allowed || null,
     // Do NOT send statut or solde_actuel - these are managed by Supabase
   };
 };
@@ -179,6 +190,9 @@ const mapSupabaseToCompteEpargne = (data: any): CompteEpargne => {
     type_compte_epargne: data.type_compte_epargne || undefined,
     categorie_compte_epargne: data.categorie_compte_epargne || undefined,
     photo_personne_autorisee: data.photo_personne_autorisee || undefined,
+    person_allowed: data.person_allowed || undefined,
+    nif_cin_allowed: data.nif_cin_allowed || undefined,
+    photo_allowed: data.photo_allowed || undefined,
     statut: 'Actif', // Default status, not in Supabase schema
     solde_actuel: data.solde_actuel || 0, // Ensure we have a value
   };

@@ -7,6 +7,10 @@ export interface Personne {
   pseudo?: string;
   lieu_de_travail?: string;
   occupation?: string;
+  secteur?: string;
+  activite?: string;
+  capacite_distribution?: string;
+  point_de_vente?: string;
   geocode?: string;
   prenom: string;
   nom: string;
@@ -82,7 +86,7 @@ export interface TransactionCredit {
   id_transaction_credit: string;
   id_compte_credit: string;
   no_compte: string;
-  type_transaction: 'Paiement' | 'Penalite' | 'Garantie';
+  type_transaction: 'Paiement' | 'Penalite' | 'Garantie'; // Garantie kept for backward compat with existing data
   montant: number;
   solde_avant_transaction: number;
   date_transaction: string;
@@ -98,7 +102,7 @@ export interface TransactionEpargne {
   id_transaction_epargne: string;
   id_compte_epargne: string;
   no_compte: string;
-  type_transaction: 'D' | 'R' | 'FL' | 'S' | 'V'; // Depot, Retrait, Nouveau Livret, Frais Service, Virement
+  type_transaction: 'D' | 'R' | 'FL' | 'S' | 'V' | 'FA'; // Depot, Retrait, Nouveau Livret, Frais Service, Virement, Frais Auto
   montant: number;
   categorie_compte_epargne?: string;
   solde_declare?: number;

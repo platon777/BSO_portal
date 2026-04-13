@@ -111,8 +111,6 @@ const validateCompteCredit = (data: any, errors: string[], action: string) => {
     if (data.penalites === undefined || data.penalites === null || data.penalites === '') {
       errors.push('Penalites is required');
     }
-    if (!data.date_debut) errors.push('Date debut is required');
-    if (!data.date_fin) errors.push('Date fin is required');
   }
 
   if (data.montant_deja_paye_manuellement !== undefined && Number(data.montant_deja_paye_manuellement) < 0) {
@@ -127,8 +125,12 @@ const validateTransactionEpargne = (data: any, errors: string[], action: string)
   if (!data.montant || Number(data.montant) <= 0) {
     errors.push('Montant must be greater than 0');
   }
-  if (!['D', 'R', 'FL', 'S', 'V'].includes(data.type_transaction)) {
+  if (!['D', 'R', 'FL', 'S', 'V', 'FA'].includes(data.type_transaction)) {
     errors.push('Invalid transaction type');
+  }
+  if (data.type_transaction === 'V') {
+    if (!data.virement_from) errors.push('Virement requires virement_from');
+    if (!data.virement_to) errors.push('Virement requires virement_to');
   }
 };
 
