@@ -68,7 +68,8 @@ const validatePersonne = (data: any, errors: string[], action: string) => {
   if (!data.numero_telephone) errors.push('Numero telephone is required');
   if (!data.adresse) errors.push('Adresse is required');
   if (!data.lieu_de_travail) errors.push('Lieu de travail is required');
-  if (!data.occupation) errors.push('Occupation is required');
+  if (!data.secteur && !data.occupation) errors.push('Secteur is required');
+  if (!data.activite && !data.occupation) errors.push('Activite is required');
   if (!data.photo_identification) errors.push('Photo identification is required');
   if (!data.sexe || !['M', 'F'].includes(data.sexe)) {
     errors.push('Sexe must be M or F');
