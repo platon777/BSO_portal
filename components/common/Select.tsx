@@ -126,6 +126,7 @@ const Select: React.FC<SelectProps> = ({
 
   const openDropdown = () => {
     if (disabled) return;
+    setSearchTerm('');
     setIsOpen(true);
     window.setTimeout(() => {
       inputRef.current?.select();
