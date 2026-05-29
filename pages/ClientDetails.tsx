@@ -6,6 +6,7 @@ import SecureWrapper from '../components/common/SecureWrapper';
 import { getCreditFinalCapital } from '../utils/creditCalculations';
 import { useAuthStore } from '../stores/authStore';
 import { UserRole } from '../types/auth';
+import { formatCreditAccountType } from '../utils/creditTypes';
 
 interface ClientDetailsProps {
   clientId: string;
@@ -170,6 +171,7 @@ const ClientDetails: React.FC<ClientDetailsProps> = ({ clientId, onBack, onOpenE
                 <div key={compte.id_compte_credit} className="p-3 rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-between gap-3">
                   <div>
                     <p className="font-medium text-gray-900">{compte.no_compte || '-'}</p>
+                    <p className="text-xs text-gray-600">Type: {formatCreditAccountType(compte.type_compte_credit)}</p>
                     <p className="text-xs text-gray-600">Capital final: {getCreditFinalCapital(compte).toFixed(2)} HTG</p>
                   </div>
                   {onOpenCreditDetails && (

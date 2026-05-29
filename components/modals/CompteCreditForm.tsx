@@ -8,6 +8,7 @@ import { generateCustomCode } from '../../services/codeGenerator';
 import SearchableSelect from '../common/SearchableSelect';
 import { useAuthStore } from '../../stores/authStore';
 import toast from 'react-hot-toast';
+import { CREDIT_ACCOUNT_TYPE_OPTIONS, CREDIT_ACCOUNT_TYPE_VALUES } from '../../utils/creditTypes';
 
 // Generate Haiti timezone ISO string (UTC-5 / America/Port-au-Prince)
 const getNowHaitiISO = (): string => {
@@ -68,6 +69,7 @@ const CompteCreditForm: React.FC<CompteCreditFormProps> = ({ compte, onSave, onC
         penalites: 0,
         statut: 'Actif',
         date_debut: nowIso,
+        type_compte_credit: 'Credit Cash',
       });
     }
   }, [compte]);
@@ -106,6 +108,14 @@ const CompteCreditForm: React.FC<CompteCreditFormProps> = ({ compte, onSave, onC
     }
     if (!String(formData.ancien_code || '').trim()) {
       toast.error('Code credit ancien est obligatoire.');
+      return false;
+    }
+    if (!String(formData.type_compte_credit || '').trim()) {
+      toast.error('Type compte credit est obligatoire.');
+      return false;
+    }
+    if (!CREDIT_ACCOUNT_TYPE_VALUES.includes(formData.type_compte_credit as any)) {
+      toast.error('Type compte credit invalide.');
       return false;
     }
 
@@ -195,6 +205,7 @@ const CompteCreditForm: React.FC<CompteCreditFormProps> = ({ compte, onSave, onC
         id_compte_epargne: formData.id_compte_epargne!,
         no_compte: generateCustomCode(selectedCompteEpargne.no_compte),
         ancien_code: formData.ancien_code,
+        type_compte_credit: formData.type_compte_credit,
         montant_prete: Number(formData.montant_prete),
         duree_credit_mois: Number(formData.duree_credit_mois),
         taux_interet: normalizedRate,
@@ -238,6 +249,12 @@ const CompteCreditForm: React.FC<CompteCreditFormProps> = ({ compte, onSave, onC
         {compte && <Input label="Numero de Compte Credit" name="no_compte" value={formData.no_compte || ''} readOnly disabled />}
 
         <Input label="Code Credit Ancien" name="ancien_code" value={formData.ancien_code || ''} onChange={handleChange} required />
+        <Select label="Type Compte Credit" name="type_compte_credit" value={formData.type_compte_credit || ''} onChange={handleChange} required>
+          <option value="">Selectionner...</option>
+          {CREDIT_ACCOUNT_TYPE_OPTIONS.map((type) => (
+            <option key={type.value} value={type.value}>{type.label}</option>
+          ))}
+        </Select>
         <Input type="number" label="Montant Prete" name="montant_prete" value={formData.montant_prete ?? ''} onChange={handleChange} required step="0.01" />
         <Input type="number" label="Montant Deja Paye (Manuel)" name="montant_deja_paye_manuellement" value={formData.montant_deja_paye_manuellement ?? 0} onChange={handleChange} step="0.01" />
         <Input type="number" label="Duree (mois)" name="duree_credit_mois" value={formData.duree_credit_mois ?? ''} onChange={handleChange} required />

@@ -7,6 +7,8 @@ import { getCreditFinalCapital } from '../utils/creditCalculations';
 import { useAuthStore } from '../stores/authStore';
 import { UserRole } from '../types/auth';
 import { getSuccursaleLabel } from '../utils/succursale';
+import { buildSavingsAccountSyncSummary } from '../services/savingsAccountService';
+import { formatCreditAccountType } from '../utils/creditTypes';
 
 interface CompteEpargneDetailsProps {
   compteId: string;
@@ -41,10 +43,11 @@ const CompteEpargneDetails: React.FC<CompteEpargneDetailsProps> = ({ compteId, o
       return { missing: true as const };
     }
 
-    const [personne, transactions, comptesCredit] = await Promise.all([
+    const [personne, transactions, comptesCredit, queueItems] = await Promise.all([
       compte.id_personne ? db.personnes.get(compte.id_personne) : Promise.resolve(undefined),
       db.transactions_epargne.where('id_compte_epargne').equals(safeCompteId).toArray(),
       db.comptes_credit.where('id_compte_epargne').equals(safeCompteId).toArray(),
+      db.syncQueue.where('status').anyOf(['pending', 'failed']).toArray(),
     ]);
 
     transactions.sort((a, b) => {
@@ -59,6 +62,7 @@ const CompteEpargneDetails: React.FC<CompteEpargneDetailsProps> = ({ compteId, o
       personne,
       transactions,
       comptesCredit,
+      syncSummary: buildSavingsAccountSyncSummary(compte, queueItems),
     };
   }, [compteId], undefined);
 
@@ -88,7 +92,7 @@ const CompteEpargneDetails: React.FC<CompteEpargneDetailsProps> = ({ compteId, o
     );
   }
 
-  const { compte, personne, transactions, comptesCredit } = data;
+  const { compte, personne, transactions, comptesCredit, syncSummary } = data;
 
   const detailItems: Array<{ label: string; value: unknown }> = [
     { label: 'ID compte', value: compte.id_compte_epargne },
@@ -96,7 +100,7 @@ const CompteEpargneDetails: React.FC<CompteEpargneDetailsProps> = ({ compteId, o
     { label: 'Numero compte', value: compte.no_compte },
     { label: 'Numero ancien', value: compte.no_compte_ancien },
     { label: 'ID plan', value: compte.id_plan },
-    ...(canViewBalances ? [{ label: 'Solde actuel', value: compte.solde_actuel }] : []),
+    ...(canViewBalances ? [{ label: 'Solde confirme', value: syncSummary.confirmedBalanceEstimate }] : []),
     { label: 'Fonds garantie', value: compte.fonds_garantie },
     { label: 'Statut', value: compte.statut },
     { label: 'Date creation metier', value: formatDate(compte.date_creation) },
@@ -155,6 +159,18 @@ const CompteEpargneDetails: React.FC<CompteEpargneDetailsProps> = ({ compteId, o
             </div>
           )}
 
+          {canViewBalances && (syncSummary.pendingCount > 0 || syncSummary.failedCount > 0) && (
+            <div className={`mb-6 p-3 rounded-lg border ${syncSummary.failedCount > 0 ? 'border-red-200 bg-red-50 text-red-800' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>
+              <p className="text-sm font-semibold">
+                {syncSummary.failedCount > 0 ? 'Synchronisation a corriger' : 'Operation en attente de synchronisation'}
+              </p>
+              <p className="mt-1 text-xs">
+                Solde confirme: {syncSummary.confirmedBalanceEstimate.toFixed(2)} HTG
+                {syncSummary.pendingCount > 0 ? ` | Apres attente: ${syncSummary.projectedBalance.toFixed(2)} HTG` : ''}
+              </p>
+            </div>
+          )}
+
           <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="p-3 rounded-lg border border-gray-200 bg-gray-50">
               <p className="text-xs uppercase tracking-wide text-gray-500 mb-2">Photo du titulaire</p>
@@ -196,6 +212,7 @@ const CompteEpargneDetails: React.FC<CompteEpargneDetailsProps> = ({ compteId, o
               <div key={credit.id_compte_credit} className="p-3 rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-between gap-3">
                 <div>
                   <p className="font-medium text-gray-900">{credit.no_compte}</p>
+                  <p className="text-xs text-gray-600">Type: {formatCreditAccountType(credit.type_compte_credit)}</p>
                   <p className="text-xs text-gray-600">Capital final: {formatValue(getCreditFinalCapital(credit))} HTG</p>
                 </div>
                 {onOpenCreditDetails && (

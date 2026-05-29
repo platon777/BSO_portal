@@ -17,7 +17,12 @@ import AccessGrantModal from '../components/modals/AccessGrantModal';
 import toast from 'react-hot-toast';
 import * as authService from '../services/supabaseAuth';
 import { copyToClipboard } from '../utils/clipboard';
-import { getCreditFinalCapital, getCreditMontantRestant, getCreditTotalRembourse } from '../utils/creditCalculations';
+import { getCreditFinalCapital } from '../utils/creditCalculations';
+import {
+  buildCreditAccountSyncSummary,
+  CreditAccountSyncSummary,
+} from '../services/creditAccountService';
+import { formatCreditAccountType } from '../utils/creditTypes';
 
 type SortOption = 'created_desc' | 'created_asc' | 'updated_desc' | 'updated_asc';
 type ViewMode = 'comptes' | 'transactions';
@@ -25,6 +30,10 @@ type ViewMode = 'comptes' | 'transactions';
 interface ComptesCreditProps {
   onViewDetails?: (id: string) => void;
 }
+
+type CompteCreditListItem = CompteCreditEnriched & {
+  syncSummary: CreditAccountSyncSummary;
+};
 
 const getSortTimestamp = (compte: CompteCreditEnriched, sortOption: SortOption) => {
   const createdAt = new Date(compte.created_at || compte.date_creation || '').getTime() || 0;
@@ -76,19 +85,41 @@ const ComptesCredit: React.FC<ComptesCreditProps> = ({ onViewDetails }) => {
     return profilesMap.get(userId) || 'Agent';
   };
 
+  const formatMoney = (value: number) => `${value.toFixed(2)} HTG`;
+
+  const getSyncBadge = (summary?: CreditAccountSyncSummary) => {
+    if (!summary) return null;
+    if (summary.failedCount > 0) {
+      return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">A corriger</span>;
+    }
+    if (summary.pendingCount > 0) {
+      return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-800">En attente</span>;
+    }
+    return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Synchro OK</span>;
+  };
+
   const data = useLiveQuery(async () => {
     try {
       const allComptes = await db.comptes_credit.toArray();
       const personnes = await db.personnes.toArray();
-      const transactions = await db.transactions_credit.orderBy('date_transaction').reverse().toArray();
+      const [transactions, queueItems] = await Promise.all([
+        db.transactions_credit.orderBy('date_transaction').reverse().toArray(),
+        db.syncQueue.where('status').anyOf(['pending', 'failed']).toArray(),
+      ]);
 
       const personnesMap = new Map(personnes.map(p => [p.id_personne, p]));
       const comptesMap = new Map(allComptes.map(c => [c.id_compte_credit, c]));
 
-      let comptesAvecPersonne: CompteCreditEnriched[] = allComptes.map(compte => ({
-        ...compte,
-        personne: personnesMap.get(compte.id_personne),
-      }));
+      let comptesAvecPersonne: CompteCreditListItem[] = allComptes.map(compte => {
+        const compteAvecPersonne = {
+          ...compte,
+          personne: personnesMap.get(compte.id_personne),
+        };
+        return {
+          ...compteAvecPersonne,
+          syncSummary: buildCreditAccountSyncSummary(compteAvecPersonne, queueItems),
+        };
+      });
 
       const transactionsEnriched: TransactionCreditEnriched[] = transactions.map(tx => {
         const idPersonne = comptesMap.get(tx.id_compte_credit)?.id_personne;
@@ -105,6 +136,7 @@ const ComptesCredit: React.FC<ComptesCreditProps> = ({ onViewDetails }) => {
         comptesAvecPersonne = comptesAvecPersonne.filter(c =>
           c.no_compte?.toLowerCase().includes(lower) ||
           c.ancien_code?.toLowerCase().includes(lower) ||
+          c.type_compte_credit?.toLowerCase().includes(lower) ||
           c.personne?.nom?.toLowerCase().includes(lower) ||
           c.personne?.prenom?.toLowerCase().includes(lower)
         );
@@ -198,6 +230,11 @@ const ComptesCredit: React.FC<ComptesCreditProps> = ({ onViewDetails }) => {
   };
 
   const handleAddTransaction = (compte: CompteCreditEnriched) => {
+    const syncSummary = (compte as CompteCreditListItem).syncSummary;
+    if (syncSummary?.hasBlockingIssue) {
+      toast.error('Ce compte credit a une erreur de synchronisation a corriger avant une nouvelle transaction.');
+      return;
+    }
     showModal(`Transaction pour ${compte.no_compte}`, <TransactionCreditForm compteCredit={compte} onSave={hideModal} onCancel={hideModal} />);
   };
 
@@ -291,7 +328,7 @@ const ComptesCredit: React.FC<ComptesCreditProps> = ({ onViewDetails }) => {
           <div className="mb-4 grid grid-cols-1 md:grid-cols-3 gap-3">
             <input
               type="text"
-              placeholder="Rechercher par numero de compte, code ancien ou nom de client..."
+              placeholder="Rechercher par numero, code ancien, type ou nom de client..."
               value={searchTerm}
               onChange={(e) => { setSearchTerm(e.target.value); setCurrentPageComptes(1); }}
               className="w-full md:col-span-2 px-4 py-3 sm:py-2 text-base sm:text-sm border rounded-lg min-h-[44px]"
@@ -314,10 +351,9 @@ const ComptesCredit: React.FC<ComptesCreditProps> = ({ onViewDetails }) => {
           <div className="space-y-3 md:hidden">
             {paginatedComptes.map((compte) => {
               const paiementManuel = compte.montant_deja_paye_manuellement || 0;
-              const totalRembourse = getCreditTotalRembourse(compte);
               const capitalFinal = getCreditFinalCapital(compte);
-              const restant = getCreditMontantRestant(compte);
               const missedPayments = computeMissedPayments(compte, paymentsByCompte.get(compte.id_compte_credit) || 0);
+              const syncSummary = compte.syncSummary;
 
               return (
                 <div key={compte.id_compte_credit} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
@@ -330,16 +366,31 @@ const ComptesCredit: React.FC<ComptesCreditProps> = ({ onViewDetails }) => {
                   </div>
 
                   <div className="bg-gray-50 rounded-lg p-3 mb-3 space-y-1">
+                    <div className="flex items-center justify-between gap-2 pb-1">
+                      <span className="text-xs text-gray-600">Etat synchronisation</span>
+                      {getSyncBadge(syncSummary)}
+                    </div>
                     {canViewBalances && <div className="flex justify-between text-sm"><span className="text-gray-600">Prete</span><span className="font-semibold">{(compte.montant_prete || 0).toFixed(2)}</span></div>}
                     {canViewBalances && <div className="flex justify-between text-sm"><span className="text-gray-600">Capital final</span><span className="font-semibold">{capitalFinal.toFixed(2)}</span></div>}
-                    {canViewBalances && <div className="flex justify-between text-sm"><span className="text-gray-600">Rembourse</span><span className="text-green-600 font-semibold">{totalRembourse.toFixed(2)}</span></div>}
-                    {canViewBalances && <div className="flex justify-between text-sm border-t pt-1"><span className="text-gray-800 font-semibold">Restant</span><span className="text-red-600 font-bold">{restant.toFixed(2)}</span></div>}
+                    {canViewBalances && <div className="flex justify-between text-sm"><span className="text-gray-600">Rembourse confirme</span><span className="text-green-600 font-semibold">{formatMoney(syncSummary.confirmedPaidEstimate)}</span></div>}
+                    {canViewBalances && <div className="flex justify-between text-sm border-t pt-1"><span className="text-gray-800 font-semibold">Restant confirme</span><span className="text-red-600 font-bold">{formatMoney(syncSummary.confirmedRemainingEstimate)}</span></div>}
+                    {canViewBalances && syncSummary.pendingCount > 0 && (
+                      <div className="text-xs text-amber-700">
+                        En attente: +{formatMoney(syncSummary.pendingPaidDelta)} | Restant apres synchro: {formatMoney(syncSummary.projectedRemaining)}
+                      </div>
+                    )}
+                    {canViewBalances && syncSummary.failedCount > 0 && (
+                      <div className="text-xs text-red-700">
+                        Une operation credit a echoue. Corrigez-la avant un nouveau remboursement.
+                      </div>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 text-sm mb-3">
                     <div><span className="text-gray-500 text-xs">Date fin</span><p>{compte.date_fin ? new Date(compte.date_fin).toLocaleDateString('fr-FR') : '-'}</p></div>
                     <div><span className="text-gray-500 text-xs">Versements rates</span><p>{missedPayments}</p></div>
                     <div><span className="text-gray-500 text-xs">Code ancien</span><p>{compte.ancien_code || '-'}</p></div>
+                    <div><span className="text-gray-500 text-xs">Type credit</span><p>{formatCreditAccountType(compte.type_compte_credit)}</p></div>
                     <div><span className="text-gray-500 text-xs">Paiement/Jour</span><p>{(compte.paiement_journalier || 0).toFixed(2)}</p></div>
                     <div><span className="text-gray-500 text-xs">Agent</span><p className="truncate">{getAgentName(compte.created_by)}</p></div>
                   </div>
@@ -364,12 +415,14 @@ const ComptesCredit: React.FC<ComptesCreditProps> = ({ onViewDetails }) => {
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">N Compte</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Code Ancien</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type Credit</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Client</th>
                   {canViewBalances && <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Montant Prete</th>}
                   {canViewBalances && <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Capital Final</th>}
                   {canViewBalances && <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Paye Manuel</th>}
                   {canViewBalances && <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rembourse Total</th>}
                   {canViewBalances && <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Restant</th>}
+                  {canViewBalances && <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Etat sync</th>}
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date Fin</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Agent</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
@@ -377,9 +430,7 @@ const ComptesCredit: React.FC<ComptesCreditProps> = ({ onViewDetails }) => {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {paginatedComptes.map((compte) => {
                     const paiementManuel = compte.montant_deja_paye_manuellement || 0;
-                    const totalRembourse = getCreditTotalRembourse(compte);
                     const capitalFinal = getCreditFinalCapital(compte);
-                    const restant = getCreditMontantRestant(compte);
                     return (
                       <tr key={compte.id_compte_credit} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium"><div className="flex items-center space-x-3">
@@ -391,12 +442,32 @@ const ComptesCredit: React.FC<ComptesCreditProps> = ({ onViewDetails }) => {
                         </div></td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 cursor-pointer hover:text-blue-600" onClick={() => copyToClipboard(compte.no_compte, 'Numero de compte')} title="Cliquer pour copier">{compte.no_compte}</td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{compte.ancien_code || '-'}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{formatCreditAccountType(compte.type_compte_credit)}</td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{compte.personne ? `${compte.personne.prenom} ${compte.personne.nom}` : 'N/A'}</td>
                         {canViewBalances && <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 font-semibold">{(compte.montant_prete || 0).toFixed(2)}</td>}
                         {canViewBalances && <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-semibold">{capitalFinal.toFixed(2)}</td>}
                         {canViewBalances && <td className="px-4 py-3 whitespace-nowrap text-sm text-blue-600">{paiementManuel.toFixed(2)}</td>}
-                        {canViewBalances && <td className="px-4 py-3 whitespace-nowrap text-sm text-green-600">{totalRembourse.toFixed(2)}</td>}
-                        {canViewBalances && <td className="px-4 py-3 whitespace-nowrap text-sm text-red-600 font-semibold">{restant.toFixed(2)}</td>}
+                        {canViewBalances && (
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-green-600">
+                            {formatMoney(compte.syncSummary.confirmedPaidEstimate)}
+                            {compte.syncSummary.pendingCount > 0 && (
+                              <div className="text-xs text-amber-700">Apres attente: {formatMoney(compte.syncSummary.projectedPaid)}</div>
+                            )}
+                          </td>
+                        )}
+                        {canViewBalances && (
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-red-600 font-semibold">
+                            {formatMoney(compte.syncSummary.confirmedRemainingEstimate)}
+                            {compte.syncSummary.pendingCount > 0 && (
+                              <div className="text-xs text-amber-700 font-normal">Apres attente: {formatMoney(compte.syncSummary.projectedRemaining)}</div>
+                            )}
+                          </td>
+                        )}
+                        {canViewBalances && (
+                          <td className="px-4 py-3 whitespace-nowrap text-sm">
+                            {getSyncBadge(compte.syncSummary)}
+                          </td>
+                        )}
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{compte.date_fin ? new Date(compte.date_fin).toLocaleDateString('fr-FR') : '-'}</td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{getAgentName(compte.created_by)}</td>
                         <td className="px-4 py-3 whitespace-nowrap"><span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${compte.statut === 'Actif' ? 'bg-green-100 text-green-800' : (compte.statut === 'Paye' || compte.statut === 'Payé') ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'}`}>{compte.statut}</span></td>

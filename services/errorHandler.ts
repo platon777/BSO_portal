@@ -80,6 +80,10 @@ export function parseSupabaseError(error: any): ParsedError {
       title: 'Opération annulée',
       userMessage: 'L\'opération a pris trop de temps et a été annulée.',
     },
+    'P0001': {
+      title: 'Operation refusee',
+      userMessage: 'La base de donnees a refuse cette operation.',
+    },
   };
 
   const mapping = errorMappings[errorCode];
@@ -95,6 +99,12 @@ export function parseSupabaseError(error: any): ParsedError {
 
   // Build user-friendly message
   let userFriendly = mapping?.userMessage || errorMessage;
+  if (errorCode === 'P0001' && errorMessage.toLowerCase().includes('solde insuffisant')) {
+    userFriendly = 'Retrait non synchronise: le solde confirme sur Supabase est insuffisant. Le solde local sera realigne avec le serveur.';
+  }
+  if (errorCode === 'P0001' && errorMessage.toLowerCase().includes('montant restant')) {
+    userFriendly = 'Remboursement non synchronise: le montant depasse le restant confirme sur Supabase. Le compte local sera realigne avec le serveur.';
+  }
   if (fieldName) {
     userFriendly += ` (Champ concerné: ${fieldName})`;
   }

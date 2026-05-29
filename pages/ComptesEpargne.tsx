@@ -18,6 +18,10 @@ import toast from 'react-hot-toast';
 import * as authService from '../services/supabaseAuth';
 import { copyToClipboard } from '../utils/clipboard';
 import { getSuccursaleLabel } from '../utils/succursale';
+import {
+  buildSavingsAccountSyncSummary,
+  SavingsAccountSyncSummary,
+} from '../services/savingsAccountService';
 
 type SortOption = 'created_desc' | 'created_asc' | 'updated_desc' | 'updated_asc';
 type ViewMode = 'comptes' | 'transactions';
@@ -25,6 +29,10 @@ type ViewMode = 'comptes' | 'transactions';
 interface ComptesEpargneProps {
   onViewDetails?: (id: string) => void;
 }
+
+type CompteEpargneListItem = CompteEpargneAvecPersonne & {
+  syncSummary: SavingsAccountSyncSummary;
+};
 
 const typeLabels: Record<string, string> = {
   D: 'Depot',
@@ -82,19 +90,41 @@ const ComptesEpargne: React.FC<ComptesEpargneProps> = ({ onViewDetails }) => {
     return profilesMap.get(userId) || 'Agent';
   };
 
+  const formatMoney = (value: number) => `${value.toFixed(2)} HTG`;
+
+  const getSyncBadge = (summary?: SavingsAccountSyncSummary) => {
+    if (!summary) return null;
+    if (summary.failedCount > 0) {
+      return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">A corriger</span>;
+    }
+    if (summary.pendingCount > 0) {
+      return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-800">En attente</span>;
+    }
+    return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Synchro OK</span>;
+  };
+
   const data = useLiveQuery(async () => {
     try {
       const allComptes = await db.comptes_epargne.toArray();
       const personnes = await db.personnes.toArray();
-      const transactions = await db.transactions_epargne.orderBy('date_transaction').reverse().toArray();
+      const [transactions, queueItems] = await Promise.all([
+        db.transactions_epargne.orderBy('date_transaction').reverse().toArray(),
+        db.syncQueue.where('status').anyOf(['pending', 'failed']).toArray(),
+      ]);
 
       const personnesMap = new Map(personnes.map(p => [p.id_personne, p]));
       const comptesMap = new Map(allComptes.map(c => [c.id_compte_epargne, c]));
 
-      let comptesAvecPersonne: CompteEpargneAvecPersonne[] = allComptes.map(compte => ({
-        ...compte,
-        personne: personnesMap.get(compte.id_personne),
-      }));
+      let comptesAvecPersonne: CompteEpargneListItem[] = allComptes.map(compte => {
+        const compteAvecPersonne = {
+          ...compte,
+          personne: personnesMap.get(compte.id_personne),
+        };
+        return {
+          ...compteAvecPersonne,
+          syncSummary: buildSavingsAccountSyncSummary(compteAvecPersonne, queueItems),
+        };
+      });
 
       const transactionsEnriched: TransactionEpargneEnriched[] = transactions.map(tx => {
         const idPersonne = comptesMap.get(tx.id_compte_epargne)?.id_personne;
@@ -197,6 +227,11 @@ const ComptesEpargne: React.FC<ComptesEpargneProps> = ({ onViewDetails }) => {
   };
 
   const handleAddTransaction = (compte: CompteEpargneAvecPersonne) => {
+    const syncSummary = (compte as CompteEpargneListItem).syncSummary;
+    if (syncSummary?.hasBlockingIssue) {
+      toast.error('Ce compte a une erreur de synchronisation a corriger avant une nouvelle transaction.');
+      return;
+    }
     showModal(`Transaction pour ${compte.no_compte}`, <TransactionEpargneForm compteEpargne={compte} onSave={hideModal} onCancel={hideModal} />);
   };
 
@@ -335,6 +370,7 @@ const ComptesEpargne: React.FC<ComptesEpargneProps> = ({ onViewDetails }) => {
               const succursaleLabel = getSuccursaleLabel(compte.succursale) || compte.succursale || '-';
               const clientPhoto = compte.personne?.photo_identification;
               const authorizedPhoto = compte.photo_personne_autorisee;
+              const syncSummary = compte.syncSummary;
 
               return (
                 <div key={compte.id_compte_epargne} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
@@ -367,9 +403,22 @@ const ComptesEpargne: React.FC<ComptesEpargneProps> = ({ onViewDetails }) => {
                 </div>
 
                 {canViewBalances && (
-                  <div className="bg-blue-50 rounded-lg p-3 mb-3">
-                    <p className="text-xs text-blue-600">Solde Actuel</p>
-                    <p className="text-xl font-bold text-blue-900">{(compte.solde_actuel ?? 0).toFixed(2)} HTG</p>
+                  <div className={`rounded-lg p-3 mb-3 border ${syncSummary.failedCount > 0 ? 'bg-red-50 border-red-200' : syncSummary.pendingCount > 0 ? 'bg-amber-50 border-amber-200' : 'bg-blue-50 border-blue-100'}`}>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs text-gray-600">Solde confirme</p>
+                      {getSyncBadge(syncSummary)}
+                    </div>
+                    <p className="text-xl font-bold text-gray-900">{formatMoney(syncSummary.confirmedBalanceEstimate)}</p>
+                    {syncSummary.pendingCount > 0 && (
+                      <p className="mt-1 text-xs text-amber-700">
+                        En attente: {syncSummary.pendingDelta >= 0 ? '+' : ''}{formatMoney(syncSummary.pendingDelta)}. Apres synchro: {formatMoney(syncSummary.projectedBalance)}
+                      </p>
+                    )}
+                    {syncSummary.failedCount > 0 && (
+                      <p className="mt-1 text-xs text-red-700">
+                        Une operation a echoue. Le compte est bloque pour les nouveaux retraits jusqu a correction.
+                      </p>
+                    )}
                   </div>
                 )}
 
@@ -406,6 +455,7 @@ const ComptesEpargne: React.FC<ComptesEpargneProps> = ({ onViewDetails }) => {
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Photo Client</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Photo Autorisee</th>
                     {canViewBalances && <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Solde Actuel</th>}
+                    {canViewBalances && <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Etat sync</th>}
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Categorie</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date Creation</th>
@@ -451,7 +501,21 @@ const ComptesEpargne: React.FC<ComptesEpargneProps> = ({ onViewDetails }) => {
                           </button>
                         ) : '-'}
                       </td>
-                      {canViewBalances && <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 font-semibold">{(compte.solde_actuel ?? 0).toFixed(2)}</td>}
+                      {canViewBalances && (
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-semibold">
+                          {formatMoney(compte.syncSummary.confirmedBalanceEstimate)}
+                          {compte.syncSummary.pendingCount > 0 && (
+                            <div className="text-xs text-amber-700 font-normal">
+                              Apres attente: {formatMoney(compte.syncSummary.projectedBalance)}
+                            </div>
+                          )}
+                        </td>
+                      )}
+                      {canViewBalances && (
+                        <td className="px-4 py-3 whitespace-nowrap text-sm">
+                          {getSyncBadge(compte.syncSummary)}
+                        </td>
+                      )}
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{compte.categorie_compte_epargne || '-'}</td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{compte.type_compte_epargne || '-'}</td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{new Date(compte.date_creation).toLocaleDateString('fr-FR')}</td>

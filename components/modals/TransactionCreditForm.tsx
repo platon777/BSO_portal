@@ -6,6 +6,7 @@ import Select from '../common/Select';
 import { useAuthStore } from '../../stores/authStore';
 import toast from 'react-hot-toast';
 import { getCreditMontantRestant } from '../../utils/creditCalculations';
+import { validateCreditTransactionBeforeLocalSave } from '../../services/creditAccountService';
 
 interface TransactionCreditFormProps {
   compteCredit: CompteCreditEnriched;
@@ -70,6 +71,14 @@ const TransactionCreditForm: React.FC<TransactionCreditFormProps> = ({ compteCre
       return;
     }
 
+    const amount = Number(formData.montant || 0);
+    const typeTransaction = formData.type_transaction!;
+    const guard = await validateCreditTransactionBeforeLocalSave(compteCredit, typeTransaction, amount);
+    if (!guard.allowed) {
+      toast.error(guard.message || 'Operation credit impossible.');
+      return;
+    }
+
     if (transaction && transaction.id_transaction_credit) {
       await db.updateRecord('transactions_credit', transaction.id_transaction_credit, {
         ...formData,
@@ -77,12 +86,13 @@ const TransactionCreditForm: React.FC<TransactionCreditFormProps> = ({ compteCre
       });
     } else {
       const nowIso = getNowHaitiISO();
+      const soldeAvant = guard.serverRemaining ?? getCreditMontantRestant(compteCredit);
       const newTransaction: Omit<TransactionCredit, 'id_transaction_credit'> = {
         id_compte_credit: formData.id_compte_credit!,
         no_compte: formData.no_compte!,
-        solde_avant_transaction: formData.solde_avant_transaction!,
-        type_transaction: formData.type_transaction!,
-        montant: formData.montant!,
+        solde_avant_transaction: soldeAvant,
+        type_transaction: typeTransaction,
+        montant: amount,
         date_transaction: nowIso,
         created_by: userId,
         created_at: nowIso,
@@ -90,6 +100,13 @@ const TransactionCreditForm: React.FC<TransactionCreditFormProps> = ({ compteCre
       };
 
       await db.addRecord('transactions_credit', newTransaction);
+
+      if (typeTransaction === 'Paiement') {
+        await db.comptes_credit.update(compteCredit.id_compte_credit, {
+          paiement_rembourse: (guard.serverPaid ?? compteCredit.paiement_rembourse ?? 0) + amount,
+          updated_at: nowIso,
+        });
+      }
     }
 
     onSave();

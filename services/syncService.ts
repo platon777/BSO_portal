@@ -7,6 +7,14 @@ import { withRetry, batchArray, isOnline } from './networkMonitor';
 import { SyncLogBuilder } from './syncLogger';
 import { useAuthStore } from '../stores/authStore';
 import { parseSupabaseError, parseNetworkError, formatErrorForDisplay, formatErrorForLog, createSyncContext } from './errorHandler';
+import {
+  isRejectedForInsufficientSavingsBalance,
+  rollbackRejectedSavingsTransaction,
+} from './savingsAccountService';
+import {
+  isRejectedCreditBusinessError,
+  rollbackRejectedCreditTransaction,
+} from './creditAccountService';
 
 /**
  * Sync Service - Core synchronization logic
@@ -143,6 +151,13 @@ export const uploadPendingChanges = async (
             retry_count: item.retry_count + 1,
             updated_at: Date.now(),
           });
+
+          if (isRejectedForInsufficientSavingsBalance(error)) {
+            await rollbackRejectedSavingsTransaction(item);
+          }
+          if (isRejectedCreditBusinessError(error)) {
+            await rollbackRejectedCreditTransaction(item);
+          }
 
           failedCount++;
         }

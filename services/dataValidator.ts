@@ -1,4 +1,5 @@
 import { SyncQueueItem } from '../types';
+import { CREDIT_ACCOUNT_TYPE_VALUES } from '../utils/creditTypes';
 
 /**
  * Data validator for sync items
@@ -97,6 +98,10 @@ const validateCompteCredit = (data: any, errors: string[], action: string) => {
     if (!data.id_compte_epargne) errors.push('ID compte epargne is required');
     if (!data.no_compte) errors.push('Numero compte is required');
     if (!data.ancien_code) errors.push('Code credit ancien is required');
+    if (!data.type_compte_credit) errors.push('Type compte credit is required');
+    if (data.type_compte_credit && !CREDIT_ACCOUNT_TYPE_VALUES.includes(data.type_compte_credit)) {
+      errors.push('Invalid type compte credit');
+    }
     if (!data.montant_prete || Number(data.montant_prete) <= 0) {
       errors.push('Montant prete must be greater than 0');
     }

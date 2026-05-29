@@ -3,9 +3,11 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../services/database';
 import { copyToClipboard } from '../utils/clipboard';
 import SecureWrapper from '../components/common/SecureWrapper';
-import { getCreditFinalCapital, getCreditMontantRestant, getCreditTotalRembourse } from '../utils/creditCalculations';
+import { getCreditFinalCapital } from '../utils/creditCalculations';
 import { useAuthStore } from '../stores/authStore';
 import { UserRole } from '../types/auth';
+import { buildCreditAccountSyncSummary } from '../services/creditAccountService';
+import { formatCreditAccountType } from '../utils/creditTypes';
 
 interface CompteCreditDetailsProps {
   compteId: string;
@@ -47,10 +49,11 @@ const CompteCreditDetails: React.FC<CompteCreditDetailsProps> = ({ compteId, onB
       return { missing: true as const };
     }
 
-    const [personne, compteEpargne, transactions] = await Promise.all([
+    const [personne, compteEpargne, transactions, queueItems] = await Promise.all([
       compte.id_personne ? db.personnes.get(compte.id_personne) : Promise.resolve(undefined),
       compte.id_compte_epargne ? db.comptes_epargne.get(compte.id_compte_epargne) : Promise.resolve(undefined),
       db.transactions_credit.where('id_compte_credit').equals(safeCompteId).toArray(),
+      db.syncQueue.where('status').anyOf(['pending', 'failed']).toArray(),
     ]);
 
     transactions.sort((a, b) => {
@@ -65,6 +68,7 @@ const CompteCreditDetails: React.FC<CompteCreditDetailsProps> = ({ compteId, onB
       personne,
       compteEpargne,
       transactions,
+      syncSummary: buildCreditAccountSyncSummary(compte, queueItems),
     };
   }, [compteId], undefined);
 
@@ -94,16 +98,17 @@ const CompteCreditDetails: React.FC<CompteCreditDetailsProps> = ({ compteId, onB
     );
   }
 
-  const { compte, personne, compteEpargne, transactions } = data;
-  const totalRembourse = getCreditTotalRembourse(compte);
+  const { compte, personne, compteEpargne, transactions, syncSummary } = data;
+  const totalRembourse = syncSummary.confirmedPaidEstimate;
   const capitalFinal = getCreditFinalCapital(compte);
-  const montantRestant = getCreditMontantRestant(compte);
+  const montantRestant = syncSummary.confirmedRemainingEstimate;
 
   const detailItems: Array<{ label: string; value: unknown }> = [
     { label: 'ID compte', value: compte.id_compte_credit },
     { label: 'ID personne', value: compte.id_personne },
     { label: 'Numero compte', value: compte.no_compte },
     { label: 'Code ancien', value: compte.ancien_code },
+    { label: 'Type compte credit', value: formatCreditAccountType(compte.type_compte_credit) },
     { label: 'ID compte epargne', value: compte.id_compte_epargne },
     { label: 'Montant prete', value: compte.montant_prete },
     { label: 'Capital final calcule', value: capitalFinal },
@@ -161,6 +166,18 @@ const CompteCreditDetails: React.FC<CompteCreditDetailsProps> = ({ compteId, onB
               </div>
             )}
           </div>
+
+          {canViewBalances && (syncSummary.pendingCount > 0 || syncSummary.failedCount > 0) && (
+            <div className={`mb-6 p-3 rounded-lg border ${syncSummary.failedCount > 0 ? 'border-red-200 bg-red-50 text-red-800' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>
+              <p className="text-sm font-semibold">
+                {syncSummary.failedCount > 0 ? 'Synchronisation credit a corriger' : 'Remboursement en attente de synchronisation'}
+              </p>
+              <p className="mt-1 text-xs">
+                Rembourse confirme: {syncSummary.confirmedPaidEstimate.toFixed(2)} HTG | Restant confirme: {syncSummary.confirmedRemainingEstimate.toFixed(2)} HTG
+                {syncSummary.pendingCount > 0 ? ` | Restant apres attente: ${syncSummary.projectedRemaining.toFixed(2)} HTG` : ''}
+              </p>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {detailItems.map((item) => (

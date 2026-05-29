@@ -63,6 +63,7 @@ export interface CompteCredit {
   id_personne: string;
   no_compte: string;
   ancien_code?: string;
+  type_compte_credit?: 'Credit Cash' | 'Konfyans' | 'Electromenager' | 'Lekol Ptit' | 'Loyer';
   id_compte_epargne: string;
   montant_prete: number;
   taux_interet: number;

@@ -10,6 +10,9 @@ import AsyncSearchableSelect, {
 } from '../common/AsyncSearchableSelect';
 import { useAuthStore } from '../../stores/authStore';
 import toast from 'react-hot-toast';
+import {
+  validateSavingsTransactionBeforeLocalSave,
+} from '../../services/savingsAccountService';
 
 interface TransactionEpargneFormProps {
   compteEpargne: CompteEpargneAvecPersonne;
@@ -191,13 +194,23 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
 
     let solde_apres_transactions = formData.solde_avant_transaction || 0;
     const montant = formData.montant || 0;
+    const typeTransaction = formData.type_transaction!;
 
-    if (formData.type_transaction === 'D') {
+    const guard = await validateSavingsTransactionBeforeLocalSave(compteEpargne, typeTransaction, montant);
+    if (!guard.allowed) {
+      toast.error(guard.message || 'Operation impossible pour ce compte.');
+      return;
+    }
+
+    const soldeAvantConfirme = guard.serverBalance ?? formData.solde_avant_transaction ?? compteEpargne.solde_actuel ?? 0;
+    solde_apres_transactions = soldeAvantConfirme;
+
+    if (typeTransaction === 'D') {
       solde_apres_transactions += montant;
-    } else if (formData.type_transaction === 'R' || formData.type_transaction === 'FL' || formData.type_transaction === 'S' || formData.type_transaction === 'FA' || formData.type_transaction === 'V') {
+    } else if (typeTransaction === 'R' || typeTransaction === 'FL' || typeTransaction === 'S' || typeTransaction === 'FA' || typeTransaction === 'V') {
       solde_apres_transactions -= montant;
       if (solde_apres_transactions < 0) {
-        toast.error(`Solde insuffisant. Solde disponible: ${formData.solde_avant_transaction || 0}`);
+        toast.error(`Solde insuffisant. Solde disponible: ${soldeAvantConfirme}`);
         return;
       }
     }
@@ -213,6 +226,9 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
           ? String(formData.virement_to || '').trim()
           : undefined,
         solde_apres_transactions,
+        solde_avant_transaction: soldeAvantConfirme,
+        solde_avant_transaction_declare: soldeAvantConfirme,
+        solde_apres_transaction_declare: solde_apres_transactions,
         updated_at: getNowHaitiISO()
       });
     } else {
@@ -233,9 +249,9 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
         frais_auto: formData.frais_auto,
         monnaie_client: formData.monnaie_client,
         remise_client: formData.remise_client,
-        solde_avant_transaction: formData.solde_avant_transaction!,
-        solde_avant_transaction_declare: formData.solde_avant_transaction_declare ?? 0,
-        solde_apres_transaction_declare: formData.solde_apres_transaction_declare ?? 0,
+        solde_avant_transaction: soldeAvantConfirme,
+        solde_avant_transaction_declare: soldeAvantConfirme,
+        solde_apres_transaction_declare: solde_apres_transactions,
         date_transaction: nowIso,
         created_by: userId,
         created_at: nowIso,
@@ -244,8 +260,8 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
 
       await db.addRecord('transactions_epargne', newTransaction);
 
-      // Update sender account balance
-      await db.updateRecord('comptes_epargne', formData.id_compte_epargne!, {
+      // Local projection only. Supabase balance is changed by the transaction trigger.
+      await db.comptes_epargne.update(formData.id_compte_epargne!, {
         solde_actuel: solde_apres_transactions,
         updated_at: nowIso
       });

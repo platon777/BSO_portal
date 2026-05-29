@@ -311,7 +311,8 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
 
         await db.addRecord('transactions_epargne', newTransaction);
 
-        await db.updateRecord('comptes_epargne', compteId, {
+        // Local projection only. The server balance is updated by the transaction trigger.
+        await db.comptes_epargne.update(compteId, {
           solde_actuel: initialBalance,
           updated_at: getNowHaitiISO()
         });
