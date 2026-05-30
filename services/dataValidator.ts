@@ -81,7 +81,6 @@ const validateCompteEpargne = (data: any, errors: string[], action: string) => {
   if (action === 'add') {
     if (!data.id_personne) errors.push('ID personne is required');
     if (!data.no_compte) errors.push('Numero compte is required');
-    if (!data.no_compte_ancien) errors.push('Numero compte ancien is required');
     if (!data.succursale) errors.push('Succursale is required');
     if (!data.id_plan) errors.push('Plan is required');
     if (!data.type_compte_epargne) errors.push('Type compte epargne is required');
@@ -97,7 +96,6 @@ const validateCompteCredit = (data: any, errors: string[], action: string) => {
     if (!data.id_personne) errors.push('ID personne is required');
     if (!data.id_compte_epargne) errors.push('ID compte epargne is required');
     if (!data.no_compte) errors.push('Numero compte is required');
-    if (!data.ancien_code) errors.push('Code credit ancien is required');
     if (!data.type_compte_credit) errors.push('Type compte credit is required');
     if (data.type_compte_credit && !CREDIT_ACCOUNT_TYPE_VALUES.includes(data.type_compte_credit)) {
       errors.push('Invalid type compte credit');

@@ -166,6 +166,7 @@ const mapCompteEpargneToSupabase = (compte: CompteEpargne, userId: string): any 
 
   return {
     ...compteData,
+    no_compte_ancien: compte.no_compte_ancien ? String(compte.no_compte_ancien).trim() : null,
     created_by: userId,
     updated_by: userId,
     succursale: getSuccursaleId(compte.succursale),
@@ -205,6 +206,7 @@ const mapCompteCreditToSupabase = (compte: CompteCredit, userId: string): any =>
 
   return {
     ...compteData,
+    ancien_code: compte.ancien_code ? String(compte.ancien_code).trim() : null,
     taux_interet: normalizeRatePercentForSupabase(compte.taux_interet),
     created_by: userId,
     updated_by: userId,

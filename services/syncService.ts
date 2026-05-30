@@ -9,6 +9,8 @@ import { useAuthStore } from '../stores/authStore';
 import { parseSupabaseError, parseNetworkError, formatErrorForDisplay, formatErrorForLog, createSyncContext } from './errorHandler';
 import {
   isRejectedForInsufficientSavingsBalance,
+  refreshSavingsAccountByNumberFromServer,
+  refreshSavingsAccountFromServer,
   rollbackRejectedSavingsTransaction,
 } from './savingsAccountService';
 import {
@@ -396,6 +398,7 @@ const uploadSyncItem = async (item: SyncQueueItem, userId: string): Promise<void
         mappedData = await uploadImageFieldsIfNeeded(item, mappedData);
         const { error } = await supabase.from(tableName).insert(mappedData);
         if (error) throw error;
+        await refreshRelatedRecordsAfterUpload(tableName, normalizedData);
         break;
       }
 
@@ -420,6 +423,7 @@ const uploadSyncItem = async (item: SyncQueueItem, userId: string): Promise<void
             mappedFullData = await uploadImageFieldsIfNeeded(item, mappedFullData);
             const { error } = await supabase.from(tableName).insert(mappedFullData);
             if (error) throw error;
+            await refreshRelatedRecordsAfterUpload(tableName, normalizedFullData);
           }
           break;
         }
@@ -440,6 +444,7 @@ const uploadSyncItem = async (item: SyncQueueItem, userId: string): Promise<void
             .eq(pkField, item.pk);
 
           if (error) throw error;
+          await refreshRelatedRecordsAfterUpload(tableName, normalizedData);
         }
         // If server is newer, skip update (server wins)
         break;
@@ -459,6 +464,22 @@ const uploadSyncItem = async (item: SyncQueueItem, userId: string): Promise<void
       }
     }
   });
+};
+
+const refreshRelatedRecordsAfterUpload = async (tableName: string, data: any): Promise<void> => {
+  if (tableName !== 'transactions_epargne' || data?.type_transaction !== 'V') {
+    return;
+  }
+
+  const refreshes: Array<Promise<unknown>> = [];
+  if (data.id_compte_epargne) {
+    refreshes.push(refreshSavingsAccountFromServer(data.id_compte_epargne));
+  }
+  if (data.virement_to) {
+    refreshes.push(refreshSavingsAccountByNumberFromServer(data.virement_to));
+  }
+
+  await Promise.allSettled(refreshes);
 };
 
 const normalizeSyncPayloadForUpload = async (tableName: string, data: any): Promise<any> => {

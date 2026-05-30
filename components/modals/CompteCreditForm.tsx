@@ -106,10 +106,6 @@ const CompteCreditForm: React.FC<CompteCreditFormProps> = ({ compte, onSave, onC
       toast.error('Veuillez selectionner un client et un compte epargne associe.');
       return false;
     }
-    if (!String(formData.ancien_code || '').trim()) {
-      toast.error('Code credit ancien est obligatoire.');
-      return false;
-    }
     if (!String(formData.type_compte_credit || '').trim()) {
       toast.error('Type compte credit est obligatoire.');
       return false;
@@ -175,8 +171,9 @@ const CompteCreditForm: React.FC<CompteCreditFormProps> = ({ compte, onSave, onC
       return;
     }
 
-    if (formData.ancien_code && formData.ancien_code.trim() !== '') {
-      const existingLegacyCode = await db.comptes_credit.where('ancien_code').equals(formData.ancien_code).first();
+    const trimmedLegacyCode = String(formData.ancien_code || '').trim();
+    if (trimmedLegacyCode) {
+      const existingLegacyCode = await db.comptes_credit.where('ancien_code').equals(trimmedLegacyCode).first();
       if (existingLegacyCode && existingLegacyCode.id_compte_credit !== compte?.id_compte_credit) {
         toast.error('Ce code credit ancien existe deja.');
         return;
@@ -188,6 +185,7 @@ const CompteCreditForm: React.FC<CompteCreditFormProps> = ({ compte, onSave, onC
     if (compte && compte.id_compte_credit) {
       await db.updateRecord('comptes_credit', compte.id_compte_credit, {
         ...formData,
+        ancien_code: trimmedLegacyCode || undefined,
         taux_interet: normalizedRate,
         updated_by: userId,
         updated_at: getNowHaitiISO()
@@ -204,7 +202,7 @@ const CompteCreditForm: React.FC<CompteCreditFormProps> = ({ compte, onSave, onC
         id_personne: formData.id_personne!,
         id_compte_epargne: formData.id_compte_epargne!,
         no_compte: generateCustomCode(selectedCompteEpargne.no_compte),
-        ancien_code: formData.ancien_code,
+        ancien_code: trimmedLegacyCode || undefined,
         type_compte_credit: formData.type_compte_credit,
         montant_prete: Number(formData.montant_prete),
         duree_credit_mois: Number(formData.duree_credit_mois),
@@ -248,7 +246,7 @@ const CompteCreditForm: React.FC<CompteCreditFormProps> = ({ compte, onSave, onC
 
         {compte && <Input label="Numero de Compte Credit" name="no_compte" value={formData.no_compte || ''} readOnly disabled />}
 
-        <Input label="Code Credit Ancien" name="ancien_code" value={formData.ancien_code || ''} onChange={handleChange} required />
+        <Input label="Code Credit Ancien" name="ancien_code" value={formData.ancien_code || ''} onChange={handleChange} />
         <Select label="Type Compte Credit" name="type_compte_credit" value={formData.type_compte_credit || ''} onChange={handleChange} required>
           <option value="">Selectionner...</option>
           {CREDIT_ACCOUNT_TYPE_OPTIONS.map((type) => (

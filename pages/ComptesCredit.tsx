@@ -41,18 +41,6 @@ const getSortTimestamp = (compte: CompteCreditEnriched, sortOption: SortOption) 
   return sortOption.startsWith('updated') ? updatedAt : createdAt;
 };
 
-const computeMissedPayments = (compte: CompteCreditEnriched, paymentsCount: number) => {
-  if (!compte.date_debut) return 0;
-
-  const start = new Date(compte.date_debut);
-  if (Number.isNaN(start.getTime())) return 0;
-
-  const end = compte.date_fin ? new Date(compte.date_fin) : new Date();
-  const effectiveEnd = end.getTime() < Date.now() ? end : new Date();
-  const daysPassed = Math.max(0, Math.floor((effectiveEnd.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1);
-  return Math.max(0, daysPassed - paymentsCount);
-};
-
 const ComptesCredit: React.FC<ComptesCreditProps> = ({ onViewDetails }) => {
   const { showModal, hideModal } = useModal();
   const { profile } = useAuthStore();
@@ -148,16 +136,6 @@ const ComptesCredit: React.FC<ComptesCreditProps> = ({ onViewDetails }) => {
       return { comptes: [], transactions: [] };
     }
   }, [searchTerm], { comptes: [], transactions: [] });
-
-  const paymentsByCompte = useMemo(() => {
-    const map = new Map<string, number>();
-    (data?.transactions || []).forEach(tx => {
-      if (tx.type_transaction === 'Paiement') {
-        map.set(tx.id_compte_credit, (map.get(tx.id_compte_credit) || 0) + 1);
-      }
-    });
-    return map;
-  }, [data?.transactions]);
 
   const sortedComptes = useMemo(() => {
     const comptes = data?.comptes || [];
@@ -352,7 +330,6 @@ const ComptesCredit: React.FC<ComptesCreditProps> = ({ onViewDetails }) => {
             {paginatedComptes.map((compte) => {
               const paiementManuel = compte.montant_deja_paye_manuellement || 0;
               const capitalFinal = getCreditFinalCapital(compte);
-              const missedPayments = computeMissedPayments(compte, paymentsByCompte.get(compte.id_compte_credit) || 0);
               const syncSummary = compte.syncSummary;
 
               return (
@@ -388,7 +365,6 @@ const ComptesCredit: React.FC<ComptesCreditProps> = ({ onViewDetails }) => {
 
                   <div className="grid grid-cols-2 gap-2 text-sm mb-3">
                     <div><span className="text-gray-500 text-xs">Date fin</span><p>{compte.date_fin ? new Date(compte.date_fin).toLocaleDateString('fr-FR') : '-'}</p></div>
-                    <div><span className="text-gray-500 text-xs">Versements rates</span><p>{missedPayments}</p></div>
                     <div><span className="text-gray-500 text-xs">Code ancien</span><p>{compte.ancien_code || '-'}</p></div>
                     <div><span className="text-gray-500 text-xs">Type credit</span><p>{formatCreditAccountType(compte.type_compte_credit)}</p></div>
                     <div><span className="text-gray-500 text-xs">Paiement/Jour</span><p>{(compte.paiement_journalier || 0).toFixed(2)}</p></div>

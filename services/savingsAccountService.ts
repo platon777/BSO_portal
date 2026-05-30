@@ -122,6 +122,30 @@ export const refreshSavingsAccountFromServer = async (accountId: string): Promis
   return mapped;
 };
 
+export const refreshSavingsAccountByNumberFromServer = async (accountNumber: string): Promise<CompteEpargne | null> => {
+  if (!isOnline()) return null;
+  const trimmedAccountNumber = String(accountNumber || '').trim();
+  if (!trimmedAccountNumber) return null;
+
+  const { data, error } = await supabase
+    .from('comptes_epargne')
+    .select('*')
+    .eq('no_compte', trimmedAccountNumber)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  const mapped = mapSupabaseToLocal('comptes_epargne', data) as CompteEpargne;
+  await db.comptes_epargne.put(mapped);
+  return mapped;
+};
+
 export const validateSavingsTransactionBeforeLocalSave = async (
   compte: CompteEpargne,
   typeTransaction: TransactionEpargne['type_transaction'],

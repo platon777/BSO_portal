@@ -205,10 +205,6 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
       toast.error('Veuillez selectionner un client.');
       return false;
     }
-    if (!String(formData.no_compte_ancien || '').trim()) {
-      toast.error('Numero compte ancien est obligatoire.');
-      return false;
-    }
     if (!String(formData.succursale || '').trim()) {
       toast.error('Succursale est obligatoire.');
       return false;
@@ -245,8 +241,9 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
       return;
     }
 
-    if (formData.no_compte_ancien && formData.no_compte_ancien.trim() !== '') {
-      const existingLegacyAccount = await db.comptes_epargne.where('no_compte_ancien').equals(formData.no_compte_ancien).first();
+    const trimmedLegacyAccount = String(formData.no_compte_ancien || '').trim();
+    if (trimmedLegacyAccount) {
+      const existingLegacyAccount = await db.comptes_epargne.where('no_compte_ancien').equals(trimmedLegacyAccount).first();
       if (existingLegacyAccount && existingLegacyAccount.id_compte_epargne !== compte?.id_compte_epargne) {
         toast.error('Ce numero de compte ancien existe deja.');
         return;
@@ -256,6 +253,7 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
     if (compte && compte.id_compte_epargne) {
       await db.updateRecord('comptes_epargne', compte.id_compte_epargne, {
         ...formData,
+        no_compte_ancien: trimmedLegacyAccount || undefined,
         updated_by: userId,
         updated_at: getNowHaitiISO()
       });
@@ -270,7 +268,7 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
       const newCompte: Omit<CompteEpargne, 'id_compte_epargne'> = {
         id_personne: formData.id_personne!,
         no_compte: generateCustomCode(selectedClient.code_client),
-        no_compte_ancien: String(formData.no_compte_ancien || '').trim(),
+        no_compte_ancien: trimmedLegacyAccount || undefined,
         id_plan: formData.id_plan,
         type_compte_epargne: formData.type_compte_epargne,
         categorie_compte_epargne: formData.categorie_compte_epargne,
@@ -339,7 +337,7 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
 
         {compte && <Input label="Numero de Compte" name="no_compte" value={formData.no_compte || ''} readOnly disabled />}
 
-        <Input label="Numero de Compte Ancien" name="no_compte_ancien" value={formData.no_compte_ancien || ''} onChange={handleChange} required />
+        <Input label="Numero de Compte Ancien" name="no_compte_ancien" value={formData.no_compte_ancien || ''} onChange={handleChange} />
 
         <Select label="Succursale" name="succursale" value={formData.succursale || ''} onChange={handleChange} required>
           <option value="">Selectionner...</option>
