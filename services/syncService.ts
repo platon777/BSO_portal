@@ -8,6 +8,7 @@ import { SyncLogBuilder } from './syncLogger';
 import { useAuthStore } from '../stores/authStore';
 import { parseSupabaseError, parseNetworkError, formatErrorForDisplay, formatErrorForLog, createSyncContext } from './errorHandler';
 import {
+  isRejectedSavingsBusinessError,
   isRejectedForInsufficientSavingsBalance,
   refreshSavingsAccountByNumberFromServer,
   refreshSavingsAccountFromServer,
@@ -154,7 +155,7 @@ export const uploadPendingChanges = async (
             updated_at: Date.now(),
           });
 
-          if (isRejectedForInsufficientSavingsBalance(error)) {
+          if (isRejectedSavingsBusinessError(error) || isRejectedForInsufficientSavingsBalance(error)) {
             await rollbackRejectedSavingsTransaction(item);
           }
           if (isRejectedCreditBusinessError(error)) {
@@ -505,27 +506,44 @@ const normalizeTransactionEpargneForUpload = async (data: any): Promise<any> => 
     throw new Error('Virement invalide: compte emetteur manquant (virement_from).');
   }
 
-  // Canonical value for virement_from is no_compte (normal account number).
-  const byNoCompte = await db.comptes_epargne.where('no_compte').equals(rawFrom).first();
-  if (byNoCompte?.no_compte) {
-    normalized.virement_from = byNoCompte.no_compte;
-    return normalized;
+  const rawTo = String(normalized.virement_to || '').trim();
+  if (!rawTo) {
+    throw new Error('Virement invalide: compte beneficiaire manquant (virement_to).');
   }
 
-  // Backward compatibility: old payloads may still hold no_compte_ancien
-  const byLegacy = await db.comptes_epargne.where('no_compte_ancien').equals(rawFrom).first();
-  if (byLegacy?.no_compte) {
-    normalized.virement_from = byLegacy.no_compte;
-    return normalized;
+  const [fromAccount, toAccount] = await Promise.all([
+    resolveSavingsAccountReference(rawFrom),
+    resolveSavingsAccountReference(rawTo),
+  ]);
+
+  if (!fromAccount?.no_compte) {
+    throw new Error(`Virement invalide: impossible de resoudre le compte emetteur "${rawFrom}" vers un no_compte.`);
   }
 
-  const byId = await db.comptes_epargne.get(rawFrom);
-  if (byId?.no_compte) {
-    normalized.virement_from = byId.no_compte;
-    return normalized;
+  if (!toAccount?.no_compte) {
+    throw new Error(`Virement invalide: impossible de resoudre le compte beneficiaire "${rawTo}" vers un no_compte.`);
   }
 
-  throw new Error(`Virement invalide: impossible de resoudre le compte emetteur "${rawFrom}" vers un no_compte.`);
+  if (fromAccount.id_compte_epargne === toAccount.id_compte_epargne) {
+    throw new Error('Virement invalide: le compte emetteur et le compte beneficiaire doivent etre differents.');
+  }
+
+  normalized.virement_from = fromAccount.no_compte;
+  normalized.virement_to = toAccount.no_compte;
+  return normalized;
+};
+
+const resolveSavingsAccountReference = async (rawValue: string) => {
+  const value = String(rawValue || '').trim();
+  if (!value) return undefined;
+
+  const byNoCompte = await db.comptes_epargne.where('no_compte').equals(value).first();
+  if (byNoCompte) return byNoCompte;
+
+  const byLegacy = await db.comptes_epargne.where('no_compte_ancien').equals(value).first();
+  if (byLegacy) return byLegacy;
+
+  return db.comptes_epargne.get(value);
 };
 
 const isImageDataUrl = (value: unknown): value is string => {

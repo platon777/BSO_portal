@@ -209,6 +209,9 @@ export const rollbackRejectedSavingsTransaction = async (item: SyncQueueItem): P
   if (!accountId) return;
 
   const delta = getSavingsTransactionDelta(transaction);
+  const beneficiaryAccountNumber = transaction.type_transaction === 'V'
+    ? String(transaction.virement_to || '').trim()
+    : '';
 
   await db.transaction('rw', db.comptes_epargne, db.transactions_epargne, db.syncQueue, async () => {
     const compte = await db.comptes_epargne.get(accountId);
@@ -217,6 +220,20 @@ export const rollbackRejectedSavingsTransaction = async (item: SyncQueueItem): P
         solde_actuel: toNumber(compte.solde_actuel) - delta,
         updated_at: new Date().toISOString(),
       });
+    }
+
+    if (beneficiaryAccountNumber) {
+      const beneficiary = await db.comptes_epargne
+        .where('no_compte')
+        .equals(beneficiaryAccountNumber)
+        .first();
+
+      if (beneficiary) {
+        await db.comptes_epargne.update(beneficiary.id_compte_epargne, {
+          solde_actuel: toNumber(beneficiary.solde_actuel) - toNumber(transaction.montant),
+          updated_at: new Date().toISOString(),
+        });
+      }
     }
 
     if (transaction.id_transaction_epargne) {
@@ -246,4 +263,30 @@ export const isRejectedForInsufficientSavingsBalance = (error: any): boolean => 
   const code = String(error?.code || '');
   const message = String(error?.message || error?.details || '').toLowerCase();
   return code === 'P0001' && message.includes('solde insuffisant');
+};
+
+export const isRejectedSavingsBusinessError = (error: any): boolean => {
+  const code = String(error?.code || '');
+  const message = String(error?.message || error?.details || '').toLowerCase();
+
+  if (isRejectedForInsufficientSavingsBalance(error)) {
+    return true;
+  }
+
+  if (code === '23503') {
+    return message.includes('compte') || message.includes('foreign key');
+  }
+
+  if (code === '23514') {
+    return message.includes('transaction epargne')
+      || message.includes('virement')
+      || message.includes('montant invalide')
+      || message.includes('type transaction');
+  }
+
+  if (code === '42501') {
+    return message.includes('row-level security') || message.includes('permission denied');
+  }
+
+  return false;
 };
