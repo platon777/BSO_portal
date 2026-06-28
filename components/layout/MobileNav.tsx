@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { UsersIcon, PiggyBankIcon, CreditCardIcon, SettingsIcon } from '../icons/Icons';
+import { UsersIcon, PiggyBankIcon, CreditCardIcon, SettingsIcon, FileTextIcon } from '../icons/Icons';
 
 type Page = 'dashboard' | 'clients' | 'epargne' | 'credit' | 'recouvrement' | 'rapports' | 'parametres';
 
@@ -44,6 +44,7 @@ const MobileNav: React.FC<MobileNavProps> = ({ currentPage, setCurrentPage }) =>
     { page: 'clients', label: 'Clients', icon: <UsersIcon className="w-6 h-6"/> },
     { page: 'epargne', label: 'Épargne', icon: <PiggyBankIcon className="w-6 h-6"/> },
     { page: 'credit', label: 'Crédit', icon: <CreditCardIcon className="w-6 h-6"/> },
+    { page: 'rapports', label: 'Rapport', icon: <FileTextIcon className="w-6 h-6"/> },
     { page: 'parametres', label: 'Paramètres', icon: <SettingsIcon className="w-6 h-6"/> },
   ];
 

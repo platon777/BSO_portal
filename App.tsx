@@ -9,6 +9,7 @@ import ClientDetails from './pages/ClientDetails';
 import CompteEpargneDetails from './pages/CompteEpargneDetails';
 import CompteCreditDetails from './pages/CompteCreditDetails';
 import Parametres from './pages/Parametres';
+import Rapports from './pages/Rapports';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import { ModalProvider } from './contexts/ModalContext';
@@ -156,10 +157,11 @@ const App: React.FC = () => {
         );
       case 'parametres':
         return <Parametres />;
+      case 'rapports':
+        return <Rapports />;
       // TODO: Implement other pages
       case 'dashboard':
       case 'recouvrement':
-      case 'rapports':
       default:
         return <div className="p-4 sm:p-6 text-gray-700">Page '{currentPage}' coming soon.</div>;
     }

@@ -439,12 +439,21 @@ const uploadSyncItem = async (item: SyncQueueItem, userId: string): Promise<void
           let mappedData = mapLocalToSupabase(tableName, normalizedData, userId);
           mappedData = await uploadImageFieldsIfNeeded(item, mappedData);
 
-          const { error } = await supabase
+          const { data: updatedRows, error } = await supabase
             .from(tableName)
             .update(mappedData)
-            .eq(pkField, item.pk);
+            .eq(pkField, item.pk)
+            .select(pkField);
 
           if (error) throw error;
+          // PostgREST renvoie error=null mais 0 ligne quand la RLS filtre l'enregistrement.
+          // On le traite comme un echec explicite au lieu d'une fausse reussite silencieuse.
+          if (!updatedRows || updatedRows.length === 0) {
+            throw new Error(
+              `Mise a jour refusee (0 ligne modifiee) pour ${tableName}/${item.pk}. ` +
+              `Cause probable: droits insuffisants (RLS) ou enregistrement introuvable.`
+            );
+          }
           await refreshRelatedRecordsAfterUpload(tableName, normalizedData);
         }
         // If server is newer, skip update (server wins)

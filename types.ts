@@ -118,6 +118,9 @@ export interface TransactionEpargne {
   date_transaction: string;
   solde_apres_transactions: number;
   solde_apres_transaction_declare: number;
+  // Vrai uniquement pour la transaction 'D' generee a l'ouverture d'un compte
+  // (solde reporte de l'ancien carnet). Exclue des metriques cash du rapport.
+  is_solde_initial?: boolean;
   created_at: string;
   created_by: string;
   updated_at?: string;

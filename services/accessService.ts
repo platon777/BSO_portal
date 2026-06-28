@@ -7,97 +7,23 @@ export const accessService = {
      * Check if current user has access to modify a client or a specific transaction.
      * Uses the local auth store to avoid network calls that can trigger logout.
      */
-    async hasAccess(clientId: string, transactionId?: string): Promise<boolean> {
-        // 1. Use local auth store (no network call = no disconnection risk)
+    async hasAccess(_clientId: string, _transactionId?: string): Promise<boolean> {
+        // Decision produit: tout utilisateur authentifie peut modifier les donnees.
+        // Le gating par grants temporaires (temporary_access_grants) n'est plus
+        // utilise pour bloquer l'edition; le modal d'octroi reste disponible mais
+        // n'est plus un prerequis. Voir migration 20260628_open_write_policies_for_authenticated.sql.
         const { user, profile } = useAuthStore.getState();
-        if (!user || !profile) return false;
-
-        // 2. Admin always has access
-        if (profile.role === UserRole.ADMIN) return true;
-
-        // 3. Check for temporary grants via Supabase (wrapped in try-catch)
-        try {
-            // Client-level grant
-            const { data: clientGrants } = await supabase
-                .from('temporary_access_grants')
-                .select('id')
-                .eq('agent_id', user.id)
-                .eq('client_id', clientId)
-                .is('transaction_id', null)
-                .is('transaction_credit_id', null)
-                .gt('expires_at', new Date().toISOString())
-                .limit(1);
-
-            if (clientGrants && clientGrants.length > 0) return true;
-
-            // Transaction-level grant
-            if (transactionId) {
-                const { data: txGrants } = await supabase
-                    .from('temporary_access_grants')
-                    .select('id')
-                    .eq('agent_id', user.id)
-                    // Some deployments store savings tx in `transaction_id` and credit tx in `transaction_credit_id`.
-                    .or(`transaction_id.eq.${transactionId},transaction_credit_id.eq.${transactionId}`)
-                    .gt('expires_at', new Date().toISOString())
-                    .limit(1);
-
-                if (txGrants && txGrants.length > 0) return true;
-            }
-        } catch (error) {
-            console.error('[accessService] Erreur lors de la verification des acces:', error);
-        }
-
-        return false;
+        return Boolean(user && profile);
     },
 
-    async hasAccessToCompteEpargne(clientId: string, compteEpargneId: string): Promise<boolean> {
+    async hasAccessToCompteEpargne(_clientId: string, _compteEpargneId: string): Promise<boolean> {
         const { user, profile } = useAuthStore.getState();
-        if (!user || !profile) return false;
-        if (profile.role === UserRole.ADMIN) return true;
-
-        try {
-            const nowIso = new Date().toISOString();
-
-            const { data: accountGrants } = await supabase
-                .from('temporary_access_grants')
-                .select('id')
-                .eq('agent_id', user.id)
-                .eq('compte_epargne_id', compteEpargneId)
-                .gt('expires_at', nowIso)
-                .limit(1);
-
-            if (accountGrants && accountGrants.length > 0) return true;
-
-            return await this.hasAccess(clientId);
-        } catch (error) {
-            console.error('[accessService] Erreur lors de la verification des acces (compte epargne):', error);
-            return false;
-        }
+        return Boolean(user && profile);
     },
 
-    async hasAccessToCompteCredit(clientId: string, compteCreditId: string): Promise<boolean> {
+    async hasAccessToCompteCredit(_clientId: string, _compteCreditId: string): Promise<boolean> {
         const { user, profile } = useAuthStore.getState();
-        if (!user || !profile) return false;
-        if (profile.role === UserRole.ADMIN) return true;
-
-        try {
-            const nowIso = new Date().toISOString();
-
-            const { data: accountGrants } = await supabase
-                .from('temporary_access_grants')
-                .select('id')
-                .eq('agent_id', user.id)
-                .eq('compte_credit_id', compteCreditId)
-                .gt('expires_at', nowIso)
-                .limit(1);
-
-            if (accountGrants && accountGrants.length > 0) return true;
-
-            return await this.hasAccess(clientId);
-        } catch (error) {
-            console.error('[accessService] Erreur lors de la verification des acces (compte credit):', error);
-            return false;
-        }
+        return Boolean(user && profile);
     },
 
     /**

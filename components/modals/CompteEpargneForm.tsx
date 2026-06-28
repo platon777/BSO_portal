@@ -297,6 +297,8 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
           type_transaction: 'D',
           montant: initialBalance,
           categorie_compte_epargne: newCompte.categorie_compte_epargne,
+          // Solde reporte de l'ancien carnet: ne doit pas compter comme depot cash du jour.
+          is_solde_initial: true,
           solde_avant_transaction: 0,
           solde_avant_transaction_declare: 0,
           solde_apres_transaction_declare: initialBalance,

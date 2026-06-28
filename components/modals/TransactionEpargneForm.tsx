@@ -53,7 +53,8 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     const isNumber = ['montant', 'solde_declare', 'solde_avant_transaction_declare', 'solde_apres_transaction_declare', 'frais_auto', 'remise_client'].includes(name);
-    setFormData(prev => ({ ...prev, [name]: isNumber ? parseNumber(value) : value }));
+    // Garder le champ vide quand l'utilisateur efface (sinon un 0 reste collé et ne s'efface jamais).
+    setFormData(prev => ({ ...prev, [name]: isNumber ? (value === '' ? undefined : parseNumber(value)) : value }));
   };
 
   const handleBeneficiaryChange = (beneficiaryAccount: string | null) => {
