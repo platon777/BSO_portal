@@ -263,14 +263,6 @@ const CompteCreditForm: React.FC<CompteCreditFormProps> = ({ compte, onSave, onC
         <Input type="date" label="Date de debut" name="date_debut" value={toDateInput(formData.date_debut)} onChange={handleChange} required />
         <Input type="date" label="Date de fin" name="date_fin" value={toDateInput(formData.date_fin)} onChange={handleChange} required />
 
-        <div className="md:col-span-2">
-          <Select label="Statut" name="statut" value={formData.statut || 'Actif'} onChange={handleChange}>
-            <option value="Actif">Actif</option>
-            <option value="Paye">Paye</option>
-            <option value="En retard">En retard</option>
-            <option value="Ferme">Ferme</option>
-          </Select>
-        </div>
       </div>
 
       <div className="pt-4 flex flex-col-reverse sm:flex-row sm:justify-end gap-2">

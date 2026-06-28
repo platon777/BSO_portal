@@ -145,7 +145,7 @@ const CompteCreditDetails: React.FC<CompteCreditDetailsProps> = ({ compteId, onB
                 {compte.no_compte || '-'}
               </button>
             </div>
-            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${compte.statut === 'Actif' ? 'bg-green-100 text-green-800' : compte.statut === 'Paye' ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'}`}>
+            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${compte.statut === 'Actif' ? 'bg-green-100 text-green-800' : (compte.statut === 'Paye' || compte.statut === 'Payé') ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'}`}>
               {compte.statut || 'N/A'}
             </span>
           </div>
