@@ -470,6 +470,23 @@ const uploadSyncItem = async (item: SyncQueueItem, userId: string): Promise<void
         if (error && error.code !== 'PGRST116') {
           throw error;
         }
+
+        // Garde-fou: une suppression filtree par la RLS ne renvoie pas d'erreur
+        // mais laisse la ligne en place. On verifie qu'elle a bien disparu cote
+        // serveur; si elle existe encore, c'est un echec (et non une fausse reussite).
+        // Une ligne deja absente (suppression idempotente) reste un succes.
+        const { data: stillExists } = await supabase
+          .from(tableName)
+          .select(pkField)
+          .eq(pkField, item.pk)
+          .maybeSingle();
+
+        if (stillExists) {
+          throw new Error(
+            `Suppression refusee (ligne toujours presente) pour ${tableName}/${item.pk}. ` +
+            `Cause probable: droits insuffisants (RLS).`
+          );
+        }
         break;
       }
     }

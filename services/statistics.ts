@@ -15,6 +15,9 @@ export interface AgentStats {
   transactions_epargne_retrait: number;
   montant_transactions_epargne_depot: number;
   montant_transactions_epargne_retrait: number;
+  // Retraits cash sur comptes hors categorie Epargne (rares). Non affiches mais
+  // soustraits du Total Cash pour rester exact.
+  montant_retrait_autres_categories: number;
   // Depots cash par categorie de compte epargne (hors solde initial d'ouverture).
   // Depot ci-dessus = categorie "Epargne" uniquement.
   transactions_depot_fonds_garantie: number;
@@ -57,6 +60,7 @@ export const initialStats: AgentStats = {
   transactions_epargne_retrait: 0,
   montant_transactions_epargne_depot: 0,
   montant_transactions_epargne_retrait: 0,
+  montant_retrait_autres_categories: 0,
   transactions_depot_fonds_garantie: 0,
   montant_depot_fonds_garantie: 0,
   transactions_depot_grandon: 0,
@@ -171,6 +175,12 @@ export async function getAgentStats(userId: string, dateFilter: DateFilter): Pro
   const comptesEpargneFiltered = filterByDateAndUser(comptesEpargne, 'date_creation', dateFilter, userId);
   stats.comptes_epargne_crees = comptesEpargneFiltered.length;
 
+  // Solde cumulé = total réel des soldes de TOUS les comptes épargne de l'agent
+  // (toutes catégories), indépendamment du filtre de date (c'est un instantané).
+  stats.solde_cumule = comptesEpargne
+    .filter(c => c.created_by === userId)
+    .reduce((sum, c) => sum + (c.solde_actuel || 0), 0);
+
   const transactionsEpargne = await db.transactions_epargne.toArray();
   const transactionsEpargneFiltered = filterByDateAndUser(transactionsEpargne, 'date_transaction', dateFilter, userId);
   transactionsEpargneFiltered.forEach(t => {
@@ -181,10 +191,6 @@ export async function getAgentStats(userId: string, dateFilter: DateFilter): Pro
     stats.montant_monnaie_client += monnaieClient;
 
     if (t.type_transaction === 'D') {
-      // Solde cumulé = cumul des soldes après transaction (inclut le solde initial,
-      // car il fait partie du solde réel du compte).
-      stats.solde_cumule += (t.solde_apres_transactions || 0);
-
       // Le solde initial d'ouverture (report de l'ancien carnet) ne compte PAS
       // comme un dépôt cash du jour. On le saute pour toutes les métriques cash.
       if (!t.is_solde_initial) {
@@ -202,8 +208,15 @@ export async function getAgentStats(userId: string, dateFilter: DateFilter): Pro
         }
       }
     } else if (t.type_transaction === 'R') {
-      stats.transactions_epargne_retrait++;
-      stats.montant_transactions_epargne_retrait += montant;
+      // Retrait affiché = catégorie Epargne uniquement (demande client).
+      // Les retraits hors Epargne (rares) sont quand même soustraits du cash.
+      const categorie = t.categorie_compte_epargne || 'Epargne';
+      if (categorie === 'Epargne') {
+        stats.transactions_epargne_retrait++;
+        stats.montant_transactions_epargne_retrait += montant;
+      } else {
+        stats.montant_retrait_autres_categories += montant;
+      }
     } else if (t.type_transaction === 'FL') {
       stats.transactions_frais_livret++;
       stats.montant_transactions_frais_livret += montant;
@@ -246,6 +259,7 @@ export async function getAgentStats(userId: string, dateFilter: DateFilter): Pro
                      + stats.montant_depot_fonds_garantie
                      + stats.montant_depot_grandon
                      - stats.montant_transactions_epargne_retrait
+                     - stats.montant_retrait_autres_categories
                      + stats.montant_transactions_frais_livret
                      + stats.montant_transactions_credit_paiement
                      + stats.montant_transactions_credit_penalite
