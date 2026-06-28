@@ -219,6 +219,30 @@ const mapCompteCreditToSupabase = (compte: CompteCredit, userId: string): any =>
   };
 };
 
+const deriveCreditStatut = (data: any): CompteCredit['statut'] => {
+  // Pas de colonne `statut` cote Supabase. On derive un statut significatif a
+  // partir des montants calcules par le trigger:
+  //  - "Payé" quand le restant est nul ET qu'un capital final existe (evite le
+  //    faux positif quand montant_restant est encore null/0 sur un credit neuf).
+  //  - "En retard" quand la date de fin est depassee et qu'il reste a payer.
+  //  - "Actif" sinon.
+  const restant = data.montant_restant;
+  const final = Number(data.montant_final);
+
+  if (restant !== null && restant !== undefined && Number(restant) <= 0 && Number.isFinite(final) && final > 0) {
+    return 'Payé';
+  }
+
+  if (data.date_fin) {
+    const dateFin = new Date(data.date_fin);
+    if (!Number.isNaN(dateFin.getTime()) && dateFin.getTime() < Date.now()) {
+      return 'En retard';
+    }
+  }
+
+  return 'Actif';
+};
+
 const mapSupabaseToCompteCredit = (data: any): CompteCredit => {
   return {
     id_compte_credit: data.id_compte_credit,
@@ -242,7 +266,7 @@ const mapSupabaseToCompteCredit = (data: any): CompteCredit => {
     paiement_rembourse: data.paiement_cumule || 0, // Map from Supabase paiement_cumule
     montant_deja_paye_manuellement: data.montant_deja_paye_manuellement || 0,
     updated_at: data.updated_at || undefined,
-    statut: 'Actif', // Default status, not in Supabase schema
+    statut: deriveCreditStatut(data), // Derive depuis montant_restant/date_fin (pas de colonne statut Supabase)
   };
 };
 
