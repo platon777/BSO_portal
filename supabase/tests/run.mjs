@@ -29,5 +29,8 @@ const txt = await res.text();
 // La suite renvoie son rapport via un RAISE (annule la transaction). On l'affiche.
 console.log(txt);
 
-const failed = /FAIL /.test(txt) || !/RESULTATS TESTS DB/.test(txt);
-process.exit(failed ? 1 : 0);
+const passed = /RESULTATS TESTS DB/.test(txt) && !/FAIL /.test(txt);
+console.log(passed ? '\n==> TOUS LES TESTS DB PASSENT' : '\n==> ECHEC : au moins un test DB a echoue');
+// process.exitCode (et non process.exit) pour laisser Node se fermer proprement
+// (evite un crash de teardown libuv sur Windows).
+process.exitCode = passed ? 0 : 1;
