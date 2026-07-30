@@ -1,6 +1,8 @@
 
 import React from 'react';
-import { HomeIcon, UsersIcon, PiggyBankIcon, CreditCardIcon, LandmarkIcon, SettingsIcon, FileTextIcon, RepeatIcon } from '../icons/Icons';
+import { HomeIcon, UsersIcon, PiggyBankIcon, CreditCardIcon, LandmarkIcon, SettingsIcon, FileTextIcon, RepeatIcon, ShieldCheckIcon } from '../icons/Icons';
+import { useAuthStore } from '../../stores/authStore';
+import { UserRole } from '../../types/auth';
 
 type Page = 'dashboard' | 'clients' | 'epargne' | 'credit' | 'recouvrement' | 'rapports' | 'parametres';
 
@@ -39,6 +41,9 @@ const NavItem: React.FC<{
 };
 
 const Sidebar: React.FC<SidebarProps> = ({ currentPage, setCurrentPage, isOpen, setOpen }) => {
+  const { profile } = useAuthStore();
+  const isAdmin = profile?.role === UserRole.ADMIN;
+
   const navItems = [
     { page: 'dashboard', label: 'Tableau de bord', icon: <HomeIcon /> },
     { page: 'clients', label: 'Clients', icon: <UsersIcon /> },
@@ -46,6 +51,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, setCurrentPage, isOpen, 
     { page: 'credit', label: 'Crédit', icon: <CreditCardIcon /> },
     { page: 'recouvrement', label: 'Recouvrement', icon: <RepeatIcon /> },
     { page: 'rapports', label: 'Rapports', icon: <FileTextIcon /> },
+    // Validation finance : reserve aux administrateurs.
+    ...(isAdmin ? [{ page: 'validation', label: 'Validation', icon: <ShieldCheckIcon /> }] : []),
   ];
 
   return (

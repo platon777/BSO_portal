@@ -10,6 +10,7 @@ import CompteEpargneDetails from './pages/CompteEpargneDetails';
 import CompteCreditDetails from './pages/CompteCreditDetails';
 import Parametres from './pages/Parametres';
 import Rapports from './pages/Rapports';
+import Validation from './pages/Validation';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import { ModalProvider } from './contexts/ModalContext';
@@ -28,12 +29,13 @@ type Page =
   | 'recouvrement'
   | 'rapports'
   | 'parametres'
+  | 'validation'
   | 'client_details'
   | 'epargne_details'
   | 'credit_details'
   | 'login'
   | 'signup';
-type NavPage = 'dashboard' | 'clients' | 'epargne' | 'credit' | 'recouvrement' | 'rapports' | 'parametres';
+type NavPage = 'dashboard' | 'clients' | 'epargne' | 'credit' | 'recouvrement' | 'rapports' | 'parametres' | 'validation';
 
 // Export a simple navigation hook for use in child components
 let navigateFn: ((page: Page) => void) | null = null;
@@ -159,6 +161,8 @@ const App: React.FC = () => {
         return <Parametres />;
       case 'rapports':
         return <Rapports />;
+      case 'validation':
+        return <Validation />;
       // TODO: Implement other pages
       case 'dashboard':
       case 'recouvrement':
@@ -209,7 +213,7 @@ const App: React.FC = () => {
     if (currentPage === 'client_details') return 'clients';
     if (currentPage === 'epargne_details') return 'epargne';
     if (currentPage === 'credit_details') return 'credit';
-    if (currentPage === 'dashboard' || currentPage === 'clients' || currentPage === 'epargne' || currentPage === 'credit' || currentPage === 'recouvrement' || currentPage === 'rapports' || currentPage === 'parametres') {
+    if (currentPage === 'dashboard' || currentPage === 'clients' || currentPage === 'epargne' || currentPage === 'credit' || currentPage === 'recouvrement' || currentPage === 'rapports' || currentPage === 'parametres' || currentPage === 'validation') {
       return currentPage;
     }
     return 'clients';
