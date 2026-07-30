@@ -1,13 +1,16 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../services/supabase';
 import { useAuthStore } from '../stores/authStore';
 import { UserRole } from '../types/auth';
 import toast from 'react-hot-toast';
 
 // Page de validation finance (reservee aux admins).
-// Liste les ENTREES d'argent en attente (depots epargne 'D', paiements credit 'Paiement')
-// et permet de Valider / Rejeter via la fonction serveur set_transaction_validation,
-// qui applique le montant au solde reel et trace qui a valide quoi et quand.
+// Liste, de facon PAGINEE, les ENTREES d'argent en attente (depots epargne 'D',
+// paiements credit 'Paiement') et permet de Valider / Rejeter via la fonction serveur
+// set_transaction_validation (role-gated + tracable), qui applique le montant au solde
+// reel a la validation.
+
+const PAGE_SIZE = 20;
 
 type Row = {
   key: string;
@@ -28,6 +31,58 @@ const fmtDate = (d: string) => {
   try { return new Date(d).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }); }
   catch { return d; }
 };
+const sortByDate = (a: Row, b: Row) => new Date(a.date).getTime() - new Date(b.date).getTime();
+
+// Resout les noms client/agent pour un lot de lignes brutes (epargne + credit).
+const resolveNames = async (epgRows: any[], credRows: any[]) => {
+  const epgAccountIds = Array.from(new Set(epgRows.map(r => r.id_compte_epargne).filter(Boolean)));
+  const credAccountIds = Array.from(new Set(credRows.map(r => r.id_compte_credit).filter(Boolean)));
+  const creatorIds = Array.from(new Set([...epgRows, ...credRows].map(r => r.created_by).filter(Boolean)));
+
+  const [epgAcc, credAcc, profs] = await Promise.all([
+    epgAccountIds.length ? supabase.from('comptes_epargne').select('id_compte_epargne,id_personne').in('id_compte_epargne', epgAccountIds) : Promise.resolve({ data: [] as any[] }),
+    credAccountIds.length ? supabase.from('comptes_credit').select('id_compte_credit,id_personne').in('id_compte_credit', credAccountIds) : Promise.resolve({ data: [] as any[] }),
+    creatorIds.length ? supabase.from('profiles').select('user_id,firstname,name').in('user_id', creatorIds) : Promise.resolve({ data: [] as any[] }),
+  ]);
+
+  const persByEpgAcc = new Map((epgAcc.data || []).map((a: any) => [a.id_compte_epargne, a.id_personne]));
+  const persByCredAcc = new Map((credAcc.data || []).map((a: any) => [a.id_compte_credit, a.id_personne]));
+  const personIds = Array.from(new Set([...persByEpgAcc.values(), ...persByCredAcc.values()].filter(Boolean)));
+  const persRes = personIds.length ? await supabase.from('personnes').select('id_personne,prenom,nom,code_client').in('id_personne', personIds) : { data: [] as any[] };
+  const persById = new Map((persRes.data || []).map((p: any) => [p.id_personne, p]));
+  const profById = new Map((profs.data || []).map((p: any) => [p.user_id, p]));
+
+  const person = (pid?: string) => {
+    const p = pid ? persById.get(pid) : undefined;
+    return p ? { name: `${p.prenom || ''} ${p.nom || ''}`.trim() || 'Client', code: p.code_client || '-' } : { name: 'Client', code: '-' };
+  };
+  const agent = (uid?: string) => {
+    const p = uid ? profById.get(uid) : undefined;
+    return p ? `${p.firstname || ''} ${p.name || ''}`.trim() || 'Agent' : 'Agent';
+  };
+
+  const mapped: Row[] = [
+    ...epgRows.map((r: any) => {
+      const c = person(persByEpgAcc.get(r.id_compte_epargne));
+      return {
+        key: 'e_' + r.id_transaction_epargne, table: 'transactions_epargne' as const, id: r.id_transaction_epargne,
+        kind: 'Dépôt' as const, no_compte: r.no_compte || '-', montant: Number(r.montant) || 0,
+        declare: r.solde_apres_transaction_declare, date: r.date_transaction,
+        clientName: c.name, clientCode: c.code, agentName: agent(r.created_by),
+      };
+    }),
+    ...credRows.map((r: any) => {
+      const c = person(persByCredAcc.get(r.id_compte_credit));
+      return {
+        key: 'c_' + r.id_transaction_credit, table: 'transactions_credit' as const, id: r.id_transaction_credit,
+        kind: 'Paiement' as const, no_compte: r.no_compte || '-', montant: Number(r.montant) || 0,
+        declare: r.versement_declare, date: r.date_transaction,
+        clientName: c.name, clientCode: c.code, agentName: agent(r.created_by),
+      };
+    }),
+  ];
+  return mapped;
+};
 
 const Validation: React.FC = () => {
   const { profile } = useAuthStore();
@@ -35,84 +90,65 @@ const Validation: React.FC = () => {
 
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [totals, setTotals] = useState<{ epg: number; cred: number }>({ epg: 0, cred: 0 });
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  // Offsets de pagination (par table) et indicateurs "encore des pages".
+  const offsets = useRef<{ epg: number; cred: number }>({ epg: 0, cred: 0 });
+  const [hasMore, setHasMore] = useState<{ epg: boolean; cred: boolean }>({ epg: false, cred: false });
+
+  const fetchBatch = useCallback(async (reset: boolean) => {
     setError(null);
+    if (reset) { offsets.current = { epg: 0, cred: 0 }; setLoading(true); }
+    else setLoadingMore(true);
+
     try {
-      const [{ data: epg, error: e1 }, { data: cred, error: e2 }] = await Promise.all([
+      const epgFrom = offsets.current.epg;
+      const credFrom = offsets.current.cred;
+
+      const requests: Promise<any>[] = [
         supabase.from('transactions_epargne')
           .select('id_transaction_epargne,no_compte,montant,date_transaction,solde_apres_transaction_declare,created_by,id_compte_epargne')
-          .eq('validation_status', 'pending').order('date_transaction', { ascending: true }).limit(500),
+          .eq('validation_status', 'pending').order('date_transaction', { ascending: true })
+          .range(epgFrom, epgFrom + PAGE_SIZE - 1),
         supabase.from('transactions_credit')
           .select('id_transaction_credit,no_compte,montant,date_transaction,versement_declare,created_by,id_compte_credit')
-          .eq('validation_status', 'pending').order('date_transaction', { ascending: true }).limit(500),
-      ]);
-      if (e1) throw e1;
-      if (e2) throw e2;
+          .eq('validation_status', 'pending').order('date_transaction', { ascending: true })
+          .range(credFrom, credFrom + PAGE_SIZE - 1),
+      ];
+      if (reset) {
+        requests.push(supabase.from('transactions_epargne').select('*', { count: 'exact', head: true }).eq('validation_status', 'pending'));
+        requests.push(supabase.from('transactions_credit').select('*', { count: 'exact', head: true }).eq('validation_status', 'pending'));
+      }
 
-      const epgRows = epg || [];
-      const credRows = cred || [];
+      const res = await Promise.all(requests);
+      const epg = res[0]; const cred = res[1];
+      if (epg.error) throw epg.error;
+      if (cred.error) throw cred.error;
 
-      // Resolution des noms (client + agent) en masse.
-      const epgAccountIds = Array.from(new Set(epgRows.map((r: any) => r.id_compte_epargne).filter(Boolean)));
-      const credAccountIds = Array.from(new Set(credRows.map((r: any) => r.id_compte_credit).filter(Boolean)));
-      const creatorIds = Array.from(new Set([...epgRows, ...credRows].map((r: any) => r.created_by).filter(Boolean)));
+      if (reset) {
+        setTotals({ epg: res[2]?.count || 0, cred: res[3]?.count || 0 });
+      }
 
-      const [epgAcc, credAcc, profs] = await Promise.all([
-        epgAccountIds.length ? supabase.from('comptes_epargne').select('id_compte_epargne,id_personne').in('id_compte_epargne', epgAccountIds) : Promise.resolve({ data: [] as any[] }),
-        credAccountIds.length ? supabase.from('comptes_credit').select('id_compte_credit,id_personne').in('id_compte_credit', credAccountIds) : Promise.resolve({ data: [] as any[] }),
-        creatorIds.length ? supabase.from('profiles').select('user_id,firstname,name').in('user_id', creatorIds) : Promise.resolve({ data: [] as any[] }),
-      ]);
+      const epgRows = epg.data || [];
+      const credRows = cred.data || [];
+      const batch = await resolveNames(epgRows, credRows);
 
-      const persByEpgAcc = new Map((epgAcc.data || []).map((a: any) => [a.id_compte_epargne, a.id_personne]));
-      const persByCredAcc = new Map((credAcc.data || []).map((a: any) => [a.id_compte_credit, a.id_personne]));
-      const personIds = Array.from(new Set([...persByEpgAcc.values(), ...persByCredAcc.values()].filter(Boolean)));
-      const persRes = personIds.length ? await supabase.from('personnes').select('id_personne,prenom,nom,code_client').in('id_personne', personIds) : { data: [] as any[] };
-      const persById = new Map((persRes.data || []).map((p: any) => [p.id_personne, p]));
-      const profById = new Map((profs.data || []).map((p: any) => [p.user_id, p]));
+      offsets.current = { epg: epgFrom + epgRows.length, cred: credFrom + credRows.length };
+      setHasMore({ epg: epgRows.length === PAGE_SIZE, cred: credRows.length === PAGE_SIZE });
 
-      const nameOfPerson = (pid?: string) => {
-        const p = pid ? persById.get(pid) : undefined;
-        return p ? { name: `${p.prenom || ''} ${p.nom || ''}`.trim() || 'Client', code: p.code_client || '-' } : { name: 'Client', code: '-' };
-      };
-      const nameOfAgent = (uid?: string) => {
-        const p = uid ? profById.get(uid) : undefined;
-        return p ? `${p.firstname || ''} ${p.name || ''}`.trim() || 'Agent' : 'Agent';
-      };
-
-      const mapped: Row[] = [
-        ...epgRows.map((r: any) => {
-          const c = nameOfPerson(persByEpgAcc.get(r.id_compte_epargne));
-          return {
-            key: 'e_' + r.id_transaction_epargne, table: 'transactions_epargne' as const, id: r.id_transaction_epargne,
-            kind: 'Dépôt' as const, no_compte: r.no_compte || '-', montant: Number(r.montant) || 0,
-            declare: r.solde_apres_transaction_declare, date: r.date_transaction,
-            clientName: c.name, clientCode: c.code, agentName: nameOfAgent(r.created_by),
-          };
-        }),
-        ...credRows.map((r: any) => {
-          const c = nameOfPerson(persByCredAcc.get(r.id_compte_credit));
-          return {
-            key: 'c_' + r.id_transaction_credit, table: 'transactions_credit' as const, id: r.id_transaction_credit,
-            kind: 'Paiement' as const, no_compte: r.no_compte || '-', montant: Number(r.montant) || 0,
-            declare: r.versement_declare, date: r.date_transaction,
-            clientName: c.name, clientCode: c.code, agentName: nameOfAgent(r.created_by),
-          };
-        }),
-      ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-      setRows(mapped);
+      setRows(prev => (reset ? batch : [...prev, ...batch]).sort(sortByDate));
     } catch (err: any) {
       setError(err?.message || 'Erreur de chargement');
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   }, []);
 
-  useEffect(() => { if (isAdmin) load(); }, [isAdmin, load]);
+  useEffect(() => { if (isAdmin) fetchBatch(true); }, [isAdmin, fetchBatch]);
 
   const act = async (row: Row, status: 'confirmed' | 'rejected') => {
     let note: string | null = null;
@@ -126,7 +162,11 @@ const Validation: React.FC = () => {
       });
       if (rpcError) throw rpcError;
       toast.success(status === 'confirmed' ? 'Opération validée ✔' : 'Opération rejetée');
+      // Retire la ligne traitee et ajuste les compteurs/offsets.
       setRows(prev => prev.filter(r => r.key !== row.key));
+      setTotals(prev => row.table === 'transactions_epargne' ? { ...prev, epg: Math.max(0, prev.epg - 1) } : { ...prev, cred: Math.max(0, prev.cred - 1) });
+      if (row.table === 'transactions_epargne') offsets.current.epg = Math.max(0, offsets.current.epg - 1);
+      else offsets.current.cred = Math.max(0, offsets.current.cred - 1);
     } catch (err: any) {
       toast.error('Échec : ' + (err?.message || 'action impossible'));
     } finally {
@@ -143,13 +183,15 @@ const Validation: React.FC = () => {
     );
   }
 
-  const totalPending = rows.reduce((s, r) => s + r.montant, 0);
+  const totalPendingCount = totals.epg + totals.cred;
+  const loadedTotalAmount = rows.reduce((s, r) => s + r.montant, 0);
+  const canLoadMore = hasMore.epg || hasMore.cred;
 
   return (
     <div>
       <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
         <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Validation des entrées d'argent</h1>
-        <button onClick={load} className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 min-h-[44px]">
+        <button onClick={() => fetchBatch(true)} className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 min-h-[44px]">
           Rafraîchir
         </button>
       </div>
@@ -159,9 +201,10 @@ const Validation: React.FC = () => {
         Validez ceux dont l'argent est réellement rentré ; rejetez les autres. Chaque décision est tracée.
       </div>
 
-      {!loading && rows.length > 0 && (
+      {!loading && (
         <div className="text-sm text-gray-600 mb-3">
-          <strong>{rows.length}</strong> opération(s) en attente · Total : <strong>{fmt(totalPending)}</strong>
+          <strong>{totalPendingCount}</strong> en attente au total ({totals.epg} dépôt(s), {totals.cred} paiement(s)) ·
+          {' '}Affichés : <strong>{rows.length}</strong> · Montant affiché : <strong>{fmt(loadedTotalAmount)}</strong>
         </div>
       )}
 
@@ -174,43 +217,59 @@ const Validation: React.FC = () => {
           Aucune opération en attente de validation. ✅
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3">
-          {rows.map(row => {
-            const mismatch = row.declare != null && Math.abs(Number(row.declare) - row.montant) > 0.01 && row.table === 'transactions_credit';
-            return (
-              <div key={row.key} className="bg-white rounded-lg shadow-md p-4 border border-gray-100">
-                <div className="flex items-start justify-between gap-3 flex-wrap">
-                  <div>
-                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${row.kind === 'Dépôt' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>{row.kind}</span>
-                    <span className="ml-2 text-lg font-bold text-gray-900">{fmt(row.montant)}</span>
-                    <div className="mt-1 text-sm text-gray-700">{row.clientName} <span className="text-gray-400">·</span> {row.clientCode}</div>
-                    <div className="text-xs text-gray-500 mt-0.5 font-mono">{row.no_compte}</div>
-                    <div className="text-xs text-gray-500 mt-1">Agent : {row.agentName} · {fmtDate(row.date)}</div>
-                    {mismatch && (
-                      <div className="text-xs text-red-600 mt-1">⚠ Versement déclaré ({fmt(Number(row.declare))}) différent du montant enregistré</div>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => act(row, 'confirmed')}
-                      disabled={busyId === row.key}
-                      className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:bg-gray-400 min-h-[44px]"
-                    >
-                      Valider
-                    </button>
-                    <button
-                      onClick={() => act(row, 'rejected')}
-                      disabled={busyId === row.key}
-                      className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:bg-gray-400 min-h-[44px]"
-                    >
-                      Rejeter
-                    </button>
+        <>
+          <div className="grid grid-cols-1 gap-3">
+            {rows.map(row => {
+              const mismatch = row.declare != null && Math.abs(Number(row.declare) - row.montant) > 0.01 && row.table === 'transactions_credit';
+              return (
+                <div key={row.key} className="bg-white rounded-lg shadow-md p-4 border border-gray-100">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${row.kind === 'Dépôt' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>{row.kind}</span>
+                        <span className="text-lg font-bold text-gray-900">{fmt(row.montant)}</span>
+                      </div>
+                      <div className="mt-1 text-sm text-gray-700 break-words">{row.clientName} <span className="text-gray-400">·</span> {row.clientCode}</div>
+                      <div className="text-xs text-gray-500 mt-0.5 font-mono break-all">{row.no_compte}</div>
+                      <div className="text-xs text-gray-500 mt-1 break-words">Agent : {row.agentName} · {fmtDate(row.date)}</div>
+                      {mismatch && (
+                        <div className="text-xs text-red-600 mt-1 break-words">⚠ Versement déclaré ({fmt(Number(row.declare))}) différent du montant enregistré</div>
+                      )}
+                    </div>
+                    <div className="flex gap-2 w-full sm:w-auto shrink-0">
+                      <button
+                        onClick={() => act(row, 'confirmed')}
+                        disabled={busyId === row.key}
+                        className="flex-1 sm:flex-none px-4 py-3 sm:py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:bg-gray-400 min-h-[44px]"
+                      >
+                        Valider
+                      </button>
+                      <button
+                        onClick={() => act(row, 'rejected')}
+                        disabled={busyId === row.key}
+                        className="flex-1 sm:flex-none px-4 py-3 sm:py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:bg-gray-400 min-h-[44px]"
+                      >
+                        Rejeter
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+
+          {canLoadMore && (
+            <div className="flex justify-center mt-4">
+              <button
+                onClick={() => fetchBatch(false)}
+                disabled={loadingMore}
+                className="w-full sm:w-auto px-5 py-3 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 disabled:opacity-60 min-h-[44px]"
+              >
+                {loadingMore ? 'Chargement…' : `Charger plus (${PAGE_SIZE} par lot)`}
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
