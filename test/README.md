@@ -18,10 +18,23 @@ aucune vraie base n'est requise.
 
 ## 2. Tests base de données (triggers & workflows) — script SQL rejouable
 
-Testent la logique serveur directement sur PostgreSQL : report des entrées d'argent,
-application à la validation, refus de trop-payé (à l'insertion **et** à la validation),
-retrait immédiat, détection d'écart déclaré/réel. **Non destructif** : chaque test
-s'isole et est annulé (rollback) — rien n'est persisté.
+Testent la logique serveur (triggers) directement sur PostgreSQL — 13 scénarios du
+cœur métier :
+
+- report des entrées d'argent (dépôt / paiement) en attente de validation ;
+- application du montant à la validation ;
+- refus du trop-payé **à l'insertion et à la validation** ;
+- retrait immédiat + statut forcé `confirmed` ;
+- **virement** épargne (conservation de la masse : source −X, bénéficiaire +X) ;
+- **retrait > solde** refusé (solde insuffisant) ;
+- calcul du **capital final** crédit à la création ;
+- **invariant de cohérence** : `paiement_cumulé + montant_restant = montant_final` ;
+- **génération automatique** du n° de compte ;
+- **anti-doublon** client (téléphone déjà utilisé) ;
+- détection d'écart déclaré / réel.
+
+**Non destructif** : chaque test s'isole et est annulé (rollback) — rien n'est
+persisté (vérifié : aucun résidu en base).
 
 ```bash
 SUPABASE_ACCESS_TOKEN=sbp_xxx node supabase/tests/run.mjs
