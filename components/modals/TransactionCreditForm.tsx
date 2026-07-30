@@ -96,7 +96,10 @@ const TransactionCreditForm: React.FC<TransactionCreditFormProps> = ({ compteCre
         date_transaction: nowIso,
         created_by: userId,
         created_at: nowIso,
-        versement_declare: formData.versement_declare
+        versement_declare: formData.versement_declare,
+        // Protocole de validation finance : un paiement (entree d'argent) reste 'pending'
+        // jusqu'a verification par la finance; les penalites sont confirmees d'emblee.
+        validation_status: typeTransaction === 'Paiement' ? 'pending' : 'confirmed',
       };
 
       await db.addRecord('transactions_credit', newTransaction);

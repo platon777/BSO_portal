@@ -346,23 +346,28 @@ export const retryFailedSyncItems = async (
   const logger = new SyncLogBuilder('retry');
 
   try {
-    // Get failed items with retry count < MAX_RETRY_COUNT
+    // On relance TOUS les items en echec (y compris ceux bloques a retry_count >= MAX),
+    // sauf ceux deja annules localement suite a un rejet metier (_local_rolled_back).
+    // On remet retry_count a 0 pour les debloquer -- sinon uploadPendingChanges les ignore.
     const failedItems = await db.syncQueue
       .where('status')
       .equals('failed')
-      .and(item => item.retry_count < MAX_RETRY_COUNT)
       .toArray();
 
-    if (failedItems.length === 0) {
+    const retryable = failedItems.filter(item => !item.data?._local_rolled_back);
+
+    if (retryable.length === 0) {
       logger.setItemsProcessed(0);
       await logger.save();
       return { success: 0, failed: 0, errors: [] };
     }
 
-    // Reset status to pending
-    for (const item of failedItems) {
+    // Reset status to pending et compteur a zero (deblocage)
+    for (const item of retryable) {
       await db.syncQueue.update(item.id!, {
         status: 'pending',
+        retry_count: 0,
+        error: undefined,
         updated_at: Date.now(),
       });
     }

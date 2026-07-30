@@ -129,9 +129,13 @@ const AgentStatsPanel: React.FC<AgentStatsPanelProps> = ({ showHeader = true }) 
 
                 <StatCard title="Frais Dossier" value={fmt(stats.montant_frais_dossier)} color="border-amber-100" />
 
-                {/* Total Cash - highlighted */}
+                {/* Entrées d'argent en attente de validation finance (hors Total Cash) */}
+                <StatCard title="Dépôt en attente ⏳" count={stats.transactions_depot_en_attente} amount={fmt(stats.montant_depot_en_attente)} color="border-amber-400" />
+                <StatCard title="Paiement en attente ⏳" count={stats.transactions_paiement_en_attente} amount={fmt(stats.montant_paiement_en_attente)} color="border-amber-400" />
+
+                {/* Total Cash - highlighted (confirmé uniquement) */}
                 <div className="col-span-2">
-                    <StatCard title="Total Cash" value={fmt(stats.total_cash)} color="border-emerald-500" />
+                    <StatCard title="Total Cash (validé)" value={fmt(stats.total_cash)} color="border-emerald-500" />
                 </div>
             </div>
         </div>

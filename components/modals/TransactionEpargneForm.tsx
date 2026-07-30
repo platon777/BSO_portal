@@ -206,6 +206,11 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
     const soldeAvantConfirme = guard.serverBalance ?? formData.solde_avant_transaction ?? compteEpargne.solde_actuel ?? 0;
     solde_apres_transactions = soldeAvantConfirme;
 
+    // Protocole de validation finance : un depot (entree d'argent) doit etre verifie
+    // par la finance avant de compter comme reel. Il se synchronise mais reste 'pending'.
+    const needsValidation = typeTransaction === 'D';
+    const validationStatus: 'pending' | 'confirmed' = needsValidation ? 'pending' : 'confirmed';
+
     if (typeTransaction === 'D') {
       solde_apres_transactions += montant;
     } else if (typeTransaction === 'R' || typeTransaction === 'FL' || typeTransaction === 'S' || typeTransaction === 'FA' || typeTransaction === 'V') {
@@ -228,8 +233,9 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
           : undefined,
         solde_apres_transactions,
         solde_avant_transaction: soldeAvantConfirme,
-        solde_avant_transaction_declare: soldeAvantConfirme,
-        solde_apres_transaction_declare: solde_apres_transactions,
+        // Solde declare = ce que l'agent saisit (controle anti-fraude), jamais ecrase par le calcul.
+        solde_avant_transaction_declare: formData.solde_avant_transaction_declare ?? soldeAvantConfirme,
+        solde_apres_transaction_declare: formData.solde_apres_transaction_declare ?? solde_apres_transactions,
         updated_at: getNowHaitiISO()
       });
     } else {
@@ -251,8 +257,9 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
         monnaie_client: formData.monnaie_client,
         remise_client: formData.remise_client,
         solde_avant_transaction: soldeAvantConfirme,
-        solde_avant_transaction_declare: soldeAvantConfirme,
-        solde_apres_transaction_declare: solde_apres_transactions,
+        solde_avant_transaction_declare: formData.solde_avant_transaction_declare ?? soldeAvantConfirme,
+        solde_apres_transaction_declare: formData.solde_apres_transaction_declare ?? solde_apres_transactions,
+        validation_status: validationStatus,
         date_transaction: nowIso,
         created_by: userId,
         created_at: nowIso,
@@ -262,6 +269,8 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
       await db.addRecord('transactions_epargne', newTransaction);
 
       // Local projection only. Supabase balance is changed by the transaction trigger.
+      // Un depot 'pending' (en attente de validation finance) est deja projete localement
+      // de facon optimiste; le solde reel cote serveur ne bougera qu'a la validation.
       await db.comptes_epargne.update(formData.id_compte_epargne!, {
         solde_actuel: solde_apres_transactions,
         updated_at: nowIso

@@ -51,7 +51,7 @@ const App: React.FC = () => {
   const { isAuthenticated, isLoading, initialize } = useAuthStore();
 
   useEffect(() => {
-    const APP_BUILD_VERSION = '2026-02-11-credit-fix-hotpatch-1';
+    const APP_BUILD_VERSION = '2026-07-30-validation-sync-1';
     const APP_BUILD_VERSION_KEY = 'bso_app_build_version';
 
     const refreshPwaBundleIfNeeded = async (): Promise<boolean> => {

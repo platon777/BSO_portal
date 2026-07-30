@@ -50,6 +50,12 @@ export interface AgentStats {
   montant_frais_dossier: number;
   transactions_credit_garantie: number;
   montant_transactions_credit_garantie: number;
+  // Entrees d'argent EN ATTENTE de validation finance : synchronisees mais NON comptees
+  // dans les totaux reels / le Total Cash tant que la finance n'a pas valide.
+  transactions_depot_en_attente: number;
+  montant_depot_en_attente: number;
+  transactions_paiement_en_attente: number;
+  montant_paiement_en_attente: number;
   total_cash: number;
 }
 
@@ -90,6 +96,10 @@ export const initialStats: AgentStats = {
   montant_frais_dossier: 0,
   transactions_credit_garantie: 0,
   montant_transactions_credit_garantie: 0,
+  transactions_depot_en_attente: 0,
+  montant_depot_en_attente: 0,
+  transactions_paiement_en_attente: 0,
+  montant_paiement_en_attente: 0,
   total_cash: 0,
 };
 
@@ -185,6 +195,18 @@ export async function getAgentStats(userId: string, dateFilter: DateFilter): Pro
   const transactionsEpargneFiltered = filterByDateAndUser(transactionsEpargne, 'date_transaction', dateFilter, userId);
   transactionsEpargneFiltered.forEach(t => {
     const montant = t.montant || 0;
+
+    // Protocole de validation finance :
+    // - une entrée refusée ne compte nulle part ;
+    // - un dépôt EN ATTENTE de validation est synchronisé mais reste hors des totaux réels
+    //   (bloc séparé), tant que la finance n'a pas validé.
+    if (t.validation_status === 'rejected') return;
+    if (t.type_transaction === 'D' && t.validation_status === 'pending' && !t.is_solde_initial) {
+      stats.transactions_depot_en_attente++;
+      stats.montant_depot_en_attente += montant;
+      return;
+    }
+
     const remiseClient = t.remise_client || 0;
     const monnaieClient = parseFloat(String(t.monnaie_client || '0')) || 0;
     stats.montant_remise_client += remiseClient;
@@ -236,6 +258,15 @@ export async function getAgentStats(userId: string, dateFilter: DateFilter): Pro
   const transactionsCreditFiltered = filterByDateAndUser(transactionsCredit, 'date_transaction', dateFilter, userId);
   transactionsCreditFiltered.forEach(t => {
     const montant = t.montant || 0;
+
+    // Validation finance : paiement refusé ignoré ; paiement en attente = hors totaux réels.
+    if (t.validation_status === 'rejected') return;
+    if (t.type_transaction === 'Paiement' && t.validation_status === 'pending') {
+      stats.transactions_paiement_en_attente++;
+      stats.montant_paiement_en_attente += montant;
+      return;
+    }
+
     if (t.type_transaction === 'Paiement') {
       stats.transactions_credit_paiement++;
       stats.montant_transactions_credit_paiement += montant;

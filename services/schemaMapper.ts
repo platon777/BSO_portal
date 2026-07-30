@@ -275,8 +275,13 @@ const mapSupabaseToCompteCredit = (data: any): CompteCredit => {
 };
 
 const mapTransactionEpargneToSupabase = (transaction: TransactionEpargne, userId: string): any => {
-  // Exclude solde fields - they are managed by Supabase triggers
-  const { solde_apres_transactions, solde_avant_transaction, id_personne, ...transactionData } = transaction as any;
+  // Exclude solde fields (managed by triggers) and validation-decision fields
+  // (validated_by/at/note are posed only by set_transaction_validation cote serveur).
+  const {
+    solde_apres_transactions, solde_avant_transaction, id_personne,
+    validated_by, validated_at, validation_note,
+    ...transactionData
+  } = transaction as any;
 
   return {
     ...transactionData,
@@ -304,8 +309,12 @@ const mapSupabaseToTransactionEpargne = (data: any): TransactionEpargne => {
 };
 
 const mapTransactionCreditToSupabase = (transaction: TransactionCredit, userId: string): any => {
-  // Exclude computed fields - they are managed by Supabase triggers
-  const { solde_avant_transaction, solde_credit, id_personne, ...transactionData } = transaction as any;
+  // Exclude computed fields (triggers) and validation-decision fields (server-managed)
+  const {
+    solde_avant_transaction, solde_credit, id_personne,
+    validated_by, validated_at, validation_note,
+    ...transactionData
+  } = transaction as any;
 
   return {
     ...transactionData,
@@ -329,6 +338,10 @@ const mapSupabaseToTransactionCredit = (data: any): TransactionCredit => {
     created_at: data.created_at,
     created_by: data.created_by || '',
     versement_declare: data.versement_declare || undefined,
+    validation_status: data.validation_status || undefined,
+    validated_by: data.validated_by || undefined,
+    validated_at: data.validated_at || undefined,
+    validation_note: data.validation_note || undefined,
     updated_at: data.updated_at || undefined,
   };
 };

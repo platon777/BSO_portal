@@ -96,6 +96,11 @@ export interface TransactionCredit {
   created_at: string;
   created_by: string;
   versement_declare?: number;
+  // Protocole de validation finance (Paiement uniquement). Voir TransactionEpargne.
+  validation_status?: 'pending' | 'confirmed' | 'rejected';
+  validated_by?: string;
+  validated_at?: string;
+  validation_note?: string;
   updated_at?: string;
 }
 
@@ -121,6 +126,13 @@ export interface TransactionEpargne {
   // Vrai uniquement pour la transaction 'D' generee a l'ouverture d'un compte
   // (solde reporte de l'ancien carnet). Exclue des metriques cash du rapport.
   is_solde_initial?: boolean;
+  // Protocole de validation finance (entrees d'argent uniquement).
+  // 'pending' = en attente de verification (ne compte pas dans le solde/calculs reels),
+  // 'confirmed' = valide, 'rejected' = refuse. Voir set_transaction_validation().
+  validation_status?: 'pending' | 'confirmed' | 'rejected';
+  validated_by?: string;
+  validated_at?: string;
+  validation_note?: string;
   created_at: string;
   created_by: string;
   updated_at?: string;
