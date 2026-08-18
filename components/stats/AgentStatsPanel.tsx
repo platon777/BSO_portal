@@ -28,17 +28,24 @@ const fmt = (n: number) => `${(n || 0).toFixed(2)} HTG`;
 interface AgentStatsPanelProps {
     /** Affiche le titre "Statistiques de l'agent ...". Par défaut true. */
     showHeader?: boolean;
+    /** ID de l'agent ciblé (si sélectionné par un admin). Par défaut l'utilisateur connecté. */
+    targetUserId?: string;
+    /** Nom complet de l'agent ciblé pour l'affichage. */
+    targetUserName?: string;
 }
 
 /**
- * Panneau de statistiques (rapport) de l'agent connecté.
+ * Panneau de statistiques (rapport) de l'agent connecté ou de l'agent sélectionné.
  * Réutilisé par la page Paramètres et par la page Rapports dédiée.
- * Respecte les restrictions existantes : les stats sont calculées pour le seul
- * utilisateur connecté (getAgentStats(userId)).
  */
-const AgentStatsPanel: React.FC<AgentStatsPanelProps> = ({ showHeader = true }) => {
+const AgentStatsPanel: React.FC<AgentStatsPanelProps> = ({
+    showHeader = true,
+    targetUserId,
+    targetUserName
+}) => {
     const { profile } = useAuthStore();
-    const userId = profile?.user_id || '';
+    const userId = targetUserId || profile?.user_id || '';
+    const displayName = targetUserName || (profile ? `${profile.firstname} ${profile.name}` : '(Non connecté)');
     const [stats, setStats] = useState<AgentStats | null>(null);
     const [datePreset, setDatePreset] = useState<'today' | 'yesterday'>('today');
     const [dateFilter, setDateFilter] = useState<DateFilter>({ type: 'today' });
@@ -72,29 +79,38 @@ const AgentStatsPanel: React.FC<AgentStatsPanelProps> = ({ showHeader = true }) 
         return <div className="p-4 text-gray-600">Chargement des statistiques...</div>;
     }
 
+    const totalEnAttente = (stats.montant_depot_en_attente || 0) + (stats.montant_paiement_en_attente || 0);
+    const totalValide = stats.total_cash - totalEnAttente;
+
     return (
         <div className="bg-white p-4 rounded-lg shadow-md">
             {showHeader && (
                 <h2 className="text-lg font-bold text-gray-800 mb-4">
-                    Statistiques de l'agent {profile ? `${profile.firstname} ${profile.name}` : '(Non connecté)'}
+                    Statistiques de l'agent {displayName}
                 </h2>
             )}
             {!userId && (
                 <div className="mb-4 p-3 bg-yellow-50 border-l-4 border-yellow-400 rounded-md">
                     <p className="text-sm text-yellow-800">
-                        <strong>Note :</strong> Aucun utilisateur connecté. Les statistiques sont vides.
+                        <strong>Note :</strong> Aucun agent sélectionné ou connecté. Les statistiques sont vides.
                     </p>
                 </div>
             )}
-            <div className="mb-4">
-                <select
-                    value={datePreset}
-                    onChange={(e) => handleDatePresetChange(e.target.value as 'today' | 'yesterday')}
-                    className="p-2 border rounded-md"
-                >
-                    <option value="today">Aujourd'hui</option>
-                    <option value="yesterday">Hier</option>
-                </select>
+            <div className="mb-4 flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                    <label className="text-sm font-medium text-gray-700">Période :</label>
+                    <select
+                        value={datePreset}
+                        onChange={(e) => handleDatePresetChange(e.target.value as 'today' | 'yesterday')}
+                        className="p-2 border border-gray-300 rounded-md text-sm bg-white"
+                    >
+                        <option value="today">Aujourd'hui</option>
+                        <option value="yesterday">Hier</option>
+                    </select>
+                </div>
+                <div className="text-xs text-gray-500">
+                    Calcul en temps réel dès la collecte terrain
+                </div>
             </div>
             <div className="grid grid-cols-2 gap-3 sm:gap-4 max-h-[60vh] overflow-y-auto overscroll-contain p-2 sm:p-3 pr-2 pb-24 md:pb-3">
                 <StatCard title="Comptes Épargne Créés" count={stats.comptes_epargne_crees} amount="" color="border-blue-100" />
@@ -129,13 +145,22 @@ const AgentStatsPanel: React.FC<AgentStatsPanelProps> = ({ showHeader = true }) 
 
                 <StatCard title="Frais Dossier" value={fmt(stats.montant_frais_dossier)} color="border-amber-100" />
 
-                {/* Entrées d'argent en attente de validation finance (hors Total Cash) */}
-                <StatCard title="Dépôt en attente ⏳" count={stats.transactions_depot_en_attente} amount={fmt(stats.montant_depot_en_attente)} color="border-amber-400" />
-                <StatCard title="Paiement en attente ⏳" count={stats.transactions_paiement_en_attente} amount={fmt(stats.montant_paiement_en_attente)} color="border-amber-400" />
+                {/* Entrées d'argent en attente de validation finance */}
+                <StatCard title="Dépôts en attente ⏳" count={stats.transactions_depot_en_attente} amount={fmt(stats.montant_depot_en_attente)} color="border-amber-400" />
+                <StatCard title="Paiements en attente ⏳" count={stats.transactions_paiement_en_attente} amount={fmt(stats.montant_paiement_en_attente)} color="border-amber-400" />
 
-                {/* Total Cash - highlighted (confirmé uniquement) */}
+                {/* Total Cash Collecté - highlighted */}
                 <div className="col-span-2">
-                    <StatCard title="Total Cash (validé)" value={fmt(stats.total_cash)} color="border-emerald-500" />
+                    <div className="bg-emerald-50 p-4 rounded-lg shadow-md border-l-4 border-emerald-500 w-full">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                            <h3 className="text-base font-semibold text-emerald-900">Total Cash Collecté (Physique)</h3>
+                            <span className="text-2xl font-bold text-emerald-800">{fmt(stats.total_cash)}</span>
+                        </div>
+                        <div className="mt-2 text-xs text-emerald-700 flex flex-wrap gap-x-4 gap-y-1">
+                            <span>Validé : <strong>{fmt(totalValide)}</strong></span>
+                            <span>En attente de validation : <strong>{fmt(totalEnAttente)}</strong></span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

@@ -15,7 +15,10 @@ import { db } from '../services/database';
 
 const U = 'u1';
 const setDb = (data: {
-  comptesCredit?: any[]; comptesEpargne?: any[]; txEpargne?: any[]; txCredit?: any[];
+  comptesCredit?: any[];
+  comptesEpargne?: any[];
+  txEpargne?: any[];
+  txCredit?: any[];
 }) => {
   (db.comptes_credit.toArray as any).mockResolvedValue(data.comptesCredit ?? []);
   (db.comptes_epargne.toArray as any).mockResolvedValue(data.comptesEpargne ?? []);
@@ -25,8 +28,8 @@ const setDb = (data: {
 
 beforeEach(() => vi.clearAllMocks());
 
-describe('getAgentStats — rapport agent', () => {
-  it('separe les depots par categorie, exclut solde initial, retrait Epargne', async () => {
+describe('getAgentStats — rapport agent temps réel dès la collecte', () => {
+  it('sépare les dépôts par catégorie, exclut solde initial, gère les retraits et soldes cumulés', async () => {
     setDb({
       comptesEpargne: [{ id_compte_epargne: 'a1', created_by: U, solde_actuel: 300 }],
       txEpargne: [
@@ -45,7 +48,7 @@ describe('getAgentStats — rapport agent', () => {
     expect(s.solde_cumule).toBe(300);
   });
 
-  it('met les ENTREES en attente de validation hors des totaux reels', async () => {
+  it('intègre immédiatement toute transaction collectée (en attente ou confirmée) dans le rapport et Total Cash, tout en ignorant les rejets', async () => {
     setDb({
       txEpargne: [
         { created_by: U, type_transaction: 'D', montant: 100, categorie_compte_epargne: 'Epargne', validation_status: 'confirmed' },
@@ -58,29 +61,43 @@ describe('getAgentStats — rapport agent', () => {
       ],
     });
     const s = await getAgentStats(U, { type: 'all' });
-    // Confirme -> compte
-    expect(s.montant_transactions_epargne_depot).toBe(100);
-    expect(s.montant_transactions_credit_paiement).toBe(40);
-    expect(s.versement_cumule).toBe(40);
-    // En attente -> bloc separe, PAS dans le reel
+    // Total dépôts = 100 (validé) + 200 (en attente) = 300 (le rejet 500 est exclu)
+    expect(s.montant_transactions_epargne_depot).toBe(300);
+    expect(s.transactions_epargne_depot).toBe(2);
+
+    // Total paiements crédit = 40 (validé) + 70 (en attente) = 110
+    expect(s.montant_transactions_credit_paiement).toBe(110);
+    expect(s.transactions_credit_paiement).toBe(2);
+    expect(s.versement_cumule).toBe(110);
+
+    // Les sous-totaux en attente sont également suivis
     expect(s.montant_depot_en_attente).toBe(200);
     expect(s.transactions_depot_en_attente).toBe(1);
     expect(s.montant_paiement_en_attente).toBe(70);
     expect(s.transactions_paiement_en_attente).toBe(1);
-    // Refuse -> nulle part
-    // (rien a asserter de plus : 500 n'apparait dans aucun total)
+
+    // Total Cash Collecté physique = 300 + 110 = 410
+    expect(s.total_cash).toBe(410);
   });
 
-  it('legacy (validation_status absent) est traite comme confirme', async () => {
+  it('gère les transactions de virement et les frais', async () => {
     setDb({
-      txEpargne: [{ created_by: U, type_transaction: 'D', montant: 80, categorie_compte_epargne: 'Epargne' }],
+      txEpargne: [
+        { created_by: U, type_transaction: 'V', montant: 500, validation_status: 'pending' },
+        { created_by: U, type_transaction: 'FL', montant: 50, validation_status: 'confirmed' },
+        { created_by: U, type_transaction: 'FA', montant: 25, validation_status: 'confirmed' },
+        { created_by: U, type_transaction: 'S', montant: 10, validation_status: 'confirmed' },
+      ],
     });
     const s = await getAgentStats(U, { type: 'all' });
-    expect(s.montant_transactions_epargne_depot).toBe(80);
-    expect(s.montant_depot_en_attente).toBe(0);
+    expect(s.transactions_virement).toBe(1);
+    expect(s.montant_transactions_virement).toBe(500);
+    expect(s.montant_transactions_frais_livret).toBe(50);
+    expect(s.montant_transactions_frais_auto).toBe(25);
+    expect(s.montant_transactions_epargne_frais_service).toBe(10);
   });
 
-  it('decaissement credit par type + Total Cash valide (hors en attente)', async () => {
+  it('décaissement crédit par type + Total Cash physique complet', async () => {
     setDb({
       comptesCredit: [
         { created_by: U, type_compte_credit: 'Credit Cash', montant_prete: 1000 },
@@ -101,8 +118,8 @@ describe('getAgentStats — rapport agent', () => {
     const s = await getAgentStats(U, { type: 'all' });
     expect(s.montant_credit_cash).toBe(1000);
     expect(s.montant_credit_konfyans).toBe(500);
-    // Total Cash = 100 + 50 + 20 - 30 + 40 + 10 = 190 (le depot en attente 200 est exclu)
-    expect(s.total_cash).toBe(190);
+    // Total Cash Collecté physique = (100 + 50 + 20 + 200) - 30 + 40 + 10 = 390
+    expect(s.total_cash).toBe(390);
   });
 
   it('ignore les transactions d un autre agent', async () => {

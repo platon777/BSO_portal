@@ -46,8 +46,8 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
     remise_client: 0,
     monnaie_client: '',
     solde_avant_transaction: compteEpargne.solde_actuel,
-    solde_avant_transaction_declare: compteEpargne.solde_actuel,
-    solde_apres_transaction_declare: compteEpargne.solde_actuel,
+    solde_avant_transaction_declare: undefined,
+    solde_apres_transaction_declare: undefined,
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -170,6 +170,16 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
       return false;
     }
 
+    if (formData.solde_avant_transaction_declare === undefined || formData.solde_avant_transaction_declare === null || isNaN(Number(formData.solde_avant_transaction_declare))) {
+      toast.error('Solde avant déclaré est obligatoire.');
+      return false;
+    }
+
+    if (formData.solde_apres_transaction_declare === undefined || formData.solde_apres_transaction_declare === null || isNaN(Number(formData.solde_apres_transaction_declare))) {
+      toast.error('Solde après déclaré est obligatoire.');
+      return false;
+    }
+
     if (formData.type_transaction === 'V') {
       if (!String(formData.virement_from || '').trim() || !String(formData.virement_to || '').trim()) {
         toast.error('Virement requiert compte emetteur et compte beneficiaire.');
@@ -206,9 +216,9 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
     const soldeAvantConfirme = guard.serverBalance ?? formData.solde_avant_transaction ?? compteEpargne.solde_actuel ?? 0;
     solde_apres_transactions = soldeAvantConfirme;
 
-    // Protocole de validation finance : un depot (entree d'argent) doit etre verifie
+    // Protocole de validation finance : un depot ('D') ou virement ('V') doit etre verifie
     // par la finance avant de compter comme reel. Il se synchronise mais reste 'pending'.
-    const needsValidation = typeTransaction === 'D';
+    const needsValidation = typeTransaction === 'D' || typeTransaction === 'V';
     const validationStatus: 'pending' | 'confirmed' = needsValidation ? 'pending' : 'confirmed';
 
     if (typeTransaction === 'D') {
@@ -220,6 +230,9 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
         return;
       }
     }
+
+    const soldeAvantDeclare = Number(formData.solde_avant_transaction_declare);
+    const soldeApresDeclare = Number(formData.solde_apres_transaction_declare);
 
     if (transaction && transaction.id_transaction_epargne) {
       await db.updateRecord('transactions_epargne', transaction.id_transaction_epargne, {
@@ -233,9 +246,8 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
           : undefined,
         solde_apres_transactions,
         solde_avant_transaction: soldeAvantConfirme,
-        // Solde declare = ce que l'agent saisit (controle anti-fraude), jamais ecrase par le calcul.
-        solde_avant_transaction_declare: formData.solde_avant_transaction_declare ?? soldeAvantConfirme,
-        solde_apres_transaction_declare: formData.solde_apres_transaction_declare ?? solde_apres_transactions,
+        solde_avant_transaction_declare: soldeAvantDeclare,
+        solde_apres_transaction_declare: soldeApresDeclare,
         updated_at: getNowHaitiISO()
       });
     } else {
@@ -257,8 +269,8 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
         monnaie_client: formData.monnaie_client,
         remise_client: formData.remise_client,
         solde_avant_transaction: soldeAvantConfirme,
-        solde_avant_transaction_declare: formData.solde_avant_transaction_declare ?? soldeAvantConfirme,
-        solde_apres_transaction_declare: formData.solde_apres_transaction_declare ?? solde_apres_transactions,
+        solde_avant_transaction_declare: soldeAvantDeclare,
+        solde_apres_transaction_declare: soldeApresDeclare,
         validation_status: validationStatus,
         date_transaction: nowIso,
         created_by: userId,
@@ -269,20 +281,17 @@ const TransactionEpargneForm: React.FC<TransactionEpargneFormProps> = ({ compteE
       await db.addRecord('transactions_epargne', newTransaction);
 
       // Local projection only. Supabase balance is changed by the transaction trigger.
-      // Un depot 'pending' (en attente de validation finance) est deja projete localement
-      // de facon optimiste; le solde reel cote serveur ne bougera qu'a la validation.
+      // Une transaction 'pending' est projetee localement de facon optimiste.
       await db.comptes_epargne.update(formData.id_compte_epargne!, {
         solde_actuel: solde_apres_transactions,
         updated_at: nowIso
       });
 
       // For virements: update beneficiary balance locally only (no sync queue)
-      // The Supabase trigger update_savings_balance() handles the beneficiary credit on sync
       if (formData.type_transaction === 'V' && formData.virement_to) {
         const beneficiaryCompte = await db.comptes_epargne.where('no_compte').equals(formData.virement_to).first();
         if (beneficiaryCompte) {
           const newBeneficiarySolde = (beneficiaryCompte.solde_actuel || 0) + montant;
-          // Direct Dexie update - not through db.updateRecord() to avoid creating a sync queue item
           await db.comptes_epargne.update(beneficiaryCompte.id_compte_epargne, {
             solde_actuel: newBeneficiarySolde,
             updated_at: nowIso,

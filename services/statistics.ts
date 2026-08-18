@@ -197,14 +197,15 @@ export async function getAgentStats(userId: string, dateFilter: DateFilter): Pro
     const montant = t.montant || 0;
 
     // Protocole de validation finance :
-    // - une entrée refusée ne compte nulle part ;
-    // - un dépôt EN ATTENTE de validation est synchronisé mais reste hors des totaux réels
-    //   (bloc séparé), tant que la finance n'a pas validé.
+    // - une transaction rejetée est ignorée
+    // - toute transaction collectée (en attente ou confirmée) monte immédiatement
+    //   dans les rubriques respectives de l'agent et dans son Total Cash collecté.
+    // - les compteurs "en attente" sont également suivis pour transparence.
     if (t.validation_status === 'rejected') return;
+
     if (t.type_transaction === 'D' && t.validation_status === 'pending' && !t.is_solde_initial) {
       stats.transactions_depot_en_attente++;
       stats.montant_depot_en_attente += montant;
-      return;
     }
 
     const remiseClient = t.remise_client || 0;
@@ -259,12 +260,11 @@ export async function getAgentStats(userId: string, dateFilter: DateFilter): Pro
   transactionsCreditFiltered.forEach(t => {
     const montant = t.montant || 0;
 
-    // Validation finance : paiement refusé ignoré ; paiement en attente = hors totaux réels.
     if (t.validation_status === 'rejected') return;
+
     if (t.type_transaction === 'Paiement' && t.validation_status === 'pending') {
       stats.transactions_paiement_en_attente++;
       stats.montant_paiement_en_attente += montant;
-      return;
     }
 
     if (t.type_transaction === 'Paiement') {
