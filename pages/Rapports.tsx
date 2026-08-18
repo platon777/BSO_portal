@@ -1,96 +1,119 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import AgentStatsPanel from '../components/stats/AgentStatsPanel';
+import AgentSearchSelect, { AgentOption } from '../components/common/AgentSearchSelect';
 import { useAuthStore } from '../stores/authStore';
 import { canAccessAdminReports } from '../types/auth';
 import { supabase } from '../services/supabase';
 import { db } from '../services/database';
 
-interface AgentOption {
-  id: string;
-  name: string;
-}
+const CACHED_PROFILES_KEY = 'bso_cached_profiles';
 
 /**
  * Page Rapports — statistiques et rapport de collecte.
  * - Pour les agents standards : affiche leur propre fiche de rapport en temps réel.
- * - Pour les admins/managers/finance : permet de sélectionner et contrôler la fiche de rapport
- *   de n'importe quel agent afin de vérifier le cash physique remis sans erreur.
+ * - Pour les admins/managers/finance : sélecteur de recherche d'agent responsive
+ *   permettant de contrôler immédiatement la fiche de n'importe quel agent lors de la remise de caisse.
  */
 const Rapports: React.FC = () => {
   const { profile } = useAuthStore();
   const isAdminOrManager = canAccessAdminReports(profile?.role);
 
-  const [agents, setAgents] = useState<AgentOption[]>([]);
+  const [agents, setAgents] = useState<AgentOption[]>(() => {
+    try {
+      const cached = localStorage.getItem(CACHED_PROFILES_KEY);
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
+
   const [selectedAgentId, setSelectedAgentId] = useState<string>(profile?.user_id || '');
   const [selectedAgentName, setSelectedAgentName] = useState<string>(
-    profile ? `${profile.firstname} ${profile.name}`.trim() : ''
+    profile ? `${profile.firstname || ''} ${profile.name || ''}`.trim() : ''
   );
   const [loadingAgents, setLoadingAgents] = useState(false);
 
-  // Synchroniser l'utilisateur sélectionné par défaut quand le profil est chargé
+  // Synchroniser l'utilisateur connecté par défaut
   useEffect(() => {
-    if (profile?.user_id && !selectedAgentId) {
-      setSelectedAgentId(profile.user_id);
-      setSelectedAgentName(`${profile.firstname || ''} ${profile.name || ''}`.trim());
+    if (profile?.user_id) {
+      if (!selectedAgentId) {
+        setSelectedAgentId(profile.user_id);
+      }
+      if (!selectedAgentName) {
+        setSelectedAgentName(`${profile.firstname || ''} ${profile.name || ''}`.trim());
+      }
     }
-  }, [profile, selectedAgentId]);
+  }, [profile, selectedAgentId, selectedAgentName]);
+
+  const loadAgents = useCallback(async () => {
+    if (!isAdminOrManager) return;
+    setLoadingAgents(true);
+
+    try {
+      // 1. Essayer depuis Supabase profiles
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('user_id, firstname, name, email, role')
+        .order('firstname', { ascending: true });
+
+      if (!error && data && data.length > 0) {
+        const list: AgentOption[] = data
+          .filter((p: any) => p.user_id)
+          .map((p: any) => {
+            const fullName = [p.firstname, p.name].filter(Boolean).join(' ').trim() || p.email || `Agent (${p.user_id.slice(0, 8)})`;
+            return {
+              id: p.user_id,
+              name: fullName,
+              email: p.email,
+              role: p.role,
+            };
+          });
+
+        setAgents(list);
+        try {
+          localStorage.setItem(CACHED_PROFILES_KEY, JSON.stringify(list));
+        } catch {
+          // ignore quota
+        }
+        setLoadingAgents(false);
+        return;
+      }
+    } catch (e) {
+      console.warn('[Rapports] Erreur récupération profils Supabase, bascule sur cache/local:', e);
+    }
+
+    try {
+      // 2. Fallback Dexie local si hors-ligne
+      const [epg, cred] = await Promise.all([
+        db.transactions_epargne.toArray(),
+        db.transactions_credit.toArray(),
+      ]);
+      const creatorIds = Array.from(new Set([...epg, ...cred].map((t) => t.created_by).filter(Boolean)));
+
+      if (creatorIds.length > 0) {
+        setAgents((prev) => {
+          const map = new Map(prev.map((a) => [a.id, a]));
+          creatorIds.forEach((id) => {
+            if (!map.has(id)) {
+              map.set(id, {
+                id,
+                name: id === profile?.user_id ? `${profile.firstname} ${profile.name}`.trim() : `Agent (${id.slice(0, 8)})`,
+              });
+            }
+          });
+          return Array.from(map.values());
+        });
+      }
+    } catch (err) {
+      console.error('[Rapports] Erreur fallback local:', err);
+    } finally {
+      setLoadingAgents(false);
+    }
+  }, [isAdminOrManager, profile]);
 
   useEffect(() => {
-    if (!isAdminOrManager) return;
-
-    let isMounted = true;
-    const loadAgents = async () => {
-      setLoadingAgents(true);
-      try {
-        // 1. Essayer depuis Supabase profiles
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('user_id, firstname, name, role')
-          .order('firstname', { ascending: true });
-
-        if (!error && data && data.length > 0) {
-          if (isMounted) {
-            const list: AgentOption[] = data
-              .filter((p: any) => p.user_id)
-              .map((p: any) => ({
-                id: p.user_id,
-                name: `${p.firstname || ''} ${p.name || ''}`.trim() || `Agent (${p.user_id.slice(0, 8)})`,
-              }));
-            setAgents(list);
-          }
-          return;
-        }
-      } catch {
-        // Fallback local en cas de mode hors-ligne
-      }
-
-      try {
-        // 2. Fallback Dexie local si hors-ligne
-        const [epg, cred] = await Promise.all([
-          db.transactions_epargne.toArray(),
-          db.transactions_credit.toArray(),
-        ]);
-        const creatorIds = Array.from(new Set([...epg, ...cred].map((t) => t.created_by).filter(Boolean)));
-        if (isMounted && creatorIds.length > 0) {
-          const list: AgentOption[] = creatorIds.map((id) => ({
-            id,
-            name: id === profile?.user_id ? `${profile.firstname} ${profile.name}` : `Agent (${id.slice(0, 8)})`,
-          }));
-          setAgents(list);
-        }
-      } catch (err) {
-        console.error('Erreur chargement agents:', err);
-      } finally {
-        if (isMounted) setLoadingAgents(false);
-      }
-    };
-
     loadAgents();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [isAdminOrManager, profile]);
+  }, [loadAgents]);
 
   const handleAgentSelect = (agentId: string) => {
     setSelectedAgentId(agentId);
@@ -104,47 +127,37 @@ const Rapports: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      {/* Header responsive avec sélecteur de recherche */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-200">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-gray-800">
             {isAdminOrManager ? 'Fiche Rapport & Contrôle de Caisse' : 'Mon rapport'}
           </h1>
-          <p className="text-sm text-gray-500">
+          <p className="text-xs sm:text-sm text-gray-500 mt-0.5">
             {isAdminOrManager
-              ? "Contrôlez les montants collectés par chaque agent lors de la remise de caisse."
-              : "Suivi en direct de vos collectes et opérations du jour."}
+              ? 'Sélectionnez un agent pour contrôler en direct sa collecte et ses entrées de fonds.'
+              : 'Suivi en direct de vos collectes et opérations du jour.'}
           </p>
         </div>
 
+        {/* Dropdown de recherche réactif pour Admin / Manager / Finance */}
         {isAdminOrManager && (
-          <div className="flex items-center gap-2 bg-white p-2 rounded-lg shadow-sm border border-gray-200">
-            <label htmlFor="agent-select" className="text-sm font-medium text-gray-700 whitespace-nowrap">
-              Agent :
-            </label>
-            <select
-              id="agent-select"
-              value={selectedAgentId}
-              onChange={(e) => handleAgentSelect(e.target.value)}
-              disabled={loadingAgents}
-              className="p-2 border border-gray-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none min-w-[200px]"
-            >
-              {profile?.user_id && (
-                <option value={profile.user_id}>
-                  Moi-même ({profile.firstname} {profile.name})
-                </option>
-              )}
-              {agents
-                .filter((a) => a.id !== profile?.user_id)
-                .map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name}
-                  </option>
-                ))}
-            </select>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+            <span className="text-xs font-semibold text-gray-600 sm:whitespace-nowrap">
+              Agent ciblé :
+            </span>
+            <AgentSearchSelect
+              agents={agents}
+              selectedAgentId={selectedAgentId || profile?.user_id || ''}
+              onSelect={handleAgentSelect}
+              isLoading={loadingAgents}
+              currentUserId={profile?.user_id}
+            />
           </div>
         )}
       </div>
 
+      {/* Panneau des statistiques en direct */}
       <AgentStatsPanel
         showHeader={false}
         targetUserId={selectedAgentId || profile?.user_id}
