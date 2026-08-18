@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import AgentStatsPanel from '../components/stats/AgentStatsPanel';
 import { useAuthStore } from '../stores/authStore';
-import { UserRole } from '../types/auth';
+import { canAccessAdminReports } from '../types/auth';
 import { supabase } from '../services/supabase';
 import { db } from '../services/database';
 
@@ -13,19 +13,27 @@ interface AgentOption {
 /**
  * Page Rapports — statistiques et rapport de collecte.
  * - Pour les agents standards : affiche leur propre fiche de rapport en temps réel.
- * - Pour les admins/managers : permet de sélectionner et contrôler la fiche de rapport
+ * - Pour les admins/managers/finance : permet de sélectionner et contrôler la fiche de rapport
  *   de n'importe quel agent afin de vérifier le cash physique remis sans erreur.
  */
 const Rapports: React.FC = () => {
   const { profile } = useAuthStore();
-  const isAdminOrManager = profile?.role === UserRole.ADMIN || profile?.role === UserRole.MANAGER;
+  const isAdminOrManager = canAccessAdminReports(profile?.role);
 
   const [agents, setAgents] = useState<AgentOption[]>([]);
   const [selectedAgentId, setSelectedAgentId] = useState<string>(profile?.user_id || '');
   const [selectedAgentName, setSelectedAgentName] = useState<string>(
-    profile ? `${profile.firstname} ${profile.name}` : ''
+    profile ? `${profile.firstname} ${profile.name}`.trim() : ''
   );
   const [loadingAgents, setLoadingAgents] = useState(false);
+
+  // Synchroniser l'utilisateur sélectionné par défaut quand le profil est chargé
+  useEffect(() => {
+    if (profile?.user_id && !selectedAgentId) {
+      setSelectedAgentId(profile.user_id);
+      setSelectedAgentName(`${profile.firstname || ''} ${profile.name || ''}`.trim());
+    }
+  }, [profile, selectedAgentId]);
 
   useEffect(() => {
     if (!isAdminOrManager) return;
@@ -37,7 +45,7 @@ const Rapports: React.FC = () => {
         // 1. Essayer depuis Supabase profiles
         const { data, error } = await supabase
           .from('profiles')
-          .select('user_id, firstname, name')
+          .select('user_id, firstname, name, role')
           .order('firstname', { ascending: true });
 
         if (!error && data && data.length > 0) {
@@ -89,6 +97,8 @@ const Rapports: React.FC = () => {
     const agent = agents.find((a) => a.id === agentId);
     if (agent) {
       setSelectedAgentName(agent.name);
+    } else if (agentId === profile?.user_id) {
+      setSelectedAgentName(`${profile?.firstname || ''} ${profile?.name || ''}`.trim());
     }
   };
 

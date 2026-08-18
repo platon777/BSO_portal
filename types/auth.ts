@@ -2,8 +2,36 @@ import { User } from '@supabase/supabase-js';
 
 export enum UserRole {
   ADMIN = 1,
+  MANAGER = 2,
   AGENT = 3,
+  NON_DEFINI = 4,
+  FINANCE = 5,
 }
+
+export const isAdminRole = (role?: unknown): boolean => {
+  if (role === undefined || role === null) return false;
+  if (role === UserRole.ADMIN || role === 1) return true;
+  const s = String(role).trim().toLowerCase();
+  return s === '1' || s === 'admin';
+};
+
+export const isManagerRole = (role?: unknown): boolean => {
+  if (role === undefined || role === null) return false;
+  if (role === UserRole.MANAGER || role === 2) return true;
+  const s = String(role).trim().toLowerCase();
+  return s === '2' || s === 'manager' || s === 'managers';
+};
+
+export const isFinanceRole = (role?: unknown): boolean => {
+  if (role === undefined || role === null) return false;
+  if (role === UserRole.FINANCE || role === 5) return true;
+  const s = String(role).trim().toLowerCase();
+  return s === '5' || s === 'finance';
+};
+
+export const canAccessAdminReports = (role?: unknown): boolean => {
+  return isAdminRole(role) || isManagerRole(role) || isFinanceRole(role);
+};
 
 export interface UserProfile {
   id: number;

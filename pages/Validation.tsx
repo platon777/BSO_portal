@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../services/supabase';
 import { useAuthStore } from '../stores/authStore';
-import { UserRole } from '../types/auth';
+import { canAccessAdminReports } from '../types/auth';
 import toast from 'react-hot-toast';
 
-// Page de validation finance (réservée aux administrateurs et managers).
+// Page de validation finance (réservée aux administrateurs, managers et finance).
 // Liste les opérations en attente (dépôts 'D', paiements crédit 'Paiement', virements 'V')
 // et permet de valider individuellement ou en bloc par agent.
 
@@ -119,7 +119,7 @@ const resolveNames = async (epgRows: any[], credRows: any[]): Promise<Row[]> => 
 
 const Validation: React.FC = () => {
   const { profile } = useAuthStore();
-  const isAdminOrManager = profile?.role === UserRole.ADMIN || profile?.role === UserRole.MANAGER;
+  const isAdminOrManager = canAccessAdminReports(profile?.role);
 
   const [rows, setRows] = useState<Row[]>([]);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
