@@ -127,44 +127,45 @@ export const validateCreditTransactionBeforeLocalSave = async (
     };
   }
 
-  if (summary.pendingCount > 0) {
-    return {
-      allowed: false,
-      message: 'Ce compte credit a deja une operation en attente. Synchronisez-la avant un nouveau remboursement.',
-    };
-  }
-
   if (typeTransaction !== 'Paiement') {
     return { allowed: true };
   }
 
-  if (!isOnline()) {
+  // Si on est en ligne, on tente de rafraîchir les données officielles depuis Supabase
+  if (isOnline()) {
+    try {
+      const serverCompte = await refreshCreditAccountFromServer(compte.id_compte_credit);
+      if (serverCompte) {
+        const serverRemaining = Math.max(0, getCreditMontantRestant(serverCompte));
+        const serverPaid = toNumber(serverCompte.paiement_rembourse);
+        if (amount > serverRemaining) {
+          return {
+            allowed: false,
+            serverRemaining,
+            serverPaid,
+            message: `Remboursement superieur au montant restant. Restant du: ${serverRemaining.toFixed(2)} HTG.`,
+          };
+        }
+        return { allowed: true, serverRemaining, serverPaid };
+      }
+    } catch {
+      // Si la requête échoue, on continue avec la validation locale (Offline-First)
+    }
+  }
+
+  // Mode Hors-Ligne (Offline-First) : validation contre le solde restant local
+  const localRemaining = Math.max(0, getCreditMontantRestant(compte));
+  const localPaid = toNumber(compte.paiement_rembourse);
+  if (amount > localRemaining) {
     return {
       allowed: false,
-      message: 'Un remboursement credit doit etre verifie en ligne pour eviter un double paiement.',
+      serverRemaining: localRemaining,
+      serverPaid: localPaid,
+      message: `Remboursement superieur au montant restant local. Restant du: ${localRemaining.toFixed(2)} HTG.`,
     };
   }
 
-  const serverCompte = await refreshCreditAccountFromServer(compte.id_compte_credit);
-  if (!serverCompte) {
-    return {
-      allowed: false,
-      message: 'Ce compte credit n est pas encore confirme sur Supabase. Synchronisez le compte avant le remboursement.',
-    };
-  }
-
-  const serverRemaining = Math.max(0, getCreditMontantRestant(serverCompte));
-  const serverPaid = toNumber(serverCompte.paiement_rembourse);
-  if (amount > serverRemaining) {
-    return {
-      allowed: false,
-      serverRemaining,
-      serverPaid,
-      message: `Remboursement superieur au montant restant confirme. Restant: ${serverRemaining.toFixed(2)} HTG.`,
-    };
-  }
-
-  return { allowed: true, serverRemaining, serverPaid };
+  return { allowed: true, serverRemaining: localRemaining, serverPaid: localPaid };
 };
 
 export const rollbackRejectedCreditTransaction = async (item: SyncQueueItem): Promise<void> => {
