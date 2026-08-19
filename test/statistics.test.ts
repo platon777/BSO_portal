@@ -107,6 +107,21 @@ describe('getAgentStats — rapport agent temps réel dès la collecte', () => {
     expect(s.montant_transactions_credit_paiement).toBe(750);
   });
 
+  it('calcule le Versement Cumulé comme la somme des versements déclarés saisis par l agent', async () => {
+    setDb({
+      txCredit: [
+        { created_by: U, type_transaction: 'Paiement', montant: 500, versement_declare: 600, validation_status: 'confirmed' },
+        { created_by: U, type_transaction: 'Paiement', montant: 300, versement_declare: 400, validation_status: 'pending' },
+        { created_by: U, type_transaction: 'Paiement', montant: 200, validation_status: 'confirmed' }, // fallback montant si non renseigné
+      ],
+    });
+    const s = await getAgentStats(U, { type: 'all' });
+    // Versement cumulé = 600 + 400 + 200 = 1200
+    expect(s.versement_cumule).toBe(1200);
+    // Montant effectif = 500 + 300 + 200 = 1000
+    expect(s.montant_transactions_credit_paiement).toBe(1000);
+  });
+
   it('gère les transactions de virement et les frais', async () => {
     setDb({
       txEpargne: [

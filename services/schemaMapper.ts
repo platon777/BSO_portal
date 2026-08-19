@@ -275,22 +275,55 @@ const mapSupabaseToCompteCredit = (data: any): CompteCredit => {
 };
 
 const mapTransactionEpargneToSupabase = (transaction: TransactionEpargne, userId: string): any => {
-  // Exclude solde fields (managed by triggers) and validation-decision fields
-  // (validated_by/at/note are posed only by set_transaction_validation cote serveur).
-  const {
-    solde_apres_transactions, solde_avant_transaction, id_personne,
-    validated_by, validated_at, validation_note,
-    ...transactionData
-  } = transaction as any;
-
-  return {
-    ...transactionData,
+  // Construction stricte de l'objet pour Supabase (évite d'envoyer des champs UI tels que client_name, client_code, etc.)
+  const result: any = {
+    id_transaction_epargne: transaction.id_transaction_epargne,
+    id_compte_epargne: transaction.id_compte_epargne,
+    no_compte: transaction.no_compte,
+    type_transaction: transaction.type_transaction,
+    montant: Number(transaction.montant) || 0,
+    date_transaction: transaction.date_transaction,
+    created_at: transaction.created_at,
     created_by: userId,
-    solde_avant_transaction_declare: transaction.solde_avant_transaction_declare,
-    solde_apres_transaction_declare: transaction.solde_apres_transaction_declare
-    // Do NOT send solde_apres_transactions or solde_avant_transaction
-    // These are computed by Supabase triggers
+    is_solde_initial: Boolean(transaction.is_solde_initial),
+    validation_status: transaction.validation_status || 'pending',
   };
+
+  if (transaction.solde_avant_transaction_declare !== undefined) {
+    result.solde_avant_transaction_declare = transaction.solde_avant_transaction_declare;
+  }
+  if (transaction.solde_apres_transaction_declare !== undefined) {
+    result.solde_apres_transaction_declare = transaction.solde_apres_transaction_declare;
+  }
+  if (transaction.solde_declare !== undefined) {
+    result.solde_declare = transaction.solde_declare;
+  }
+  if (transaction.type_frais_livret !== undefined) {
+    result.type_frais_livret = transaction.type_frais_livret;
+  }
+  if (transaction.virement_from !== undefined) {
+    result.virement_from = transaction.virement_from;
+  }
+  if (transaction.virement_to !== undefined) {
+    result.virement_to = transaction.virement_to;
+  }
+  if (transaction.frais_auto !== undefined) {
+    result.frais_auto = transaction.frais_auto;
+  }
+  if (transaction.monnaie_client !== undefined) {
+    result.monnaie_client = transaction.monnaie_client;
+  }
+  if (transaction.remise_client !== undefined) {
+    result.remise_client = transaction.remise_client;
+  }
+  if (transaction.categorie_compte_epargne !== undefined) {
+    result.categorie_compte_epargne = transaction.categorie_compte_epargne;
+  }
+  if ((transaction as any).updated_at !== undefined) {
+    result.updated_at = (transaction as any).updated_at;
+  }
+
+  return result;
 };
 
 const mapSupabaseToTransactionEpargne = (data: any): TransactionEpargne => {
@@ -309,19 +342,30 @@ const mapSupabaseToTransactionEpargne = (data: any): TransactionEpargne => {
 };
 
 const mapTransactionCreditToSupabase = (transaction: TransactionCredit, userId: string): any => {
-  // Exclude computed fields (triggers) and validation-decision fields (server-managed)
-  const {
-    solde_avant_transaction, solde_credit, id_personne,
-    validated_by, validated_at, validation_note,
-    ...transactionData
-  } = transaction as any;
-
-  return {
-    ...transactionData,
+  // Construction stricte de l'objet pour Supabase (évite d'envoyer des champs UI résiduels)
+  const result: any = {
+    id_transaction_credit: transaction.id_transaction_credit,
+    id_compte_credit: transaction.id_compte_credit,
+    no_compte: transaction.no_compte,
+    type_transaction: transaction.type_transaction,
+    montant: Number(transaction.montant) || 0,
+    date_transaction: transaction.date_transaction,
+    created_at: transaction.created_at,
     created_by: userId,
-    // Do NOT send paiement_cumule, montant_restant, or solde_avant_transaction
-    // These are computed by Supabase triggers
+    validation_status: transaction.validation_status || 'pending',
   };
+
+  if (transaction.versement_declare !== undefined) {
+    result.versement_declare = transaction.versement_declare;
+  }
+  if (transaction.montant_pret !== undefined) {
+    result.montant_pret = transaction.montant_pret;
+  }
+  if ((transaction as any).updated_at !== undefined) {
+    result.updated_at = (transaction as any).updated_at;
+  }
+
+  return result;
 };
 
 const mapSupabaseToTransactionCredit = (data: any): TransactionCredit => {

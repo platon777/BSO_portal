@@ -10,23 +10,28 @@ describe('getPrimaryKeyField', () => {
 });
 
 describe('mapLocalToSupabase — champs geres par le serveur exclus', () => {
-  it('transactions_epargne: exclut soldes reels + champs de decision de validation', () => {
+  it('transactions_epargne: exclut soldes reels, champs de decision et champs UI volatiles (client_name, etc.)', () => {
     const out = mapLocalToSupabase('transactions_epargne', {
       id_transaction_epargne: 't1', id_compte_epargne: 'a1', type_transaction: 'D', montant: 100,
       solde_avant_transaction: 1, solde_apres_transactions: 101,
       solde_avant_transaction_declare: 1, solde_apres_transaction_declare: 101,
       validation_status: 'pending', validated_by: 'x', validated_at: 'y', validation_note: 'z',
       id_personne: 'p1', created_by: 'u0', created_at: '2026-01-01T00:00:00.000Z',
+      client_name: 'Jean Dupont', client_code: 'CLI-001', _local_rolled_back: false,
     } as any, 'user1');
 
-    // Geres par trigger / serveur -> ne doivent PAS partir
+    // Geres par trigger / serveur / UI -> ne doivent PAS partir (évite erreur PGRST204)
     expect(out.solde_avant_transaction).toBeUndefined();
     expect(out.solde_apres_transactions).toBeUndefined();
     expect(out.validated_by).toBeUndefined();
     expect(out.validated_at).toBeUndefined();
     expect(out.validation_note).toBeUndefined();
     expect(out.id_personne).toBeUndefined();
-    // Doivent partir
+    expect(out.client_name).toBeUndefined();
+    expect(out.client_code).toBeUndefined();
+    expect(out._local_rolled_back).toBeUndefined();
+
+    // Doivent partir fidèlement
     expect(out.validation_status).toBe('pending');
     expect(out.solde_apres_transaction_declare).toBe(101);
     expect(out.created_by).toBe('user1');

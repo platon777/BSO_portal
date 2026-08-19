@@ -286,8 +286,11 @@ export async function getAgentStats(userId: string, dateFilter: DateFilter): Pro
     if (t.type_transaction === 'Paiement') {
       stats.transactions_credit_paiement++;
       stats.montant_transactions_credit_paiement += montant;
-      // Versement cumulé = cumul de tous les versements enregistrés pour la journée
-      stats.versement_cumule += montant;
+      // Versement cumulé = cumul de tous les versements déclarés saisis par l'agent (avec fallback montant)
+      const versementVal = (t.versement_declare !== undefined && t.versement_declare !== null && !isNaN(Number(t.versement_declare)))
+        ? Number(t.versement_declare)
+        : montant;
+      stats.versement_cumule += versementVal;
 
       // Ventilation par type de compte credit
       const compte = (t.id_compte_credit ? comptesCreditMap.get(t.id_compte_credit) : undefined)

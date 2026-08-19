@@ -4,7 +4,7 @@ import { HomeIcon, UsersIcon, PiggyBankIcon, CreditCardIcon, LandmarkIcon, Setti
 import { useAuthStore } from '../../stores/authStore';
 import { canAccessAdminReports } from '../../types/auth';
 
-type Page = 'dashboard' | 'clients' | 'epargne' | 'credit' | 'recouvrement' | 'rapports' | 'parametres';
+type Page = 'dashboard' | 'clients' | 'epargne' | 'credit' | 'recouvrement' | 'rapports' | 'parametres' | 'validation';
 
 interface SidebarProps {
   currentPage: Page;
@@ -53,6 +53,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, setCurrentPage, isOpen, 
     { page: 'rapports', label: 'Rapports', icon: <FileTextIcon /> },
     // Validation finance : accessible aux administrateurs, managers et finance.
     ...(canValidate ? [{ page: 'validation', label: 'Validation', icon: <ShieldCheckIcon /> }] : []),
+    { page: 'parametres', label: 'Paramètres', icon: <SettingsIcon /> },
   ];
 
   return (
