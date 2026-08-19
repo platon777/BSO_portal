@@ -1,7 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../services/supabase';
+import { db } from '../services/database';
 import { useAuthStore } from '../stores/authStore';
 import { canAccessAdminReports } from '../types/auth';
+import AgentSearchSelect, { AgentOption } from '../components/common/AgentSearchSelect';
+import { SearchIcon, CheckIcon, AlertTriangleIcon, RefreshCwIcon } from '../components/icons/Icons';
 import toast from 'react-hot-toast';
 
 // Page de validation finance (réservée aux administrateurs, managers et finance).
@@ -9,6 +12,7 @@ import toast from 'react-hot-toast';
 // et permet de valider individuellement ou en bloc par agent.
 
 const PAGE_SIZE = 50;
+const CACHED_PROFILES_KEY = 'bso_cached_profiles';
 
 type Row = {
   key: string;
@@ -51,7 +55,7 @@ const resolveNames = async (epgRows: any[], credRows: any[]): Promise<Row[]> => 
       ? supabase.from('comptes_credit').select('id_compte_credit,id_personne').in('id_compte_credit', credAccountIds)
       : Promise.resolve({ data: [] as any[] }),
     creatorIds.length
-      ? supabase.from('profiles').select('user_id,firstname,name').in('user_id', creatorIds)
+      ? supabase.from('profiles').select('user_id,firstname,name,email,role').in('user_id', creatorIds)
       : Promise.resolve({ data: [] as any[] }),
   ]);
 
@@ -124,8 +128,18 @@ const Validation: React.FC = () => {
   const [rows, setRows] = useState<Row[]>([]);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [selectedAgentFilter, setSelectedAgentFilter] = useState<string>('all');
+  const [datePreset, setDatePreset] = useState<'today' | 'yesterday' | 'all'>('today');
   const [selectedTypeFilter, setSelectedTypeFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
+
+  const [allAgents, setAllAgents] = useState<AgentOption[]>(() => {
+    try {
+      const cached = localStorage.getItem(CACHED_PROFILES_KEY);
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
 
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -137,6 +151,36 @@ const Validation: React.FC = () => {
   // Offsets de pagination (par table)
   const offsets = useRef<{ epg: number; cred: number }>({ epg: 0, cred: 0 });
   const [hasMore, setHasMore] = useState<{ epg: boolean; cred: boolean }>({ epg: false, cred: false });
+
+  // Charger la liste complète des profils agents
+  useEffect(() => {
+    if (!isAdminOrManager) return;
+    const fetchProfiles = async () => {
+      try {
+        const { data } = await supabase
+          .from('profiles')
+          .select('user_id, firstname, name, email, role')
+          .order('firstname', { ascending: true });
+        if (data && data.length > 0) {
+          const list: AgentOption[] = data
+            .filter((p: any) => p.user_id)
+            .map((p: any) => ({
+              id: p.user_id,
+              name: [p.firstname, p.name].filter(Boolean).join(' ').trim() || p.email || `Agent (${p.user_id.slice(0, 8)})`,
+              email: p.email,
+              role: p.role,
+            }));
+          setAllAgents(list);
+          try {
+            localStorage.setItem(CACHED_PROFILES_KEY, JSON.stringify(list));
+          } catch {}
+        }
+      } catch (err) {
+        console.warn('Erreur chargement profiles pour validation:', err);
+      }
+    };
+    fetchProfiles();
+  }, [isAdminOrManager]);
 
   const fetchBatch = useCallback(async (reset: boolean) => {
     setError(null);
@@ -210,20 +254,45 @@ const Validation: React.FC = () => {
     if (isAdminOrManager) fetchBatch(true);
   }, [isAdminOrManager, fetchBatch]);
 
-  // Liste des agents uniques présents dans le lot
-  const agentsInBatch = useMemo(() => {
-    const map = new Map<string, string>();
-    rows.forEach((r) => {
-      if (r.agentId) map.set(r.agentId, r.agentName);
-    });
-    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
-  }, [rows]);
+  // Liste des agents combinée (profils globaux + agents ayant des opérations dans le lot)
+  const agentsOptionsList: AgentOption[] = useMemo(() => {
+    const list: AgentOption[] = [{ id: 'all', name: 'Tous les agents' }];
+    const map = new Map<string, AgentOption>();
 
-  // Filtrage des lignes
+    // 1. D'abord les profils connus
+    allAgents.forEach((a) => map.set(a.id, a));
+
+    // 2. Puis ceux présents dans les opérations
+    rows.forEach((r) => {
+      if (r.agentId && !map.has(r.agentId)) {
+        map.set(r.agentId, { id: r.agentId, name: r.agentName });
+      }
+    });
+
+    return [...list, ...Array.from(map.values())];
+  }, [allAgents, rows]);
+
+  // Filtrage des lignes par agent, période/date, type et recherche
   const filteredRows = useMemo(() => {
     return rows.filter((r) => {
+      // 1. Filtre Agent
       if (selectedAgentFilter !== 'all' && r.agentId !== selectedAgentFilter) return false;
+
+      // 2. Filtre Période / Date
+      if (datePreset === 'today') {
+        const rowDate = new Date(r.date).toDateString();
+        const today = new Date().toDateString();
+        if (rowDate !== today) return false;
+      } else if (datePreset === 'yesterday') {
+        const d = new Date();
+        d.setDate(d.getDate() - 1);
+        if (new Date(r.date).toDateString() !== d.toDateString()) return false;
+      }
+
+      // 3. Filtre Type
       if (selectedTypeFilter !== 'all' && r.kind !== selectedTypeFilter) return false;
+
+      // 4. Recherche texte
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
         const matchesClient = r.clientName.toLowerCase().includes(q) || r.clientCode.toLowerCase().includes(q);
@@ -233,9 +302,9 @@ const Validation: React.FC = () => {
       }
       return true;
     });
-  }, [rows, selectedAgentFilter, selectedTypeFilter, searchQuery]);
+  }, [rows, selectedAgentFilter, datePreset, selectedTypeFilter, searchQuery]);
 
-  // Statistiques de la vue filtrée / sélectionnée
+  // Statistiques de la vue filtrée
   const filteredStats = useMemo(() => {
     let depots = 0;
     let depotsCount = 0;
@@ -307,6 +376,27 @@ const Validation: React.FC = () => {
       });
       if (rpcError) throw rpcError;
 
+      // Mise à jour immédiate dans la base locale Dexie pour que les rapports / stats reflètent instantanément la validation
+      try {
+        if (row.table === 'transactions_epargne') {
+          await db.transactions_epargne.update(row.id, {
+            validation_status: status,
+            validated_by: profile?.user_id,
+            validated_at: new Date().toISOString(),
+            validation_note: note || undefined,
+          });
+        } else if (row.table === 'transactions_credit') {
+          await db.transactions_credit.update(row.id, {
+            validation_status: status,
+            validated_by: profile?.user_id,
+            validated_at: new Date().toISOString(),
+            validation_note: note || undefined,
+          });
+        }
+      } catch (e) {
+        console.warn('Mise à jour locale Dexie ignorée:', e);
+      }
+
       toast.success(status === 'confirmed' ? `${row.kind} validé ✔` : `${row.kind} rejeté ❌`);
       setRows((prev) => prev.filter((r) => r.key !== row.key));
       setSelectedKeys((prev) => {
@@ -348,7 +438,7 @@ const Validation: React.FC = () => {
     }
 
     setIsBulkBusy(true);
-    const toastId = toast.loading(`Traitement de ${rowsToProcess.length} opérations...`);
+    const toastId = toast.loading(`${actionLabel} de ${rowsToProcess.length} opérations en cours...`);
 
     try {
       const itemsPayload = rowsToProcess.map((r) => ({
@@ -356,7 +446,6 @@ const Validation: React.FC = () => {
         id: r.id,
       }));
 
-      // 1. Essai via la RPC performante de masse
       const { data: bulkRes, error: bulkErr } = await supabase.rpc('set_bulk_transaction_validation', {
         p_items: itemsPayload,
         p_status: status,
@@ -364,10 +453,9 @@ const Validation: React.FC = () => {
       });
 
       if (!bulkErr) {
-        const updatedCount = bulkRes?.updated ?? rowsToProcess.length;
-        toast.success(`${updatedCount} opération(s) traitée(s) avec succès !`, { id: toastId });
+        toast.success(`${rowsToProcess.length} opération(s) traitée(s) avec succès !`, { id: toastId });
       } else {
-        // Fallback séquentiel/parallèle individuel si la RPC bulk n'était pas disponible
+        // Fallback individuel si la RPC bulk n'était pas disponible
         console.warn('Fallback set_transaction_validation individuel:', bulkErr);
         let successCount = 0;
         for (const r of rowsToProcess) {
@@ -384,6 +472,29 @@ const Validation: React.FC = () => {
           }
         }
         toast.success(`${successCount} opération(s) validée(s) avec succès !`, { id: toastId });
+      }
+
+      // Mise à jour immédiate dans la base locale Dexie pour synchroniser l'affichage des rapports instantanément
+      for (const r of rowsToProcess) {
+        try {
+          if (r.table === 'transactions_epargne') {
+            await db.transactions_epargne.update(r.id, {
+              validation_status: status,
+              validated_by: profile?.user_id,
+              validated_at: new Date().toISOString(),
+              validation_note: note || undefined,
+            });
+          } else if (r.table === 'transactions_credit') {
+            await db.transactions_credit.update(r.id, {
+              validation_status: status,
+              validated_by: profile?.user_id,
+              validated_at: new Date().toISOString(),
+              validation_note: note || undefined,
+            });
+          }
+        } catch (e) {
+          // Ignorer erreur locale unitaire
+        }
       }
 
       // Nettoyer l'état local
@@ -408,7 +519,7 @@ const Validation: React.FC = () => {
     return (
       <div className="p-4 bg-white rounded-lg shadow-md">
         <h1 className="text-xl font-bold text-gray-800 mb-2">Accès réservé</h1>
-        <p className="text-gray-600">Cette page de validation est réservée aux administrateurs et managers.</p>
+        <p className="text-gray-600">Cette page de validation est réservée aux administrateurs, managers et finance.</p>
       </div>
     );
   }
@@ -417,256 +528,274 @@ const Validation: React.FC = () => {
   const hasSelected = selectedKeys.size > 0;
   const currentAgentName =
     selectedAgentFilter !== 'all'
-      ? agentsInBatch.find((a) => a.id === selectedAgentFilter)?.name || 'Agent sélectionné'
-      : 'Tous les agents';
+      ? agentsOptionsList.find((a) => a.id === selectedAgentFilter)?.name || 'Agent sélectionné'
+      : null;
 
   return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-2">
+    <div className="space-y-4 pb-20 md:pb-6">
+      {/* En-tête */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Validation des flux financiers</h1>
-          <p className="text-sm text-gray-500">
-            Contrôlez et validez en bloc le cash apporté par chaque agent (Dépôts, Paiements, Virements).
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <span>🛡️</span> Validation Finance & Contrôle Caisse
+          </h1>
+          <p className="text-xs sm:text-sm text-gray-500 mt-0.5">
+            Total en attente sur le système :{' '}
+            <span className="font-semibold text-gray-800">{totals.epg + totals.cred} opération(s)</span> ({totals.epg} épargne / {totals.cred} crédit)
           </p>
         </div>
         <button
           onClick={() => fetchBatch(true)}
           disabled={loading || isBulkBusy}
-          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 min-h-[44px]"
+          className="flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 disabled:opacity-50 min-h-[44px]"
         >
-          {loading ? 'Actualisation…' : 'Rafraîchir'}
+          <RefreshCwIcon className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          <span>Rafraîchir</span>
         </button>
       </div>
 
-      {/* Alert banner */}
-      <div className="bg-amber-50 border-l-4 border-amber-400 rounded-md p-3 text-sm text-amber-800">
-        Les opérations ci-dessous sont <strong>en attente</strong> : elles ne modifient pas encore le solde réel de la base.
-        Vérifiez la concordance avec le cash physique remis par l'agent avant de valider en bloc.
+      {/* Note d'information */}
+      <div className="p-3.5 bg-amber-50 border-l-4 border-amber-500 rounded-r-lg text-xs sm:text-sm text-amber-900">
+        <strong>Important :</strong> Les opérations ci-dessous sont <em>en attente</em>. Vérifiez la concordance avec le cash physique remis par l'agent avant de valider en bloc.
       </div>
 
-      {/* Barre de filtres & recherche */}
-      <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div>
-          <label className="block text-xs font-semibold text-gray-700 mb-1">Filtrer par Agent :</label>
-          <select
-            value={selectedAgentFilter}
-            onChange={(e) => {
-              setSelectedAgentFilter(e.target.value);
-              setSelectedKeys(new Set());
-            }}
-            className="w-full p-2 border border-gray-300 rounded-md text-sm bg-white"
-          >
-            <option value="all">Tous les agents ({rows.length} ops)</option>
-            {agentsInBatch.map((a) => {
-              const count = rows.filter((r) => r.agentId === a.id).length;
-              return (
-                <option key={a.id} value={a.id}>
-                  {a.name} ({count} ops)
-                </option>
-              );
-            })}
-          </select>
-        </div>
+      {/* Barre de filtres harmonisée avec les Rapports */}
+      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm space-y-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {/* 1. Sélecteur d'agent interactif avec recherche */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">Filtrer par Agent :</label>
+            <AgentSearchSelect
+              agents={agentsOptionsList}
+              selectedAgentId={selectedAgentFilter}
+              onSelect={(id) => setSelectedAgentFilter(id)}
+              currentUserId={profile?.user_id}
+            />
+          </div>
 
-        <div>
-          <label className="block text-xs font-semibold text-gray-700 mb-1">Type d'opération :</label>
-          <select
-            value={selectedTypeFilter}
-            onChange={(e) => setSelectedTypeFilter(e.target.value)}
-            className="w-full p-2 border border-gray-300 rounded-md text-sm bg-white"
-          >
-            <option value="all">Tous les types</option>
-            <option value="Dépôt">Dépôt uniquement</option>
-            <option value="Paiement">Paiement Crédit uniquement</option>
-            <option value="Virement">Virement uniquement</option>
-          </select>
-        </div>
+          {/* 2. Filtre Période / Date */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">Période :</label>
+            <select
+              value={datePreset}
+              onChange={(e) => setDatePreset(e.target.value as any)}
+              className="w-full p-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none min-h-[44px]"
+            >
+              <option value="today">Aujourd'hui</option>
+              <option value="yesterday">Hier</option>
+              <option value="all">Toutes les dates</option>
+            </select>
+          </div>
 
-        <div>
-          <label className="block text-xs font-semibold text-gray-700 mb-1">Recherche (Client / Compte / Code) :</label>
-          <input
-            type="text"
-            placeholder="Nom, code client, no compte..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full p-2 border border-gray-300 rounded-md text-sm"
-          />
+          {/* 3. Type d'opération */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">Type d'opération :</label>
+            <select
+              value={selectedTypeFilter}
+              onChange={(e) => setSelectedTypeFilter(e.target.value)}
+              className="w-full p-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none min-h-[44px]"
+            >
+              <option value="all">Tous les types</option>
+              <option value="Dépôt">Dépôts uniquement</option>
+              <option value="Paiement">Paiements crédit uniquement</option>
+              <option value="Virement">Virements uniquement</option>
+            </select>
+          </div>
+
+          {/* 4. Recherche texte */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">Recherche rapide :</label>
+            <div className="relative">
+              <SearchIcon className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Client, compte..."
+                className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none min-h-[44px]"
+              />
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Synthèse du Cash & Actions par Lot */}
-      <div className="bg-gradient-to-r from-blue-50 via-indigo-50 to-emerald-50 p-4 rounded-lg shadow-sm border border-blue-200">
+      {/* Synthèse de caisse & actions en bloc */}
+      <div className="bg-gradient-to-r from-emerald-50 to-teal-50 p-4 rounded-xl border border-emerald-200 shadow-sm">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div className="space-y-1">
-            <div className="text-xs font-bold text-gray-600 uppercase tracking-wider">
-              Synthèse de Caisse — {currentAgentName}
+            <div className="text-xs font-semibold text-emerald-800 uppercase tracking-wider">
+              {currentAgentName ? `SYNTHÈSE DE CAISSE — ${currentAgentName.toUpperCase()}` : 'SYNTHÈSE DE CAISSE — TOUS LES AGENTS'}
             </div>
-            <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-              <span className="text-2xl font-extrabold text-emerald-800">
-                Cash Physique Attendu : {fmt(filteredStats.totalCashPhysique)}
-              </span>
-              <span className="text-sm font-semibold text-gray-600">
-                ({filteredStats.count} opération{filteredStats.count > 1 ? 's' : ''})
-              </span>
+            <div className="text-2xl sm:text-3xl font-extrabold text-emerald-900">
+              Cash Physique Attendu : {fmt(filteredStats.totalCashPhysique)}
             </div>
-            <div className="text-xs text-gray-600 flex flex-wrap gap-x-3 gap-y-1 pt-1">
-              <span>Dépôts : <strong>{fmt(filteredStats.depots)}</strong> ({filteredStats.depotsCount})</span>
-              <span>•</span>
-              <span>Paiements Crédit : <strong>{fmt(filteredStats.paiements)}</strong> ({filteredStats.paiementsCount})</span>
+            <div className="text-xs text-emerald-700 flex flex-wrap gap-x-4 gap-y-1">
+              <span>{filteredStats.count} opération(s) filtrée(s)</span>
+              <span>Dépôts ({filteredStats.depotsCount}) : <strong>{fmt(filteredStats.depots)}</strong></span>
+              <span>Paiements Crédit ({filteredStats.paiementsCount}) : <strong>{fmt(filteredStats.paiements)}</strong></span>
               {filteredStats.virementsCount > 0 && (
-                <>
-                  <span>•</span>
-                  <span>Virements : <strong>{fmt(filteredStats.virements)}</strong> ({filteredStats.virementsCount})</span>
-                </>
+                <span>Virements ({filteredStats.virementsCount}) : <strong>{fmt(filteredStats.virements)}</strong></span>
               )}
             </div>
           </div>
 
           {/* Boutons d'action par lot */}
-          <div className="flex flex-wrap gap-2 items-center">
-            {selectedAgentFilter !== 'all' && filteredRows.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
+            {currentAgentName && filteredRows.length > 0 && (
               <button
+                type="button"
                 onClick={() => actBulk('confirmed', filteredRows)}
                 disabled={isBulkBusy}
-                className="px-4 py-2.5 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm disabled:bg-gray-400 min-h-[44px]"
+                className="px-4 py-2.5 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm disabled:opacity-50 min-h-[44px] flex items-center gap-2"
               >
-                ⚡ Valider tout pour {currentAgentName} ({filteredRows.length})
+                <span>⚡</span>
+                <span>Valider tout pour {currentAgentName.split(' ')[0]} ({filteredRows.length})</span>
               </button>
             )}
 
             {hasSelected && (
-              <>
-                <button
-                  onClick={() => actBulk('confirmed')}
-                  disabled={isBulkBusy}
-                  className="px-4 py-2.5 text-sm font-bold text-white bg-green-600 hover:bg-green-700 rounded-lg shadow-sm disabled:bg-gray-400 min-h-[44px]"
-                >
-                  Valider la sélection ({selectedKeys.size})
-                </button>
-                <button
-                  onClick={() => actBulk('rejected')}
-                  disabled={isBulkBusy}
-                  className="px-3 py-2.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg shadow-sm disabled:bg-gray-400 min-h-[44px]"
-                >
-                  Rejeter la sélection ({selectedKeys.size})
-                </button>
-              </>
+              <button
+                type="button"
+                onClick={() => actBulk('confirmed')}
+                disabled={isBulkBusy}
+                className="px-4 py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm disabled:opacity-50 min-h-[44px]"
+              >
+                Valider la sélection ({selectedKeys.size})
+              </button>
+            )}
+
+            {hasSelected && (
+              <button
+                type="button"
+                onClick={() => actBulk('rejected')}
+                disabled={isBulkBusy}
+                className="px-4 py-2.5 text-sm font-medium text-red-700 bg-red-100 hover:bg-red-200 rounded-lg disabled:opacity-50 min-h-[44px]"
+              >
+                Rejeter la sélection ({selectedKeys.size})
+              </button>
             )}
           </div>
         </div>
       </div>
 
-      {error && <div className="bg-red-50 border border-red-200 text-red-700 rounded-md p-3 text-sm">{error}</div>}
+      {/* Message d'erreur */}
+      {error && (
+        <div className="p-3 bg-red-50 text-red-800 rounded-lg text-sm border border-red-200 flex items-center gap-2">
+          <AlertTriangleIcon className="w-4 h-4 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
 
-      {/* Tableau des opérations */}
+      {/* Liste des opérations */}
       {loading ? (
-        <div className="bg-white rounded-lg shadow p-8 text-center text-gray-600">
-          Chargement des opérations en attente…
+        <div className="p-8 text-center bg-white rounded-xl border border-gray-200 text-gray-500">
+          <RefreshCwIcon className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-600" />
+          <span>Chargement des opérations en attente...</span>
         </div>
       ) : filteredRows.length === 0 ? (
-        <div className="bg-white rounded-lg shadow-md p-8 text-center text-gray-600">
-          Aucune opération en attente pour ces critères. ✅
+        <div className="p-8 text-center bg-white rounded-xl border border-gray-200">
+          <CheckIcon className="w-8 h-8 text-green-500 mx-auto mb-2" />
+          <p className="text-gray-700 font-medium">Aucune opération en attente pour les critères sélectionnés.</p>
+          <p className="text-xs text-gray-500 mt-1">Toutes les opérations ont été validées ou aucun enregistrement ne correspond au filtre.</p>
         </div>
       ) : (
-        <div className="space-y-2">
-          {/* Sélection globale bar */}
-          <div className="bg-white p-3 rounded-lg shadow-sm border border-gray-200 flex items-center justify-between flex-wrap gap-2 text-sm">
-            <label className="flex items-center gap-2 cursor-pointer font-medium text-gray-700">
+        <div className="space-y-3">
+          {/* Barre de sélection globale */}
+          <div className="flex items-center justify-between px-3 py-2 bg-gray-100 rounded-lg text-xs font-semibold text-gray-700">
+            <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
                 checked={isAllSelected}
                 onChange={handleSelectAllFiltered}
-                className="w-4 h-4 text-blue-600 rounded"
+                className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
               />
-              Tout sélectionner ({filteredRows.length} affichées)
+              <span>Tout sélectionner ({filteredRows.length})</span>
             </label>
-            {hasSelected && (
-              <span className="text-xs text-blue-700 font-semibold bg-blue-50 px-2 py-1 rounded">
-                {selectedKeys.size} sélectionnée(s)
-              </span>
-            )}
+            <span>{selectedKeys.size} sélectionné(s)</span>
           </div>
 
-          {/* Cartes d'opérations */}
-          <div className="grid grid-cols-1 gap-3">
+          {/* Grille des cartes d'opérations */}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
             {filteredRows.map((row) => {
               const isSelected = selectedKeys.has(row.key);
-              const isCreditMismatch =
-                row.declare != null && Math.abs(Number(row.declare) - row.montant) > 0.01 && row.table === 'transactions_credit';
-
-              const badgeColor =
-                row.kind === 'Dépôt'
-                  ? 'bg-green-100 text-green-800 border-green-300'
-                  : row.kind === 'Paiement'
-                  ? 'bg-blue-100 text-blue-800 border-blue-300'
-                  : 'bg-purple-100 text-purple-800 border-purple-300';
-
               return (
                 <div
                   key={row.key}
-                  className={`bg-white rounded-lg shadow-sm p-4 border transition-all ${
-                    isSelected ? 'border-blue-500 ring-2 ring-blue-100 bg-blue-50/20' : 'border-gray-200'
+                  className={`p-4 rounded-xl border transition-all ${
+                    isSelected
+                      ? 'bg-blue-50/50 border-blue-400 shadow-md ring-1 ring-blue-400'
+                      : 'bg-white border-gray-200 hover:border-gray-300 shadow-sm'
                   }`}
                 >
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <div className="flex items-start gap-3 min-w-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <label className="flex items-center gap-2.5 cursor-pointer min-w-0">
                       <input
                         type="checkbox"
                         checked={isSelected}
                         onChange={() => handleToggleSelectRow(row.key)}
-                        className="mt-1 w-4 h-4 text-blue-600 rounded cursor-pointer shrink-0"
+                        className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 shrink-0"
                       />
-
                       <div className="min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className={`px-2 py-0.5 text-xs font-semibold rounded-full border ${badgeColor}`}>
-                            {row.kind}
-                          </span>
-                          <span className="text-lg font-bold text-gray-900">{fmt(row.montant)}</span>
-                        </div>
-
-                        <div className="mt-1 text-sm font-medium text-gray-800">
-                          {row.clientName} <span className="text-gray-400 font-normal">· Code: {row.clientCode}</span>
-                        </div>
-
-                        <div className="text-xs text-gray-500 font-mono mt-0.5 break-all">
-                          Compte : {row.no_compte}
-                        </div>
-
-                        {row.kind === 'Virement' && (
-                          <div className="text-xs text-purple-700 bg-purple-50 p-1.5 rounded mt-1 font-mono">
-                            Émetteur : {row.virement_from || row.no_compte} → Bénéficiaire : {row.virement_to || 'N/A'}
-                          </div>
-                        )}
-
-                        <div className="text-xs text-gray-500 mt-1">
-                          Agent : <strong>{row.agentName}</strong> · Date : {fmtDate(row.date)}
-                        </div>
-
-                        {isCreditMismatch && (
-                          <div className="text-xs text-red-600 font-medium mt-1">
-                            ⚠ Versement déclaré ({fmt(Number(row.declare))}) différent du montant enregistré !
-                          </div>
-                        )}
+                        <span
+                          className={`inline-block px-2 py-0.5 text-[11px] font-bold rounded-full uppercase tracking-wider ${
+                            row.kind === 'Dépôt'
+                              ? 'bg-green-100 text-green-800'
+                              : row.kind === 'Paiement'
+                              ? 'bg-blue-100 text-blue-800'
+                              : 'bg-purple-100 text-purple-800'
+                          }`}
+                        >
+                          {row.kind}
+                        </span>
+                        <h3 className="font-bold text-gray-900 text-base mt-1 truncate">{row.clientName}</h3>
+                        <p className="text-xs text-gray-500">
+                          Code : {row.clientCode} | Compte : <span className="font-mono">{row.no_compte}</span>
+                        </p>
                       </div>
+                    </label>
+                    <div className="text-right shrink-0">
+                      <div className="text-lg font-extrabold text-gray-900">{fmt(row.montant)}</div>
+                      <div className="text-[11px] text-gray-400">{fmtDate(row.date)}</div>
+                    </div>
+                  </div>
+
+                  {/* Virement details */}
+                  {row.kind === 'Virement' && (row.virement_from || row.virement_to) && (
+                    <div className="mt-2.5 p-2 bg-purple-50 rounded-lg text-xs text-purple-900 border border-purple-100">
+                      <div>Émetteur : <span className="font-mono font-medium">{row.virement_from || row.no_compte}</span></div>
+                      <div>Bénéficiaire : <span className="font-mono font-medium">{row.virement_to || 'N/A'}</span></div>
+                    </div>
+                  )}
+
+                  {/* Solde déclaré info */}
+                  {row.declare !== undefined && row.declare !== null && (
+                    <div className="mt-2 text-xs text-gray-500">
+                      Solde déclaré par l'agent : <span className="font-medium text-gray-700">{fmt(row.declare)}</span>
+                    </div>
+                  )}
+
+                  {/* Agent badge & actions individuelles */}
+                  <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between gap-2">
+                    <div className="text-xs text-gray-600 truncate">
+                      Agent : <strong className="text-gray-800">{row.agentName}</strong>
                     </div>
 
-                    {/* Actions unitaires */}
-                    <div className="flex gap-2 w-full sm:w-auto shrink-0 justify-end">
+                    <div className="flex items-center gap-1.5 shrink-0">
                       <button
-                        onClick={() => act(row, 'confirmed')}
-                        disabled={busyId === row.key || isBulkBusy}
-                        className="px-3.5 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg disabled:bg-gray-400 min-h-[40px]"
-                      >
-                        Valider
-                      </button>
-                      <button
+                        type="button"
                         onClick={() => act(row, 'rejected')}
                         disabled={busyId === row.key || isBulkBusy}
-                        className="px-3 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:bg-gray-400 min-h-[40px]"
+                        className="px-2.5 py-1.5 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-lg disabled:opacity-50 min-h-[36px]"
                       >
                         Rejeter
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => act(row, 'confirmed')}
+                        disabled={busyId === row.key || isBulkBusy}
+                        className="px-3 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm disabled:opacity-50 min-h-[36px]"
+                      >
+                        {busyId === row.key ? '...' : 'Valider'}
                       </button>
                     </div>
                   </div>
@@ -675,7 +804,7 @@ const Validation: React.FC = () => {
             })}
           </div>
 
-          {/* Charger plus */}
+          {/* Charger plus de lots */}
           {(hasMore.epg || hasMore.cred) && (
             <div className="flex justify-center pt-4">
               <button

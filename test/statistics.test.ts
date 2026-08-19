@@ -80,6 +80,33 @@ describe('getAgentStats — rapport agent temps réel dès la collecte', () => {
     expect(s.total_cash).toBe(410);
   });
 
+  it('ventile les paiements de crédit par catégorie de produit (Cash, Konfyans, Électroménager)', async () => {
+    setDb({
+      comptesCredit: [
+        { id_compte_credit: 'c1', type_compte_credit: 'Credit Cash' },
+        { id_compte_credit: 'c2', type_compte_credit: 'Konfyans' },
+        { id_compte_credit: 'c3', type_compte_credit: 'Electromenager' },
+      ],
+      txCredit: [
+        { created_by: U, id_compte_credit: 'c1', type_transaction: 'Paiement', montant: 150, validation_status: 'confirmed' },
+        { created_by: U, id_compte_credit: 'c2', type_transaction: 'Paiement', montant: 250, validation_status: 'confirmed' },
+        { created_by: U, id_compte_credit: 'c3', type_transaction: 'Paiement', montant: 350, validation_status: 'confirmed' },
+      ],
+    });
+    const s = await getAgentStats(U, { type: 'all' });
+    expect(s.transactions_paiement_credit_cash).toBe(1);
+    expect(s.montant_paiement_credit_cash).toBe(150);
+
+    expect(s.transactions_paiement_credit_konfyans).toBe(1);
+    expect(s.montant_paiement_credit_konfyans).toBe(250);
+
+    expect(s.transactions_paiement_credit_electromenager).toBe(1);
+    expect(s.montant_paiement_credit_electromenager).toBe(350);
+
+    expect(s.transactions_credit_paiement).toBe(3);
+    expect(s.montant_transactions_credit_paiement).toBe(750);
+  });
+
   it('gère les transactions de virement et les frais', async () => {
     setDb({
       txEpargne: [

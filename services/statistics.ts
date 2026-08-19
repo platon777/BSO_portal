@@ -35,6 +35,13 @@ export interface AgentStats {
   montant_transactions_epargne_frais_service: number;
   transactions_credit_paiement: number;
   montant_transactions_credit_paiement: number;
+  // Ventilation des paiements par categorie de credit (Cash, Konfyans, Electromenager)
+  transactions_paiement_credit_cash: number;
+  montant_paiement_credit_cash: number;
+  transactions_paiement_credit_konfyans: number;
+  montant_paiement_credit_konfyans: number;
+  transactions_paiement_credit_electromenager: number;
+  montant_paiement_credit_electromenager: number;
   versement_cumule: number;
   // Cash credit decaisse par type de compte (somme des montants pretes des comptes crees).
   comptes_credit_cash: number;
@@ -82,6 +89,12 @@ export const initialStats: AgentStats = {
   montant_transactions_epargne_frais_service: 0,
   transactions_credit_paiement: 0,
   montant_transactions_credit_paiement: 0,
+  transactions_paiement_credit_cash: 0,
+  montant_paiement_credit_cash: 0,
+  transactions_paiement_credit_konfyans: 0,
+  montant_paiement_credit_konfyans: 0,
+  transactions_paiement_credit_electromenager: 0,
+  montant_paiement_credit_electromenager: 0,
   versement_cumule: 0,
   comptes_credit_cash: 0,
   montant_credit_cash: 0,
@@ -257,6 +270,9 @@ export async function getAgentStats(userId: string, dateFilter: DateFilter): Pro
 
   const transactionsCredit = await db.transactions_credit.toArray();
   const transactionsCreditFiltered = filterByDateAndUser(transactionsCredit, 'date_transaction', dateFilter, userId);
+  const comptesCreditMap = new Map((comptesCredit || []).map(c => [c.id_compte_credit, c]));
+  const comptesCreditByNoCompte = new Map((comptesCredit || []).map(c => [c.no_compte, c]));
+
   transactionsCreditFiltered.forEach(t => {
     const montant = t.montant || 0;
 
@@ -272,6 +288,22 @@ export async function getAgentStats(userId: string, dateFilter: DateFilter): Pro
       stats.montant_transactions_credit_paiement += montant;
       // Versement cumulé = cumul de tous les versements enregistrés pour la journée
       stats.versement_cumule += montant;
+
+      // Ventilation par type de compte credit
+      const compte = (t.id_compte_credit ? comptesCreditMap.get(t.id_compte_credit) : undefined)
+                     || (t.no_compte ? comptesCreditByNoCompte.get(t.no_compte) : undefined);
+      const typeCredit = (compte?.type_compte_credit || '').toLowerCase();
+      if (typeCredit.includes('konfyans')) {
+        stats.transactions_paiement_credit_konfyans++;
+        stats.montant_paiement_credit_konfyans += montant;
+      } else if (typeCredit.includes('electro') || typeCredit.includes('électro')) {
+        stats.transactions_paiement_credit_electromenager++;
+        stats.montant_paiement_credit_electromenager += montant;
+      } else {
+        // Par défaut / Crédit Cash
+        stats.transactions_paiement_credit_cash++;
+        stats.montant_paiement_credit_cash += montant;
+      }
     } else if (t.type_transaction === 'Penalite') {
       stats.transactions_credit_penalite++;
       stats.montant_transactions_credit_penalite += montant;

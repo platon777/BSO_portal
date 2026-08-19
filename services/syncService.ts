@@ -399,7 +399,10 @@ const uploadSyncItem = async (item: SyncQueueItem, userId: string): Promise<void
   return withRetry(async () => {
     switch (item.action) {
       case 'add': {
-        const normalizedData = await normalizeSyncPayloadForUpload(tableName, item.data);
+        // Toujours récupérer la dernière version locale enregistrée dans Dexie (prend en compte les modifications hors-ligne avant sync)
+        const localRecord = await db.table(tableName).get(item.pk);
+        const payloadToUse = localRecord ? { ...item.data, ...localRecord } : item.data;
+        const normalizedData = await normalizeSyncPayloadForUpload(tableName, payloadToUse);
         let mappedData = mapLocalToSupabase(tableName, normalizedData, userId);
         mappedData = await uploadImageFieldsIfNeeded(item, mappedData);
         const { error } = await supabase.from(tableName).insert(mappedData);
@@ -435,12 +438,14 @@ const uploadSyncItem = async (item: SyncQueueItem, userId: string): Promise<void
         }
 
         // Compare timestamps (Last Modified Wins)
-        const localUpdatedAt = new Date(item.data.updated_at || item.data.created_at);
+        const localRecord = await db.table(tableName).get(item.pk);
+        const payloadToUse = localRecord ? { ...item.data, ...localRecord } : item.data;
+        const localUpdatedAt = new Date(payloadToUse.updated_at || payloadToUse.created_at || item.timestamp);
         const serverUpdatedAt = new Date(existing.updated_at);
 
         if (localUpdatedAt >= serverUpdatedAt) {
           // Local is newer or same, update server
-          const normalizedData = await normalizeSyncPayloadForUpload(tableName, item.data);
+          const normalizedData = await normalizeSyncPayloadForUpload(tableName, payloadToUse);
           let mappedData = mapLocalToSupabase(tableName, normalizedData, userId);
           mappedData = await uploadImageFieldsIfNeeded(item, mappedData);
 

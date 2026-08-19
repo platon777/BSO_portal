@@ -131,11 +131,15 @@ const AgentStatsPanel: React.FC<AgentStatsPanelProps> = ({
                 <StatCard title="Frais Service" count={stats.transactions_epargne_frais_service} amount={fmt(stats.montant_transactions_epargne_frais_service)} color="border-yellow-100" />
                 <StatCard title="Versement Cumulé" value={fmt(stats.versement_cumule)} color="border-indigo-100" />
 
-                <StatCard title="Crédit Cash" count={stats.comptes_credit_cash} amount={fmt(stats.montant_credit_cash)} color="border-green-100" />
-                <StatCard title="Crédit Konfyans" count={stats.comptes_credit_konfyans} amount={fmt(stats.montant_credit_konfyans)} color="border-green-100" />
+                <StatCard title="Décaissement Crédit Cash" count={stats.comptes_credit_cash} amount={fmt(stats.montant_credit_cash)} color="border-blue-100" />
+                <StatCard title="Décaissement Konfyans" count={stats.comptes_credit_konfyans} amount={fmt(stats.montant_credit_konfyans)} color="border-blue-100" />
+                <StatCard title="Décaissement Électroménager" count={stats.comptes_credit_electromenager} amount={fmt(stats.montant_credit_electromenager)} color="border-blue-100" />
 
-                <StatCard title="Crédit Électroménager" count={stats.comptes_credit_electromenager} amount={fmt(stats.montant_credit_electromenager)} color="border-green-100" />
-                <StatCard title="Paiement Crédit" count={stats.transactions_credit_paiement} amount={fmt(stats.montant_transactions_credit_paiement)} color="border-green-100" />
+                {/* Paiements / Remboursements de crédit ventilés par produit */}
+                <StatCard title="Paiement Crédit Cash" count={stats.transactions_paiement_credit_cash} amount={fmt(stats.montant_paiement_credit_cash)} color="border-green-100" />
+                <StatCard title="Paiement Konfyans" count={stats.transactions_paiement_credit_konfyans} amount={fmt(stats.montant_paiement_credit_konfyans)} color="border-green-100" />
+                <StatCard title="Paiement Électroménager" count={stats.transactions_paiement_credit_electromenager} amount={fmt(stats.montant_paiement_credit_electromenager)} color="border-green-100" />
+                <StatCard title="Total Paiements Crédit" count={stats.transactions_credit_paiement} amount={fmt(stats.montant_transactions_credit_paiement)} color="border-emerald-100" />
 
                 <StatCard title="Pénalités" count={stats.transactions_credit_penalite} amount={fmt(stats.montant_transactions_credit_penalite)} color="border-red-100" />
                 <StatCard title="Garantie (Crédit)" count={stats.transactions_credit_garantie} amount={fmt(stats.montant_transactions_credit_garantie)} color="border-cyan-100" />

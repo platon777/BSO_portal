@@ -110,6 +110,42 @@ export class MySubClassedDexie extends Dexie {
   }
 
   private async addToSyncQueue(action: 'add' | 'update' | 'delete', table: SyncQueueItem['table'], pk: string, data: any) {
+    // Si un enregistrement est en attente de sync pour cette table et cette clé primaire
+    const existing = await this.syncQueue
+      .where('table')
+      .equals(table)
+      .and(item => item.pk === pk && item.status === 'pending')
+      .first();
+
+    if (existing && existing.id) {
+      if (existing.action === 'add') {
+        // L'élément est un nouvel ajout non encore envoyé au serveur.
+        // Si on le modifie avant la sync, on fusionne directement les modifications dans le payload 'add'.
+        if (action === 'update') {
+          const updatedData = { ...existing.data, ...data };
+          await this.syncQueue.update(existing.id, {
+            data: updatedData,
+            timestamp: Date.now(),
+            updated_at: Date.now(),
+          });
+          return;
+        } else if (action === 'delete') {
+          // Supprimé avant même d'être envoyé au serveur -> on peut simplement supprimer de la file
+          await this.syncQueue.delete(existing.id);
+          return;
+        }
+      } else if (existing.action === 'update' && action === 'update') {
+        // Fusionner avec la mise à jour précédente en attente
+        const updatedData = { ...existing.data, ...data };
+        await this.syncQueue.update(existing.id, {
+          data: updatedData,
+          timestamp: Date.now(),
+          updated_at: Date.now(),
+        });
+        return;
+      }
+    }
+
     const item: SyncQueueItem = {
       table,
       action,
