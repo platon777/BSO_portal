@@ -68,10 +68,10 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   /**
    * Register new user
    */
-  register: async (email: string, password: string, firstname: string, lastname: string) => {
+  register: async (email: string, password: string, firstname: string, lastname: string, invitationCode: string) => {
     set({ isLoading: true });
 
-    const result = await authService.register(email, password, firstname, lastname);
+    const result = await authService.register(email, password, firstname, lastname, invitationCode);
 
     if ('message' in result) {
       set({ isLoading: false });

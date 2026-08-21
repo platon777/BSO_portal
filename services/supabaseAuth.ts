@@ -19,33 +19,54 @@ const STORAGE_KEYS = {
 /**
  * Register new user with email and password
  */
-export const register = async (
+export const registerWithEmail = async (
   email: string,
   password: string,
   firstname: string,
-  lastname: string
-): Promise<{ user: User; profile: UserProfile } | AuthError> => {
-  try {
-    console.log('Attempting registration for:', email);
+  lastname: string,
+  invitationCode: string
+): Promise<{ user: User; profile: UserProfile } | { message: string; code?: string }> => {
+  if (!isOnlineSupabase()) {
+    return {
+      message: 'Vous devez être en ligne pour créer un compte.',
+      code: 'OFFLINE',
+    };
+  }
 
-    // Offline-first: block registration when offline to avoid long waits
-    if (!isOnlineSupabase()) {
-      return { message: 'Vous êtes hors ligne. Impossible de créer un compte.' };
+  if (!invitationCode || !invitationCode.trim()) {
+    return {
+      message: 'Un code d invitation BSO valide est obligatoire pour créer un compte.',
+      code: 'MISSING_INVITATION_CODE',
+    };
+  }
+
+  try {
+    // 0. Vérifier la validité du code d'invitation
+    const { data: valData, error: valError } = await supabase.rpc('validate_invitation_code', {
+      p_code: invitationCode.trim(),
+    });
+
+    if (valError) throw valError;
+    if (!valData || !valData.valid) {
+      return {
+        message: valData?.message || 'Code d invitation invalide, expiré ou déjà utilisé.',
+        code: 'INVALID_INVITATION_CODE',
+      };
     }
-    // 1. Create auth user
-    const { data, error } = await executeWithTimeout(
-      supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            firstname,
-            lastname,
-          }
+
+    const assignedRole = valData.role || 3; // Rôle défini par le code d'invitation
+
+    // 1. Sign up user with Supabase Auth
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          firstname,
+          lastname,
         }
-      }),
-      10000
-    );
+      }
+    });
 
     if (error) {
       console.error('Registration error:', error);
@@ -59,7 +80,7 @@ export const register = async (
 
     console.log('User created successfully:', data.user.id);
 
-    // 2. Create profile in database
+    // 2. Create profile in database with assigned role
     const { error: profileError } = await supabase
       .from('profiles')
       .insert({
@@ -67,19 +88,28 @@ export const register = async (
         email,
         firstname,
         name: lastname,
-        role: 4, // Default role (Agent)
+        role: assignedRole,
       });
 
     if (profileError) {
       console.error('Profile creation error:', profileError);
-      // Don't throw - profile might be created by trigger
+    }
+
+    // 3. Consommer officiellement le code d'invitation
+    try {
+      await supabase.rpc('consume_invitation_code', {
+        p_code: invitationCode.trim(),
+        p_user_id: data.user.id,
+      });
+    } catch (consumeErr) {
+      console.warn('Erreur consommation code invitation:', consumeErr);
     }
 
     // Fetch the created profile
     const profile = await fetchUserProfile(data.user.id);
 
     if ('message' in profile) {
-      // Profile creation failed, but user was created
+      // Profile creation fallback
       return {
         user: data.user,
         profile: {
@@ -88,7 +118,7 @@ export const register = async (
           email,
           firstname,
           name: lastname,
-          role: 4,
+          role: assignedRole,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         }
@@ -105,6 +135,8 @@ export const register = async (
     return handleSupabaseError(error);
   }
 };
+
+export const register = registerWithEmail;
 
 /**
  * Login with email and password
