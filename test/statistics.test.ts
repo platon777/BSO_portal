@@ -29,15 +29,15 @@ const setDb = (data: {
 beforeEach(() => vi.clearAllMocks());
 
 describe('getAgentStats — rapport agent temps réel dès la collecte', () => {
-  it('sépare les dépôts par catégorie, exclut solde initial, gère les retraits et soldes cumulés', async () => {
+  it('sépare les dépôts par catégorie, exclut solde initial, gère les retraits et soldes cumulés déclarés', async () => {
     setDb({
       comptesEpargne: [{ id_compte_epargne: 'a1', created_by: U, solde_actuel: 300 }],
       txEpargne: [
-        { created_by: U, type_transaction: 'D', montant: 100, categorie_compte_epargne: 'Epargne', validation_status: 'confirmed' },
-        { created_by: U, type_transaction: 'D', montant: 50, categorie_compte_epargne: 'Fonds Garantie', validation_status: 'confirmed' },
-        { created_by: U, type_transaction: 'D', montant: 20, categorie_compte_epargne: 'Grandon', validation_status: 'confirmed' },
+        { created_by: U, type_transaction: 'D', montant: 100, solde_apres_transaction_declare: 100, categorie_compte_epargne: 'Epargne', validation_status: 'confirmed' },
+        { created_by: U, type_transaction: 'D', montant: 50, solde_apres_transaction_declare: 150, categorie_compte_epargne: 'Fonds Garantie', validation_status: 'confirmed' },
+        { created_by: U, type_transaction: 'D', montant: 20, solde_apres_transaction_declare: 170, categorie_compte_epargne: 'Grandon', validation_status: 'confirmed' },
         { created_by: U, type_transaction: 'D', montant: 999, is_solde_initial: true, validation_status: 'confirmed' },
-        { created_by: U, type_transaction: 'R', montant: 30, categorie_compte_epargne: 'Epargne', validation_status: 'confirmed' },
+        { created_by: U, type_transaction: 'R', montant: 30, solde_apres_transaction_declare: 140, categorie_compte_epargne: 'Epargne', validation_status: 'confirmed' },
       ],
     });
     const s = await getAgentStats(U, { type: 'all' });
@@ -45,7 +45,8 @@ describe('getAgentStats — rapport agent temps réel dès la collecte', () => {
     expect(s.montant_depot_fonds_garantie).toBe(50);
     expect(s.montant_depot_grandon).toBe(20);
     expect(s.montant_transactions_epargne_retrait).toBe(30);
-    expect(s.solde_cumule).toBe(300);
+    // Solde cumulé = somme des soldes après déclarés (100 + 150 + 170 + 0 + 140 = 560)
+    expect(s.solde_cumule).toBe(560);
   });
 
   it('intègre immédiatement toute transaction collectée (en attente ou confirmée) dans le rapport et Total Cash, tout en ignorant les rejets', async () => {

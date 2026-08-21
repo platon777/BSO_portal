@@ -198,14 +198,11 @@ export async function getAgentStats(userId: string, dateFilter: DateFilter): Pro
   const comptesEpargneFiltered = filterByDateAndUser(comptesEpargne, 'date_creation', dateFilter, userId);
   stats.comptes_epargne_crees = comptesEpargneFiltered.length;
 
-  // Solde cumulé = total réel des soldes de TOUS les comptes épargne de l'agent
-  // (toutes catégories), indépendamment du filtre de date (c'est un instantané).
-  stats.solde_cumule = comptesEpargne
-    .filter(c => c.created_by === userId)
-    .reduce((sum, c) => sum + (c.solde_actuel || 0), 0);
-
   const transactionsEpargne = await db.transactions_epargne.toArray();
   const transactionsEpargneFiltered = filterByDateAndUser(transactionsEpargne, 'date_transaction', dateFilter, userId);
+  
+  let soldeCumuleDeclare = 0;
+
   transactionsEpargneFiltered.forEach(t => {
     const montant = t.montant || 0;
 
@@ -215,6 +212,17 @@ export async function getAgentStats(userId: string, dateFilter: DateFilter): Pro
     //   dans les rubriques respectives de l'agent et dans son Total Cash collecté.
     // - les compteurs "en attente" sont également suivis pour transparence.
     if (t.validation_status === 'rejected') return;
+
+    // Solde cumulé = somme des "solde après transaction déclaré" saisis par l'agent
+    const soldeApresDeclare = (t.solde_apres_transaction_declare !== undefined && t.solde_apres_transaction_declare !== null && !isNaN(Number(t.solde_apres_transaction_declare)))
+      ? Number(t.solde_apres_transaction_declare)
+      : (t.solde_declare !== undefined && t.solde_declare !== null && !isNaN(Number(t.solde_declare)))
+      ? Number(t.solde_declare)
+      : (t.solde_apres_transactions !== undefined && t.solde_apres_transactions !== null && !isNaN(Number(t.solde_apres_transactions)))
+      ? Number(t.solde_apres_transactions)
+      : 0;
+
+    soldeCumuleDeclare += soldeApresDeclare;
 
     if (t.type_transaction === 'D' && t.validation_status === 'pending' && !t.is_solde_initial) {
       stats.transactions_depot_en_attente++;
@@ -267,6 +275,8 @@ export async function getAgentStats(userId: string, dateFilter: DateFilter): Pro
       stats.montant_transactions_virement += montant;
     }
   });
+
+  stats.solde_cumule = soldeCumuleDeclare;
 
   const transactionsCredit = await db.transactions_credit.toArray();
   const transactionsCreditFiltered = filterByDateAndUser(transactionsCredit, 'date_transaction', dateFilter, userId);
