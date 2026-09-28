@@ -7,6 +7,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { UserProfile, UserRole } from '../../types/auth';
 import { db } from '../../services/database';
 import { Personne } from '../../types';
+import Pagination from '../common/Pagination';
 
 type AccessGrantRow = {
   id: string;
@@ -107,6 +108,16 @@ const AccessGrantsPanel: React.FC = () => {
   const [agentActions, setAgentActions] = useState<AgentActionAuditRow[]>([]);
   const [profilesMap, setProfilesMap] = useState<Map<string, string>>(new Map());
   const [showExpired, setShowExpired] = useState(false);
+
+  // Pagination states
+  const [currentPageGrants, setCurrentPageGrants] = useState(1);
+  const [itemsPerPageGrants, setItemsPerPageGrants] = useState(10);
+
+  const [currentPageAudit, setCurrentPageAudit] = useState(1);
+  const [itemsPerPageAudit, setItemsPerPageAudit] = useState(10);
+
+  const [currentPageActions, setCurrentPageActions] = useState(1);
+  const [itemsPerPageActions, setItemsPerPageActions] = useState(10);
 
   const personnes = useLiveQuery(async () => db.personnes.toArray(), []);
 
@@ -214,6 +225,28 @@ const AccessGrantsPanel: React.FC = () => {
     });
   }, [grants, showExpired, now]);
 
+  useEffect(() => {
+    setCurrentPageGrants(1);
+  }, [showExpired]);
+
+  const totalPagesGrants = Math.ceil(visibleGrants.length / itemsPerPageGrants);
+  const paginatedGrants = useMemo(() => {
+    const start = (currentPageGrants - 1) * itemsPerPageGrants;
+    return visibleGrants.slice(start, start + itemsPerPageGrants);
+  }, [visibleGrants, currentPageGrants, itemsPerPageGrants]);
+
+  const totalPagesAudit = Math.ceil(audit.length / itemsPerPageAudit);
+  const paginatedAudit = useMemo(() => {
+    const start = (currentPageAudit - 1) * itemsPerPageAudit;
+    return audit.slice(start, start + itemsPerPageAudit);
+  }, [audit, currentPageAudit, itemsPerPageAudit]);
+
+  const totalPagesActions = Math.ceil(agentActions.length / itemsPerPageActions);
+  const paginatedActions = useMemo(() => {
+    const start = (currentPageActions - 1) * itemsPerPageActions;
+    return agentActions.slice(start, start + itemsPerPageActions);
+  }, [agentActions, currentPageActions, itemsPerPageActions]);
+
   const revokeGrant = async (grantId: string) => {
     if (!isOnline()) {
       toast.error('Hors ligne: impossible de revoquer.');
@@ -261,7 +294,7 @@ const AccessGrantsPanel: React.FC = () => {
         {visibleGrants.length === 0 ? (
           <div className="text-sm text-gray-500">Aucun acces {showExpired ? '' : 'actif'}.</div>
         ) : (
-          visibleGrants.map((g) => {
+          paginatedGrants.map((g) => {
             const exp = new Date(g.expires_at).getTime();
             const isExpired = !exp || Number.isNaN(exp) ? true : exp <= Date.now();
             return (
@@ -303,10 +336,21 @@ const AccessGrantsPanel: React.FC = () => {
             );
           })
         )}
+        <Pagination
+          currentPage={currentPageGrants}
+          totalPages={totalPagesGrants}
+          onPageChange={setCurrentPageGrants}
+          itemsPerPage={itemsPerPageGrants}
+          totalItems={visibleGrants.length}
+          onItemsPerPageChange={(val) => {
+            setItemsPerPageGrants(val);
+            setCurrentPageGrants(1);
+          }}
+        />
       </div>
 
       <div className="mt-6">
-        <h3 className="text-md font-semibold text-gray-800 mb-2">Historique (audit)</h3>
+        <h3 className="text-md font-semibold text-gray-800 mb-2">Historique (audit) ({audit.length})</h3>
         {audit.length === 0 ? (
           <div className="text-sm text-gray-500">Aucun evenement.</div>
         ) : (
@@ -326,7 +370,7 @@ const AccessGrantsPanel: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 bg-white">
-                {audit.map((a) => (
+                {paginatedAudit.map((a) => (
                   <tr key={a.id} className="hover:bg-gray-50">
                     <td className="px-3 py-2 whitespace-nowrap text-gray-600">{formatDateTime(a.created_at)}</td>
                     <td className="px-3 py-2 whitespace-nowrap">
@@ -347,10 +391,21 @@ const AccessGrantsPanel: React.FC = () => {
             </table>
           </div>
         )}
+        <Pagination
+          currentPage={currentPageAudit}
+          totalPages={totalPagesAudit}
+          onPageChange={setCurrentPageAudit}
+          itemsPerPage={itemsPerPageAudit}
+          totalItems={audit.length}
+          onItemsPerPageChange={(val) => {
+            setItemsPerPageAudit(val);
+            setCurrentPageAudit(1);
+          }}
+        />
       </div>
 
       <div className="mt-6">
-        <h3 className="text-md font-semibold text-gray-800 mb-2">Historique des actions (agents)</h3>
+        <h3 className="text-md font-semibold text-gray-800 mb-2">Historique des actions (agents) ({agentActions.length})</h3>
         {agentActions.length === 0 ? (
           <div className="text-sm text-gray-500">Aucune action enregistrée.</div>
         ) : (
@@ -370,7 +425,7 @@ const AccessGrantsPanel: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 bg-white">
-                {agentActions.map((r) => (
+                {paginatedActions.map((r) => (
                   <tr key={r.id} className="hover:bg-gray-50">
                     <td className="px-3 py-2 whitespace-nowrap text-gray-600">{formatDateTime(r.occurred_at)}</td>
                     <td className="px-3 py-2 text-gray-800">{r.actor_full_name || getUserName(r.actor_id)}</td>
@@ -415,6 +470,17 @@ const AccessGrantsPanel: React.FC = () => {
             </table>
           </div>
         )}
+        <Pagination
+          currentPage={currentPageActions}
+          totalPages={totalPagesActions}
+          onPageChange={setCurrentPageActions}
+          itemsPerPage={itemsPerPageActions}
+          totalItems={agentActions.length}
+          onItemsPerPageChange={(val) => {
+            setItemsPerPageActions(val);
+            setCurrentPageActions(1);
+          }}
+        />
         <p className="mt-2 text-xs text-gray-500">
           Note: les actions listées sont les UPDATE/DELETE réussis sur Supabase. Les INSERT ne sont pas journalisés.
         </p>

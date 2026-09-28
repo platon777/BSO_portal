@@ -11,6 +11,7 @@ import {
 import { isOnline } from '../../services/supabase';
 import { RefreshCwIcon, CheckIcon } from '../icons/Icons';
 import toast from 'react-hot-toast';
+import Pagination from '../common/Pagination';
 
 const getRoleBadge = (role: number) => {
   switch (role) {
@@ -35,6 +36,8 @@ const UsersPasswordManagementPanel: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   // Modal result state for generated link
   const [activeResult, setActiveResult] = useState<{
@@ -67,6 +70,11 @@ const UsersPasswordManagementPanel: React.FC = () => {
   }, [isAdminOrManager]);
 
   // Filter users by search and role
+  // Reset page when search or role filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, roleFilter]);
+
   const filteredUsers = useMemo(() => {
     return users.filter((u) => {
       const matchesSearch =
@@ -80,6 +88,12 @@ const UsersPasswordManagementPanel: React.FC = () => {
       return matchesSearch && matchesRole;
     });
   }, [users, searchQuery, roleFilter]);
+
+  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
+  const paginatedUsers = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredUsers.slice(start, start + itemsPerPage);
+  }, [filteredUsers, currentPage, itemsPerPage]);
 
   const handleGenerateLink = async (email: string) => {
     if (!isOnline()) {
@@ -252,7 +266,8 @@ const UsersPasswordManagementPanel: React.FC = () => {
           Aucun utilisateur trouvé {searchQuery && `pour "${searchQuery}"`}.
         </div>
       ) : (
-        <div className="overflow-x-auto">
+        <>
+          <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200 text-sm">
             <thead className="bg-gray-50">
               <tr>
@@ -262,7 +277,7 @@ const UsersPasswordManagementPanel: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 bg-white">
-              {filteredUsers.map((u) => {
+              {paginatedUsers.map((u) => {
                 const badge = getRoleBadge(u.role);
                 const isProcessing = processingEmail === u.email;
 
@@ -307,6 +322,18 @@ const UsersPasswordManagementPanel: React.FC = () => {
             </tbody>
           </table>
         </div>
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+          itemsPerPage={itemsPerPage}
+          totalItems={filteredUsers.length}
+          onItemsPerPageChange={(val) => {
+            setItemsPerPage(val);
+            setCurrentPage(1);
+          }}
+        />
+        </>
       )}
 
       {/* Modal with Link Details & Share Options */}

@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { getUnsyncedStats } from '../services/statistics';
 import AgentStatsPanel from '../components/stats/AgentStatsPanel';
@@ -15,10 +15,21 @@ import Dexie from 'dexie';
 import AccessGrantsPanel from '../components/admin/AccessGrantsPanel';
 import InvitationCodesPanel from '../components/admin/InvitationCodesPanel';
 import UsersPasswordManagementPanel from '../components/admin/UsersPasswordManagementPanel';
+import Pagination from '../components/common/Pagination';
 
 const Parametres: React.FC = () => {
     const unsyncedItems = useLiveQuery(() => getUnsyncedStats(), []);
     const { showModal, hideModal } = useModal();
+
+    // Pagination for sync queue
+    const [currentPageSync, setCurrentPageSync] = useState(1);
+    const [itemsPerPageSync, setItemsPerPageSync] = useState(10);
+
+    const totalPagesSync = Math.ceil((unsyncedItems?.length || 0) / itemsPerPageSync);
+    const paginatedSyncItems = useMemo(() => {
+        const start = (currentPageSync - 1) * itemsPerPageSync;
+        return (unsyncedItems || []).slice(start, start + itemsPerPageSync);
+    }, [unsyncedItems, currentPageSync, itemsPerPageSync]);
 
     // Sync progress state
     const [isSyncing, setIsSyncing] = useState(false);
@@ -278,7 +289,7 @@ const Parametres: React.FC = () => {
 
                         {/* Mobile card view */}
                         <div className="md:hidden space-y-3">
-                            {unsyncedItems.map((item) => (
+                            {paginatedSyncItems.map((item) => (
                                 <div key={item.id} className="bg-gray-50 rounded-lg p-3 space-y-2">
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-2 flex-wrap">
@@ -343,7 +354,7 @@ const Parametres: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
-                                    {unsyncedItems.map((item) => (
+                                    {paginatedSyncItems.map((item) => (
                                         <tr key={item.id} className="hover:bg-gray-50">
                                             <td className="px-4 py-3 text-sm text-gray-900">{item.id}</td>
                                             <td className="px-4 py-3 text-sm text-gray-700">
@@ -412,6 +423,17 @@ const Parametres: React.FC = () => {
                                 </tbody>
                             </table>
                         </div>
+                        <Pagination
+                            currentPage={currentPageSync}
+                            totalPages={totalPagesSync}
+                            onPageChange={setCurrentPageSync}
+                            itemsPerPage={itemsPerPageSync}
+                            totalItems={unsyncedItems?.length || 0}
+                            onItemsPerPageChange={(val) => {
+                                setItemsPerPageSync(val);
+                                setCurrentPageSync(1);
+                            }}
+                        />
                     </div>
                 )}
             </div>

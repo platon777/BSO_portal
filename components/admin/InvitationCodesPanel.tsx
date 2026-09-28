@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useAuthStore } from '../../stores/authStore';
 import { canManageInvitations } from '../../types/auth';
 import {
@@ -10,6 +10,7 @@ import {
 import { isOnline } from '../../services/supabase';
 import { RefreshCwIcon, CheckIcon, TrashIcon } from '../icons/Icons';
 import toast from 'react-hot-toast';
+import Pagination from '../common/Pagination';
 
 const getRoleLabel = (role: number) => {
   switch (role) {
@@ -47,6 +48,9 @@ const InvitationCodesPanel: React.FC = () => {
   const [codes, setCodes] = useState<InvitationCodeRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   // Formulaire de génération
   const [selectedRole, setSelectedRole] = useState<number>(3); // Défaut: Agent
@@ -77,6 +81,27 @@ const InvitationCodesPanel: React.FC = () => {
   useEffect(() => {
     loadCodes();
   }, [isAdminOrManager]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
+
+  const filteredCodes = useMemo(() => {
+    if (!searchQuery.trim()) return codes;
+    const q = searchQuery.toLowerCase();
+    return codes.filter(
+      (c) =>
+        c.code.toLowerCase().includes(q) ||
+        (c.note && c.note.toLowerCase().includes(q)) ||
+        (c.used_by_name && c.used_by_name.toLowerCase().includes(q))
+    );
+  }, [codes, searchQuery]);
+
+  const totalPages = Math.ceil(filteredCodes.length / itemsPerPage);
+  const paginatedCodes = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredCodes.slice(start, start + itemsPerPage);
+  }, [filteredCodes, currentPage, itemsPerPage]);
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -267,13 +292,24 @@ const InvitationCodesPanel: React.FC = () => {
 
       {/* Liste des codes */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-bold text-gray-800">
-            Historique des codes ({codes.length})
-          </h3>
-          <span className="text-xs text-gray-500">
-            {codes.filter((c) => !c.is_used && new Date(c.expires_at) > new Date()).length} code(s) actif(s)
-          </span>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-bold text-gray-800">
+              Historique des codes ({filteredCodes.length})
+            </h3>
+            <span className="text-xs text-gray-500">
+              ({codes.filter((c) => !c.is_used && new Date(c.expires_at) > new Date()).length} actif(s))
+            </span>
+          </div>
+          <div className="w-full sm:w-64">
+            <input
+              type="text"
+              placeholder="Rechercher code, note, agent..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full px-3 py-1.5 text-xs bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
         </div>
 
         {loading ? (
@@ -283,7 +319,8 @@ const InvitationCodesPanel: React.FC = () => {
             Aucun code d invitation généré pour le moment.
           </div>
         ) : (
-          <div className="overflow-x-auto border border-gray-200 rounded-xl">
+          <>
+            <div className="overflow-x-auto border border-gray-200 rounded-xl">
             <table className="w-full text-left text-xs sm:text-sm">
               <thead className="bg-gray-100 text-gray-700 font-semibold border-b">
                 <tr>
@@ -296,7 +333,7 @@ const InvitationCodesPanel: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 bg-white">
-                {codes.map((item) => {
+                {paginatedCodes.map((item) => {
                   const isExpired = new Date(item.expires_at) < new Date();
                   const roleBadge = getRoleLabel(item.role);
 
@@ -380,7 +417,19 @@ const InvitationCodesPanel: React.FC = () => {
               </tbody>
             </table>
           </div>
-        )}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            itemsPerPage={itemsPerPage}
+            totalItems={filteredCodes.length}
+            onItemsPerPageChange={(val) => {
+              setItemsPerPage(val);
+              setCurrentPage(1);
+            }}
+          />
+        </>
+      )}
       </div>
     </div>
   );
