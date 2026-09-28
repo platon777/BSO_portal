@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { User } from '@supabase/supabase-js';
-import { UserProfile } from '../types/auth';
+import { AuthError, UserProfile } from '../types/auth';
 import * as authService from '../services/supabaseAuth';
 import * as sessionManager from '../services/sessionManager';
 import toast from 'react-hot-toast';
@@ -15,12 +15,12 @@ interface AuthStore {
 
   // Actions
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  register: (email: string, password: string, firstname: string, lastname: string) => Promise<{ success: boolean; error?: string }>;
-  logout: () => Promise<void>;
+  register: (email: string, password: string, firstname: string, lastname: string, invitationCode: string) => Promise<{ success: boolean; error?: string }>;
+  logout: () => Promise<void | AuthError>;
   refreshUser: () => Promise<void>;
   setOfflineMode: (offline: boolean) => void;
   validateSession: () => Promise<void>;
-  initialize: () => Promise<void>;
+  initialize: () => Promise<void | (() => void)>;
 }
 
 export const useAuthStore = create<AuthStore>((set, get) => ({
@@ -99,13 +99,17 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       set({ sessionValidationInterval: null });
     }
 
-    await authService.logout();
+    const logoutError = await authService.logout();
     set({
       user: null,
       profile: null,
       isAuthenticated: false,
       isLoading: false,
     });
+    if (logoutError) {
+      toast.error(logoutError.message, { duration: 8000 });
+      return logoutError;
+    }
   },
 
   /**

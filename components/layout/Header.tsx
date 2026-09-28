@@ -4,6 +4,7 @@ import useOnlineStatus from '../../hooks/useOnlineStatus';
 import OnlineStatusIndicator from '../common/OnlineStatusIndicator';
 import { useAuthStore } from '../../stores/authStore';
 import { useNavigate } from '../../App';
+import { db } from '../../services/database';
 
 interface HeaderProps {
     toggleSidebar: () => void;
@@ -15,6 +16,14 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
   const navigate = useNavigate();
 
   const handleLogout = async () => {
+    const unsyncedCount = await db.syncQueue.where('status').notEqual('completed').count();
+    if (unsyncedCount > 0) {
+      const confirmed = window.confirm(
+        `Vous avez ${unsyncedCount} opération(s) non synchronisée(s). ` +
+        'La déconnexion supprimera toutes les données locales et ces opérations seront perdues. Continuer ?'
+      );
+      if (!confirmed) return;
+    }
     await logout();
     navigate('login');
   };

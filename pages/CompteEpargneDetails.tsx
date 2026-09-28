@@ -5,7 +5,7 @@ import { copyToClipboard } from '../utils/clipboard';
 import SecureWrapper from '../components/common/SecureWrapper';
 import { getCreditFinalCapital } from '../utils/creditCalculations';
 import { useAuthStore } from '../stores/authStore';
-import { UserRole } from '../types/auth';
+import { canAccessAdminReports } from '../types/auth';
 import { getSuccursaleLabel } from '../utils/succursale';
 import { buildSavingsAccountSyncSummary } from '../services/savingsAccountService';
 import { formatCreditAccountType } from '../utils/creditTypes';
@@ -31,7 +31,7 @@ const formatValue = (value: unknown) => {
 
 const CompteEpargneDetails: React.FC<CompteEpargneDetailsProps> = ({ compteId, onBack, onOpenCreditDetails }) => {
   const { profile } = useAuthStore();
-  const canViewBalances = profile?.role === UserRole.ADMIN;
+  const canViewBalances = canAccessAdminReports(profile?.role);
   const data = useLiveQuery(async () => {
     const safeCompteId = typeof compteId === 'string' ? compteId.trim() : '';
     if (!safeCompteId) {

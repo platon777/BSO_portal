@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../stores/authStore';
 import { useNavigate } from '../App';
 import toast from 'react-hot-toast';
+import ForgotPasswordModal from '../components/modals/ForgotPasswordModal';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -9,6 +10,7 @@ const Login: React.FC = () => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   const { login, isAuthenticated, isOffline } = useAuthStore();
   const navigate = useNavigate();
@@ -53,6 +55,24 @@ const Login: React.FC = () => {
     setIsLoading(false);
   };
 
+  const handleClearCacheAndReload = async () => {
+    try {
+      if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(registrations.map((r) => r.unregister()));
+      }
+      if ('caches' in window) {
+        const cacheKeys = await caches.keys();
+        await Promise.all(cacheKeys.map((k) => caches.delete(k)));
+      }
+      localStorage.removeItem('bso_offline_user');
+      localStorage.removeItem('bso_offline_profile');
+      window.location.reload();
+    } catch {
+      window.location.reload();
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-500 to-indigo-600 px-4">
       <div className="max-w-md w-full bg-white rounded-lg shadow-2xl p-6 sm:p-8">
@@ -78,8 +98,17 @@ const Login: React.FC = () => {
 
         {/* Error Message */}
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-400 rounded">
+          <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-400 rounded space-y-2">
             <p className="text-sm text-red-800">{error}</p>
+            {error.toLowerCase().includes('serveur') && (
+              <button
+                type="button"
+                onClick={handleClearCacheAndReload}
+                className="text-xs text-red-700 underline font-semibold hover:text-red-900 block pt-1"
+              >
+                🔄 Cliquez ici pour réinitialiser la connexion et vider le cache
+              </button>
+            )}
           </div>
         )}
 
@@ -137,6 +166,16 @@ const Login: React.FC = () => {
                 )}
               </button>
             </div>
+            <div className="flex justify-end mt-1.5">
+              <button
+                type="button"
+                onClick={() => setShowForgotPassword(true)}
+                disabled={isLoading}
+                className="text-xs text-blue-600 hover:text-blue-700 font-medium transition"
+              >
+                Mot de passe oublié ?
+              </button>
+            </div>
           </div>
 
           {/* Submit Button */}
@@ -175,6 +214,12 @@ const Login: React.FC = () => {
           </p>
         </div>
       </div>
+
+      <ForgotPasswordModal
+        isOpen={showForgotPassword}
+        onClose={() => setShowForgotPassword(false)}
+        defaultEmail={email}
+      />
     </div>
   );
 };

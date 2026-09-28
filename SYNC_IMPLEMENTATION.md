@@ -246,10 +246,10 @@ npm run dev
 ## ⚠️ Points Importants
 
 ### Configuration Supabase
-Les credentials sont actuellement en dur dans `services/supabase.ts`. Pour la production, il est recommandé de:
+La configuration cible dispose d’un fallback local dans `services/supabase.ts`; pour la production, il est recommandé de fournir les variables d’environnement:
 1. Créer un fichier `.env.local`:
 ```env
-VITE_SUPABASE_URL=https://cdfqltezhcssutyjtyjb.supabase.co
+VITE_SUPABASE_URL=https://fdsuyqbscrnityotpmbc.supabase.co
 VITE_SUPABASE_ANON_KEY=votre_cle_ici
 ```
 2. Mettre à jour `supabase.ts`:

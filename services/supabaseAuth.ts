@@ -3,6 +3,7 @@ import { LoginCredentials, UserProfile, AuthError } from '../types/auth';
 import { User } from '@supabase/supabase-js';
 import { executeWithTimeout } from './networkMonitor';
 import * as sessionManager from './sessionManager';
+import { clearLocalUserData } from './localDataCleanup';
 
 /**
  * Authentication service for Supabase
@@ -63,7 +64,9 @@ export const registerWithEmail = async (
       options: {
         data: {
           firstname,
+          name: lastname,
           lastname,
+          invitation_code: invitationCode.trim().toUpperCase(),
         }
       }
     });
@@ -80,32 +83,8 @@ export const registerWithEmail = async (
 
     console.log('User created successfully:', data.user.id);
 
-    // 2. Create profile in database with assigned role
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .insert({
-        user_id: data.user.id,
-        email,
-        firstname,
-        name: lastname,
-        role: assignedRole,
-      });
-
-    if (profileError) {
-      console.error('Profile creation error:', profileError);
-    }
-
-    // 3. Consommer officiellement le code d'invitation
-    try {
-      await supabase.rpc('consume_invitation_code', {
-        p_code: invitationCode.trim(),
-        p_user_id: data.user.id,
-      });
-    } catch (consumeErr) {
-      console.warn('Erreur consommation code invitation:', consumeErr);
-    }
-
-    // Fetch the created profile
+    // The auth.users trigger atomically creates the profile, assigns the role
+    // and consumes the invitation code. The browser never assigns a role.
     const profile = await fetchUserProfile(data.user.id);
 
     if ('message' in profile) {
@@ -153,7 +132,7 @@ export const login = async (credentials: LoginCredentials): Promise<{ user: User
     const { data, error } = await executeWithTimeout(supabase.auth.signInWithPassword({
       email: credentials.email,
       password: credentials.password,
-    }), 10000);
+    }), 25000);
 
     if (error) {
       console.error('Login error:', error);
@@ -168,11 +147,25 @@ export const login = async (credentials: LoginCredentials): Promise<{ user: User
     console.log('User logged in successfully:', data.user.id);
 
     // Fetch user profile from database
-    const profile = await fetchUserProfile(data.user.id);
+    let profile: UserProfile;
+    const profileRes = await fetchUserProfile(data.user.id);
 
-    if ('message' in profile) {
-      console.error('Profile fetch failed:', profile.message);
-      return profile; // Error occurred
+    if ('message' in profileRes) {
+      console.error('Profile fetch failed:', profileRes.message);
+      console.warn('[Auth] Profile fetch returned error, using fallback from metadata:', (profileRes as any).message);
+      const meta = data.user.user_metadata || {};
+      profile = {
+        id: 0,
+        user_id: data.user.id,
+        email: data.user.email || credentials.email,
+        firstname: meta.firstname || 'Agent',
+        name: meta.name || meta.lastname || '',
+        role: 3,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+    } else {
+      profile = profileRes;
     }
 
     // Gestion des sessions - vérifier la session existante
@@ -200,35 +193,39 @@ export const login = async (credentials: LoginCredentials): Promise<{ user: User
  * Logout current user
  */
 export const logout = async (): Promise<void | AuthError> => {
+  let logoutError: AuthError | undefined;
   try {
-    // Récupérer l'ID utilisateur avant la déconnexion
-    const { data: { user } } = await supabase.auth.getUser();
+    // getSession reads the locally persisted session and does not require a
+    // successful network round trip.
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user || null;
 
-    // Si hors ligne, on efface localement sans appeler le réseau
-    if (!isOnlineSupabase()) {
-      clearOfflineAuthData();
-      if (user) {
-        await sessionManager.cleanupSession(user.id);
-      }
-      return;
-    }
-
-    const { error } = await executeWithTimeout(supabase.auth.signOut(), 8000);
-
-    if (error) {
-      return handleSupabaseError(error);
-    }
-
-    // Nettoyer la session
+    // Invalidate the active device while the authenticated token still exists.
     if (user) {
       await sessionManager.cleanupSession(user.id);
     }
 
-    // Clear offline storage
-    clearOfflineAuthData();
+    const signOutPromise = supabase.auth.signOut({ scope: 'local' });
+    const { error } = isOnlineSupabase()
+      ? await executeWithTimeout(signOutPromise, 8000)
+      : await signOutPromise;
+    if (error) logoutError = handleSupabaseError(error);
   } catch (error: any) {
-    return handleSupabaseError(error);
+    logoutError = handleSupabaseError(error);
+  } finally {
+    clearOfflineAuthData();
+    try {
+      await clearLocalUserData();
+    } catch (cleanupError: any) {
+      console.error('Failed to clear local user data:', cleanupError);
+      logoutError = {
+        message: 'Déconnexion effectuée, mais certaines données locales n ont pas pu être supprimées.',
+        code: 'LOCAL_CLEANUP_FAILED',
+      };
+    }
   }
+
+  return logoutError;
 };
 
 /**

@@ -196,7 +196,7 @@ const Validation: React.FC = () => {
       const epgFrom = offsets.current.epg;
       const credFrom = offsets.current.cred;
 
-      const requests: Promise<any>[] = [
+      const requests: PromiseLike<any>[] = [
         supabase
           .from('transactions_epargne')
           .select(

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuthStore } from '../../stores/authStore';
-import { canAccessAdminReports } from '../../types/auth';
+import { canManageInvitations } from '../../types/auth';
 import {
   fetchInvitationCodes,
   generateInvitationCode,
@@ -42,7 +42,7 @@ const formatDate = (iso: string) => {
 
 const InvitationCodesPanel: React.FC = () => {
   const { profile } = useAuthStore();
-  const isAdminOrManager = canAccessAdminReports(profile?.role);
+  const isAdminOrManager = canManageInvitations(profile?.role);
 
   const [codes, setCodes] = useState<InvitationCodeRecord[]>([]);
   const [loading, setLoading] = useState(false);
@@ -181,7 +181,6 @@ const InvitationCodesPanel: React.FC = () => {
               <option value={3}>Agent de terrain</option>
               <option value={2}>Manager</option>
               <option value={5}>Finance</option>
-              {profile?.role === 1 && <option value={1}>Administrateur</option>}
             </select>
           </div>
 

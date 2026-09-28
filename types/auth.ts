@@ -29,6 +29,33 @@ export const isFinanceRole = (role?: unknown): boolean => {
   return s === '5' || s === 'finance';
 };
 
+export const isAgentRole = (role?: unknown): boolean => {
+  if (role === undefined || role === null) return false;
+  if (role === UserRole.AGENT || role === 3) return true;
+  const s = String(role).trim().toLowerCase();
+  return s === '3' || s === 'agent' || s === 'agent de terrain';
+};
+
+export const isUndefinedRole = (role?: unknown): boolean => {
+  if (role === undefined || role === null) return true;
+  if (role === UserRole.NON_DEFINI || role === 4) return true;
+  const s = String(role).trim().toLowerCase();
+  return s === '4' || s === 'non defini' || s === 'non défini';
+};
+
+export const canAccessApplication = (role?: unknown): boolean => {
+  return isAdminRole(role) || isManagerRole(role) || isAgentRole(role) || isFinanceRole(role);
+};
+
+// Admin, Manager and Finance can edit business records without a temporary grant.
+export const canEditAllBusinessData = (role?: unknown): boolean => {
+  return isAdminRole(role) || isManagerRole(role) || isFinanceRole(role);
+};
+
+export const canManageInvitations = (role?: unknown): boolean => {
+  return isAdminRole(role) || isManagerRole(role);
+};
+
 export const canAccessAdminReports = (role?: unknown): boolean => {
   return isAdminRole(role) || isManagerRole(role) || isFinanceRole(role);
 };

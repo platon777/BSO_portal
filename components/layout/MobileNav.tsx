@@ -2,7 +2,7 @@
 import React from 'react';
 import { UsersIcon, PiggyBankIcon, CreditCardIcon, SettingsIcon, FileTextIcon } from '../icons/Icons';
 
-type Page = 'dashboard' | 'clients' | 'epargne' | 'credit' | 'recouvrement' | 'rapports' | 'parametres';
+type Page = 'dashboard' | 'clients' | 'epargne' | 'credit' | 'recouvrement' | 'rapports' | 'parametres' | 'validation';
 
 interface MobileNavProps {
   currentPage: Page;

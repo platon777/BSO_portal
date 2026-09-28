@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { UserRole } from '../types/auth';
+import { canEditAllBusinessData } from '../types/auth';
 import { useAuthStore } from '../stores/authStore';
 
 export const accessService = {
@@ -12,8 +12,8 @@ export const accessService = {
         const { user, profile } = useAuthStore.getState();
         if (!user || !profile) return false;
 
-        // 2. Admin always has access
-        if (profile.role === UserRole.ADMIN) return true;
+        // 2. Admin, Manager and Finance have full business edit access.
+        if (canEditAllBusinessData(profile.role)) return true;
 
         // 3. Check for temporary grants via Supabase (wrapped in try-catch)
         try {
@@ -53,7 +53,7 @@ export const accessService = {
     async hasAccessToCompteEpargne(clientId: string, compteEpargneId: string): Promise<boolean> {
         const { user, profile } = useAuthStore.getState();
         if (!user || !profile) return false;
-        if (profile.role === UserRole.ADMIN) return true;
+        if (canEditAllBusinessData(profile.role)) return true;
 
         try {
             const nowIso = new Date().toISOString();
@@ -78,7 +78,7 @@ export const accessService = {
     async hasAccessToCompteCredit(clientId: string, compteCreditId: string): Promise<boolean> {
         const { user, profile } = useAuthStore.getState();
         if (!user || !profile) return false;
-        if (profile.role === UserRole.ADMIN) return true;
+        if (canEditAllBusinessData(profile.role)) return true;
 
         try {
             const nowIso = new Date().toISOString();

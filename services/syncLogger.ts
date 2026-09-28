@@ -32,6 +32,16 @@ class SyncLogDB extends Dexie {
 const logDB = new SyncLogDB();
 
 /**
+ * Remove the complete local sync history for the departing user.
+ * The database is reopened empty so the same application instance can be used
+ * safely by a later login.
+ */
+export const deleteSyncLogDatabase = async (): Promise<void> => {
+  await logDB.delete();
+  await logDB.open();
+};
+
+/**
  * Add a sync log entry
  */
 export const addSyncLog = async (log: Omit<SyncLog, 'id'>): Promise<void> => {

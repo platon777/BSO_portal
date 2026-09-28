@@ -473,9 +473,9 @@ stats.montant_comptes_credit =
   "mcpServers": {
     "supabase": {
       "type": "http",
-      "url": "https://mcp.supabase.com/mcp?project_ref=cdfqltezhcssutyjtyjb",
+      "url": "https://mcp.supabase.com/mcp?project_ref=fdsuyqbscrnityotpmbc",
       "headers": {
-        "Authorization": "Bearer sbp_9a1228fa4eefb5f930ebd8cccdd1b65093554506"
+        "Authorization": "Bearer ${SUPABASE_ACCESS_TOKEN}"
       }
     }
   }
@@ -672,8 +672,8 @@ npm run preview      # Prévisualise le build
 - [Vite](https://vitejs.dev/)
 
 ### Liens Utiles
-- Projet Supabase : `cdfqltezhcssutyjtyjb`
-- MCP URL : `https://mcp.supabase.com/mcp?project_ref=cdfqltezhcssutyjtyjb`
+- Projet Supabase : `fdsuyqbscrnityotpmbc`
+- MCP URL : `https://mcp.supabase.com/mcp?project_ref=fdsuyqbscrnityotpmbc`
 
 ---
 

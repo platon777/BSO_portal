@@ -12,7 +12,7 @@ import SecureWrapper from '../components/common/SecureWrapper';
 import FAB from '../components/common/FAB';
 import { useAuthStore } from '../stores/authStore';
 import { accessService } from '../services/accessService';
-import { UserRole, UserProfile } from '../types/auth';
+import { UserRole, UserProfile, canAccessAdminReports } from '../types/auth';
 import AccessGrantModal from '../components/modals/AccessGrantModal';
 import toast from 'react-hot-toast';
 import * as authService from '../services/supabaseAuth';
@@ -61,7 +61,7 @@ const getSortTimestamp = (compte: CompteEpargneAvecPersonne, sortOption: SortOpt
 const ComptesEpargne: React.FC<ComptesEpargneProps> = ({ onViewDetails }) => {
   const { showModal, hideModal } = useModal();
   const { profile } = useAuthStore();
-  const canViewBalances = profile?.role === UserRole.ADMIN;
+  const canViewBalances = canAccessAdminReports(profile?.role);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOption, setSortOption] = useState<SortOption>('created_desc');
   const [activeView, setActiveView] = useState<ViewMode>('comptes');

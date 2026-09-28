@@ -3,14 +3,14 @@
 //
 // Usage :
 //   SUPABASE_ACCESS_TOKEN=sbp_xxx node supabase/tests/run.mjs
-//   (optionnel) SUPABASE_PROJECT_REF=<ref>   defaut: cdfqltezhcssutyjtyjb
+//   (optionnel) SUPABASE_PROJECT_REF=<ref>   defaut: fdsuyqbscrnityotpmbc
 //
 // Le token n'est JAMAIS committe : il est lu depuis l'environnement.
 
 import fs from 'fs';
 
 const token = process.env.SUPABASE_ACCESS_TOKEN;
-const ref = process.env.SUPABASE_PROJECT_REF || 'cdfqltezhcssutyjtyjb';
+const ref = process.env.SUPABASE_PROJECT_REF || 'fdsuyqbscrnityotpmbc';
 
 if (!token) {
   console.error('Erreur: definir SUPABASE_ACCESS_TOKEN (jeton API Management Supabase).');

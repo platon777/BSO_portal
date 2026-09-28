@@ -14,6 +14,7 @@ import toast from 'react-hot-toast';
 import Dexie from 'dexie';
 import AccessGrantsPanel from '../components/admin/AccessGrantsPanel';
 import InvitationCodesPanel from '../components/admin/InvitationCodesPanel';
+import UsersPasswordManagementPanel from '../components/admin/UsersPasswordManagementPanel';
 
 const Parametres: React.FC = () => {
     const unsyncedItems = useLiveQuery(() => getUnsyncedStats(), []);
@@ -414,6 +415,7 @@ const Parametres: React.FC = () => {
                     </div>
                 )}
             </div>
+            <UsersPasswordManagementPanel />
             <InvitationCodesPanel />
             <AccessGrantsPanel />
 

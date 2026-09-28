@@ -3,7 +3,7 @@
 import { clientsClaim } from 'workbox-core';
 import { precacheAndRoute, createHandlerBoundToURL } from 'workbox-precaching';
 import { registerRoute, setDefaultHandler, setCatchHandler } from 'workbox-routing';
-import { StaleWhileRevalidate, CacheFirst, NetworkFirst } from 'workbox-strategies';
+import { StaleWhileRevalidate, CacheFirst, NetworkFirst, NetworkOnly } from 'workbox-strategies';
 import { ExpirationPlugin } from 'workbox-expiration';
 
 declare let self: ServiceWorkerGlobalScope;
@@ -63,28 +63,17 @@ registerRoute(
   new StaleWhileRevalidate({ cacheName: 'fonts' })
 );
 
-// 7) Appels Supabase API => NetworkFirst avec timeout court
-registerRoute(
-  ({ url, request }) =>
-    request.method === 'GET' && url.hostname.includes('supabase.co'),
-  new NetworkFirst({
-    cacheName: 'supabase-api',
-    networkTimeoutSeconds: 3,
-    plugins: [
-      new ExpirationPlugin({ maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 })
-    ]
-  })
-);
+// 7) Appels Supabase API et endpoints externes:
+// NE PAS INTERCEPTER ! Laisser le navigateur effectuer directement les requêtes fetch natives vers Supabase (Auth, REST, RPC, Edge Functions).
 
-// 8) Par défaut, StaleWhileRevalidate (bon compromis)
-setDefaultHandler(new StaleWhileRevalidate());
-
-// 9) Catch global : si erreur offline -> retourner index.html pour SPA
+// 8) Catch global : si erreur offline sur navigation HTML -> retourner index.html pour navigation SPA
 setCatchHandler(async ({ event }) => {
-  if (event.request.destination === 'document') {
+  const request = (event as FetchEvent).request;
+  if (request.destination === 'document' || request.mode === 'navigate') {
     return handler({ request: new Request('/index.html') } as any);
   }
   return Response.error();
 });
 
 console.log('[SW] BSO Portal Service Worker (Workbox) activé!');
+

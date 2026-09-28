@@ -16,6 +16,9 @@ DECLARE
   v_pers uuid; v_phone text;
   v_v numeric; v_v2 numeric; v_cnt int; v_ok boolean;
   v_tx uuid; v_txt text;
+  v_tx_epargne_fixture uuid; v_tx_client_id text;
+  v_admin_uid uuid; v_agent_uid uuid; v_role4_uid uuid; v_finance_uid uuid;
+  v_creator_before uuid; v_creator_attempt uuid; v_json jsonb;
 BEGIN
   -- Fixtures (comptes existants ; jamais modifies durablement)
   SELECT id_compte_epargne, no_compte, COALESCE(solde_actuel,0)
@@ -38,6 +41,17 @@ BEGIN
   SELECT id_personne, numero_telephone INTO v_pers, v_phone
   FROM public.personnes
   WHERE code_client IS NOT NULL AND numero_telephone IS NOT NULL AND numero_telephone <> '' LIMIT 1;
+
+  SELECT user_id INTO v_admin_uid FROM public.profiles WHERE role = 1 LIMIT 1;
+  SELECT user_id INTO v_agent_uid FROM public.profiles WHERE role = 3 LIMIT 1;
+  SELECT user_id INTO v_role4_uid FROM public.profiles WHERE role = 4 LIMIT 1;
+  SELECT user_id INTO v_finance_uid FROM public.profiles WHERE role = 5 LIMIT 1;
+
+  SELECT te.id_transaction_epargne, ce.id_personne::text
+    INTO v_tx_epargne_fixture, v_tx_client_id
+  FROM public.transactions_epargne te
+  JOIN public.comptes_epargne ce ON ce.id_compte_epargne = te.id_compte_epargne
+  LIMIT 1;
 
   -- TEST 1 : depot 'pending' ne bouge PAS le solde reel (differe) ---------------
   BEGIN
@@ -225,6 +239,149 @@ BEGIN
     RAISE EXCEPTION 'OK';
   EXCEPTION WHEN OTHERS THEN
     v_report := v_report || E'\n' || CASE WHEN SQLERRM='OK' THEN 'PASS' ELSE 'FAIL' END || ' T13 anti-doublon client (telephone)' || CASE WHEN SQLERRM='OK' THEN '' ELSE ' -> '||SQLERRM END;
+  END;
+
+  -- TEST 14 : role 4 bloque, roles actifs reconnus -------------------------------
+  BEGIN
+    ASSERT v_role4_uid IS NOT NULL, 'fixture role 4 manquante';
+    PERFORM set_config('request.jwt.claim.sub', v_role4_uid::text, true);
+    ASSERT NOT public.current_user_is_active_staff(), 'role 4 ne doit pas etre actif';
+    ASSERT NOT public.current_user_can_edit_without_grant(), 'role 4 ne doit pas modifier';
+
+    PERFORM set_config('request.jwt.claim.sub', v_finance_uid::text, true);
+    ASSERT public.current_user_is_active_staff(), 'finance doit etre actif';
+    ASSERT public.current_user_can_edit_without_grant(), 'finance doit pouvoir modifier';
+    RAISE EXCEPTION 'OK';
+  EXCEPTION WHEN OTHERS THEN
+    v_report := v_report || E'\n' || CASE WHEN SQLERRM='OK' THEN 'PASS' ELSE 'FAIL' END || ' T14 matrice roles active' || CASE WHEN SQLERRM='OK' THEN '' ELSE ' -> '||SQLERRM END;
+  END;
+
+  -- TEST 15 : Admin et Manager invitent le staff, jamais un Admin ----------------
+  BEGIN
+    ASSERT v_role4_uid IS NOT NULL, 'fixture temporaire manager manquante';
+    UPDATE public.profiles SET role = 2 WHERE user_id = v_role4_uid;
+    PERFORM set_config('request.jwt.claim.sub', v_role4_uid::text, true);
+
+    v_json := public.generate_invitation_code(5, 'test manager finance', 1);
+    ASSERT (v_json->>'role')::int = 5, 'manager devrait pouvoir inviter Finance';
+
+    v_ok := false;
+    BEGIN
+      PERFORM public.generate_invitation_code(1, 'interdit', 1);
+    EXCEPTION WHEN insufficient_privilege THEN
+      v_ok := true;
+    WHEN OTHERS THEN
+      IF SQLSTATE = '42501' THEN v_ok := true; END IF;
+    END;
+    ASSERT v_ok, 'manager ne doit jamais pouvoir generer un code Admin';
+
+    PERFORM set_config('request.jwt.claim.sub', v_admin_uid::text, true);
+    v_json := public.generate_invitation_code(2, 'test admin manager', 1);
+    ASSERT (v_json->>'role')::int = 2, 'admin devrait pouvoir inviter un Manager';
+
+    v_ok := false;
+    BEGIN
+      PERFORM public.generate_invitation_code(1, 'interdit admin aussi', 1);
+    EXCEPTION WHEN insufficient_privilege THEN
+      v_ok := true;
+    WHEN OTHERS THEN
+      IF SQLSTATE = '42501' THEN v_ok := true; END IF;
+    END;
+    ASSERT v_ok, 'admin ne doit jamais pouvoir generer un code Admin';
+    RAISE EXCEPTION 'OK';
+  EXCEPTION WHEN OTHERS THEN
+    v_report := v_report || E'\n' || CASE WHEN SQLERRM='OK' THEN 'PASS' ELSE 'FAIL' END || ' T15 invitations admin/manager sans escalade' || CASE WHEN SQLERRM='OK' THEN '' ELSE ' -> '||SQLERRM END;
+  END;
+
+  -- TEST 16 : Agent refuse sans grant, autorise avec grant actif -----------------
+  BEGIN
+    ASSERT v_agent_uid IS NOT NULL AND v_admin_uid IS NOT NULL, 'fixtures agent/admin manquantes';
+    DELETE FROM public.temporary_access_grants
+    WHERE agent_id = v_agent_uid AND client_id = v_pers::text;
+    PERFORM set_config('request.jwt.claim.sub', v_agent_uid::text, true);
+    ASSERT NOT public.has_access_to_client(v_pers::text), 'agent sans grant ne doit pas modifier';
+
+    INSERT INTO public.temporary_access_grants(agent_id, client_id, granted_by, expires_at, scope_type)
+    VALUES (v_agent_uid, v_pers::text, v_admin_uid, now() + interval '10 minutes', 'client');
+    ASSERT public.has_access_to_client(v_pers::text), 'grant actif devrait autoriser agent';
+    RAISE EXCEPTION 'OK';
+  EXCEPTION WHEN OTHERS THEN
+    v_report := v_report || E'\n' || CASE WHEN SQLERRM='OK' THEN 'PASS' ELSE 'FAIL' END || ' T16 agent avec grant actif' || CASE WHEN SQLERRM='OK' THEN '' ELSE ' -> '||SQLERRM END;
+  END;
+
+  -- TEST 17 : RPC sensibles interdites au role anon ------------------------------
+  BEGIN
+    ASSERT NOT has_function_privilege('anon', 'public.generate_invitation_code(integer,text,integer)', 'EXECUTE'), 'anon execute generate invitation';
+    ASSERT NOT has_function_privilege('anon', 'public.consume_invitation_code(text,uuid)', 'EXECUTE'), 'anon execute consume invitation';
+    ASSERT NOT has_function_privilege('anon', 'public.revoke_invitation_code(uuid)', 'EXECUTE'), 'anon execute revoke invitation';
+    ASSERT has_function_privilege('anon', 'public.validate_invitation_code(text)', 'EXECUTE'), 'anon doit pouvoir valider un code avant signup';
+    RAISE EXCEPTION 'OK';
+  EXCEPTION WHEN OTHERS THEN
+    v_report := v_report || E'\n' || CASE WHEN SQLERRM='OK' THEN 'PASS' ELSE 'FAIL' END || ' T17 privileges RPC invitation' || CASE WHEN SQLERRM='OK' THEN '' ELSE ' -> '||SQLERRM END;
+  END;
+
+  -- TEST 18 : policies d ecriture utilisent les controles granulaires ------------
+  BEGIN
+    SELECT count(*) INTO v_cnt
+    FROM pg_policies
+    WHERE schemaname='public'
+      AND tablename IN ('personnes','comptes_epargne','comptes_credit','transactions_epargne','transactions_credit')
+      AND cmd IN ('UPDATE','DELETE')
+      AND roles @> ARRAY['authenticated']::name[]
+      AND qual ILIKE '%has_access_to_%';
+    ASSERT v_cnt = 10, format('10 policies granulaires attendues, obtenu %s', v_cnt);
+
+    SELECT count(*) INTO v_cnt
+    FROM pg_policies
+    WHERE schemaname='public' AND tablename='profiles'
+      AND (qual = 'true' OR with_check = 'true');
+    ASSERT v_cnt = 0, 'profiles ne doit plus avoir une policy publique true';
+    RAISE EXCEPTION 'OK';
+  EXCEPTION WHEN OTHERS THEN
+    v_report := v_report || E'\n' || CASE WHEN SQLERRM='OK' THEN 'PASS' ELSE 'FAIL' END || ' T18 policies RLS granulaires' || CASE WHEN SQLERRM='OK' THEN '' ELSE ' -> '||SQLERRM END;
+  END;
+
+  -- TEST 19 : created_by reste immuable lors d une modification ------------------
+  BEGIN
+    ASSERT v_admin_uid IS NOT NULL AND v_finance_uid IS NOT NULL,
+           'fixtures admin/finance manquantes';
+    v_tx := gen_random_uuid();
+    v_creator_before := v_admin_uid;
+    v_creator_attempt := v_finance_uid;
+    INSERT INTO public.comptes_credit (
+      id_compte_credit, montant_prete, taux_interet, duree_credit_mois,
+      paiement_journalier, created_at, created_by
+    ) VALUES (v_tx, 1000, 10, 2, 10, now(), v_creator_before);
+    UPDATE public.comptes_credit
+    SET created_by = v_creator_attempt
+    WHERE id_compte_credit = v_tx;
+    ASSERT (SELECT created_by FROM public.comptes_credit WHERE id_compte_credit=v_tx) IS NOT DISTINCT FROM v_creator_before,
+           'created_by ne doit pas changer';
+    RAISE EXCEPTION 'OK';
+  EXCEPTION WHEN OTHERS THEN
+    v_report := v_report || E'\n' || CASE WHEN SQLERRM='OK' THEN 'PASS' ELSE 'FAIL' END || ' T19 createur immuable' || CASE WHEN SQLERRM='OK' THEN '' ELSE ' -> '||SQLERRM END;
+  END;
+
+  -- TEST 20 : un grant client couvre les transactions de ce client --------------
+  BEGIN
+    ASSERT v_agent_uid IS NOT NULL AND v_admin_uid IS NOT NULL,
+           'fixtures agent/admin manquantes';
+    ASSERT v_tx_epargne_fixture IS NOT NULL AND v_tx_client_id IS NOT NULL,
+           'fixture transaction epargne manquante';
+    DELETE FROM public.temporary_access_grants
+    WHERE agent_id = v_agent_uid
+      AND (client_id = v_tx_client_id OR transaction_id = v_tx_epargne_fixture);
+    PERFORM set_config('request.jwt.claim.sub', v_agent_uid::text, true);
+    ASSERT NOT public.has_access_to_transaction_epargne(v_tx_epargne_fixture),
+           'agent sans grant ne doit pas modifier la transaction';
+
+    INSERT INTO public.temporary_access_grants(agent_id, client_id, granted_by, expires_at, scope_type)
+    VALUES (v_agent_uid, v_tx_client_id, v_admin_uid, now() + interval '10 minutes', 'client');
+    ASSERT public.has_access_to_transaction_epargne(v_tx_epargne_fixture),
+           'grant client devrait couvrir ses transactions';
+    RAISE EXCEPTION 'OK';
+  EXCEPTION WHEN OTHERS THEN
+    v_report := v_report || E'\n' || CASE WHEN SQLERRM='OK' THEN 'PASS' ELSE 'FAIL' END || ' T20 grant client couvre transaction' || CASE WHEN SQLERRM='OK' THEN '' ELSE ' -> '||SQLERRM END;
   END;
 
   -- Rapport final (le RAISE annule toute la transaction : rien n'est persiste)

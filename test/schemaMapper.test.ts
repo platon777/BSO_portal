@@ -34,7 +34,7 @@ describe('mapLocalToSupabase — champs geres par le serveur exclus', () => {
     // Doivent partir fidèlement
     expect(out.validation_status).toBe('pending');
     expect(out.solde_apres_transaction_declare).toBe(101);
-    expect(out.created_by).toBe('user1');
+    expect(out.created_by).toBe('u0');
   });
 
   it('comptes_epargne: n envoie ni statut ni solde_actuel (geres par Supabase)', () => {
@@ -44,6 +44,22 @@ describe('mapLocalToSupabase — champs geres par le serveur exclus', () => {
     } as any, 'user1');
     expect(out.statut).toBeUndefined();
     expect(out.solde_actuel).toBeUndefined();
+  });
+
+  it('préserve le créateur original lors d une modification par un rôle privilégié', () => {
+    const compte = mapLocalToSupabase('comptes_epargne', {
+      id_compte_epargne: 'a1', id_personne: 'p1', no_compte: 'N1',
+      created_by: 'agent-createur', created_at: '2026-01-01T00:00:00.000Z',
+    } as any, 'manager-modificateur');
+    const transaction = mapLocalToSupabase('transactions_credit', {
+      id_transaction_credit: 't1', id_compte_credit: 'c1', no_compte: 'C1',
+      type_transaction: 'Paiement', montant: 100, date_transaction: '2026-01-01',
+      created_by: 'agent-createur', created_at: '2026-01-01T00:00:00.000Z',
+    } as any, 'finance-modificateur');
+
+    expect(compte.created_by).toBe('agent-createur');
+    expect(compte.updated_by).toBe('manager-modificateur');
+    expect(transaction.created_by).toBe('agent-createur');
   });
 });
 

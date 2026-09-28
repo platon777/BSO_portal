@@ -1,100 +1,229 @@
-# 👥 Guide de Prise en Main par Rôle — BSO Portal
+# Guide de prise en main par rôle — Portail BSO
 
-Ce guide décrit le fonctionnement pas-à-pas du portail BSO pour chaque profil d'utilisateur, de l'inscription jusqu'à la clôture journalière de la caisse.
+**Public :** Admin, Manager, Finance et Agents de terrain
 
----
+**Objet :** utiliser le portail de manière correcte et sécurisée
 
-## 1. 🛡️ Matrice des Rôles & Permissions
+**Révision :** 23 août 2026
 
-| Rôle | Code Rôle | Inscription | Accès Terrain & Offline | Validation Caisse (Finance) | Génération Codes d'Invitation | Rapports Tous Agents |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Administrateur** | `1` | Code BSO | ✅ Oui | ✅ Oui | ✅ Oui (Tous rôles) | ✅ Oui |
-| **Manager** | `2` | Code BSO | ✅ Oui | ✅ Oui | ✅ Oui (Agent, Manager, Finance) | ✅ Oui |
-| **Finance** | `5` | Code BSO | ✅ Oui | ✅ Oui | ❌ Non | ✅ Oui |
-| **Agent de terrain** | `3` | Code BSO | ✅ Oui | ❌ Non | ❌ Non | ❌ Uniquement ses données |
-| **Non défini** | `4` | Sans code | ❌ Bloqué | ❌ Bloqué | ❌ Bloqué | ❌ Bloqué |
+## 1. Avant de commencer
 
----
+Le Portail BSO est une application interne. Chaque utilisateur doit disposer :
 
-## 2. 🎟️ Inscription & Activation des Comptes
+- de son propre compte;
+- d’un rôle actif;
+- d’un appareil protégé par code ou biométrie;
+- d’une connexion Internet lors de la première connexion et du téléchargement initial;
+- d’un mot de passe qui ne doit jamais être partagé.
 
-Pour garantir qu'aucun intrus ne puisse créer de compte sur le portail en production, **l'inscription est strictement conditionnée à un code d'invitation**.
+Les données clients et les opérations doivent être traitées uniquement dans le portail interne prévu à cet effet.
 
-### Étape 1 : Génération du code par le Manager ou l'Admin
-1. Connectez-vous sur votre compte Admin ou Manager.
-2. Allez dans le menu **Paramètres** > Section **« Codes d'Invitation des Agents & Staff »**.
-3. Choisissez le rôle attribué (ex : `Agent de terrain`), la durée (ex : `14 jours`) et une note (ex : *"Pour Marc - Agent Cap-Haïtien"*).
-4. Cliquez sur **« ⚡ Créer le code d'invitation »**.
-5. Cliquez sur **« 📲 Copier le message WhatsApp »** pour envoyer le code directement à l'agent.
+## 2. Rôles et permissions
 
-### Étape 2 : Inscription de l'Agent
-1. L'agent ouvre l'application sur son téléphone ou son ordinateur.
-2. Sur l'écran de connexion, il clique sur **« Créer un compte »**.
-3. Il colle son code d'invitation (ex : `BSO-7A4K-9M2X`).
-   * Le système valide instantanément le code avec un badge vert : *« ✔ Code valide ! Vous serez inscrit en tant que : Agent de terrain »*.
-4. L'agent renseigne son Prénom, Nom, Email et Mot de passe.
-5. Son compte est immédiatement opérationnel avec le bon niveau d'accès.
+| Action | Admin | Manager | Finance | Agent | Non défini |
+|---|:---:|:---:|:---:|:---:|:---:|
+| Ouvrir le portail | Oui | Oui | Oui | Oui | Non |
+| Consulter les données métier | Oui | Oui | Oui | Oui | Non |
+| Créer une opération de terrain | Oui | Oui | Oui | Oui | Non |
+| Modifier ou supprimer une ressource existante | Oui | Oui | Oui | Avec accès temporaire | Non |
+| Voir les soldes et rapports globaux | Oui | Oui | Oui | Limité par l’interface | Non |
+| Valider les encaissements | Oui | Oui | Oui | Non | Non |
+| Générer un code Manager, Agent ou Finance | Oui | Oui | Non | Non | Non |
+| Générer un code Admin | Non | Non | Non | Non | Non |
+| Accorder un accès temporaire à un Agent | Oui | Non | Non | Non | Non |
 
----
+### À retenir
 
-## 3. 📱 Parcours Journalier de l'Agent de Terrain
+- Admin, Manager et Finance disposent d’un droit global de modification des données métier.
+- L’Agent est principalement un opérateur de terrain. Il peut créer ses nouvelles opérations, mais doit recevoir une autorisation temporaire d’un Admin pour corriger ou supprimer une donnée existante protégée.
+- Le rôle 4 « Non défini » est un état bloqué, pas un rôle de travail.
 
-### 3.1. En début de journée (Avant de partir en collecte)
-1. Ouvrez l'application avec connexion internet.
-2. Allez dans **Paramètres** et vérifiez que votre base locale est à jour.
-3. Si nécessaire, cliquez sur **« Télécharger les données »** pour récupérer les derniers clients et dossiers de crédit.
+## 3. Créer un compte par invitation
 
-### 3.2. Sur le terrain (100% Fonctionnel Hors-Ligne)
-L'agent peut effectuer toutes les opérations sans aucune connexion :
-* **Nouveau Client** : Créer une fiche client complète (Prénom, Nom, Téléphone, Adresse, CIN/NIF).
-* **Nouveau Compte Épargne** : Ouvrir un compte *Épargne Standard*, *Fonds de Garantie* ou *Grandon*.
-* **Dépôt d'Épargne** :
-  1. Sélectionner le compte du client.
-  2. Cliquer sur **« Transaction »** > Type `Dépôt`.
-  3. Saisir le **Montant** remis en liquide par le client.
-  4. Saisir le **Solde Après Déclaré** (inscrit sur le carnet physique du client).
-  5. Enregistrer : Le solde local est mis à jour et le montant est ajouté au Total Cash.
-* **Remboursement de Crédit** :
-  1. Ouvrir le dossier crédit du client.
-  2. Cliquer sur **« Transaction »** > Type `Paiement`.
-  3. Saisir le **Montant** et le **Versement Déclaré**.
-  4. Enregistrer : L'opération est immédiatement consignée dans Dexie avec le statut `pending`.
-* **Retrait & Virement** : Enregistrer les retraits d'épargne ou virements de compte à compte.
+### Générer le code
 
-### 3.3. Contrôle en direct dans l'onglet « Rapports »
-* L'agent consulte sa fiche de rapport :
-  * **Dépôt (Épargne)**, **Fonds Garantie**, **Grandon** (ventilés par catégorie).
-  * **Paiement Crédit Cash**, **Konfyans**, **Électroménager** (ventilés par produit).
-  * **Solde Cumulé** (somme des soldes après déclarés).
-  * **Versement Cumulé** (somme des versements déclarés).
-  * **Total Cash Collecté (Physique)** : Montant exact en gourdes que l'agent doit avoir dans sa sacoche.
+Cette opération est disponible pour Admin et Manager.
 
-### 3.4. En fin de journée (Retour au bureau)
-1. Dès que l'appareil retrouve une connexion Internet :
-2. Allez dans **Paramètres** > Cliquez sur **« Synchroniser maintenant »**.
-3. Toutes les opérations hors-ligne sont transmises à Supabase.
-4. L'agent remet son cash physique au bureau de contrôle.
+1. Ouvrir la section des codes d’invitation.
+2. Choisir le rôle : Manager, Agent de terrain ou Finance.
+3. Choisir une durée de validité entre 1 et 30 jours.
+4. Ajouter une note permettant d’identifier le destinataire.
+5. Générer le code.
+6. Transmettre le code au destinataire par un canal privé.
 
----
+Le code est à usage unique. Il ne doit pas être publié dans un groupe public ni réutilisé pour plusieurs personnes.
 
-## 4. 🛡️ Parcours de Contrôle & Validation (Finance / Manager / Admin)
+Le rôle Admin n’est jamais proposé. Une tentative directe par API est également refusée.
 
-La page **Validation** ([Validation.tsx](file:///c:/Users/Lenovo/Documents/GitHub/BSO_portal/pages/Validation.tsx)) est le centre de contrôle où le cash physique est rapproché des données numériques.
+### Utiliser le code
 
-### 4.1. Filtrer et Isoler les Opérations d'un Agent
-1. Rendez-vous dans le menu **Validation**.
-2. Dans le sélecteur **Filtrer par Agent**, recherchez le nom ou l'ID de l'agent qui dépose son cash.
-3. Dans le sélecteur **Période**, choisissez **Aujourd'hui** (ou **Hier**).
-4. La bannière verte affiche immédiatement la **Synthèse de Caisse** de l'agent :
-   * *Cash Physique Attendu : ex. 15 500.00 HTG*
-   * *Détail : Dépôts (8) : 10 000.00 HTG | Paiements Crédit (3) : 5 500.00 HTG*
+1. Ouvrir la page d’inscription.
+2. Saisir le code reçu.
+3. Compléter le prénom, le nom, l’adresse électronique et le mot de passe.
+4. Valider l’inscription.
+5. Vérifier que le rôle affiché correspond au rôle annoncé.
 
-### 4.2. Rapprochement & Validation
-1. **Comptage physique** : Comptez les billets remis par l'agent.
-2. **Si le cash correspond** :
-   * Cliquez sur le bouton vert : **« ⚡ Valider tout pour [Nom Agent] (X opérations) »**.
-   * Le système valide l'ensemble du lot instantanément via RPC Supabase et met à jour la base locale Dexie.
-   * Dans le rapport de l'agent, le compteur *Dépôts en attente ⏳* passe immédiatement à **0**.
-3. **En cas d'anomalie sur une ligne spécifique** :
-   * Vous pouvez valider ou rejeter ligne par ligne.
-   * En cliquant sur **« Rejeter »**, un motif peut être saisi (ex : *"Billet manquant"*). L'opération est écartée et ne modifie pas les soldes officiels.
+Le serveur vérifie et consomme le code pendant la création du compte. Un code expiré, utilisé ou invalide doit être remplacé par un nouveau code.
+
+## 4. Première connexion sur un appareil
+
+1. Se connecter avec Internet.
+2. Vérifier le nom et le rôle affichés.
+3. Ouvrir les paramètres de synchronisation.
+4. Télécharger les données autorisées.
+5. Attendre la confirmation de fin de téléchargement.
+6. Vérifier que les clients et comptes nécessaires sont visibles.
+7. Seulement après ces contrôles, utiliser le portail hors ligne.
+
+Une autre personne ne doit pas réutiliser l’appareil sans déconnexion du premier utilisateur.
+
+## 5. Journée type de l’Agent
+
+### Avant le départ
+
+- connecter l’appareil à Internet;
+- ouvrir le portail;
+- contrôler la date de la dernière synchronisation;
+- télécharger les données si nécessaire;
+- vérifier qu’il n’existe pas d’élément en échec dans la file de synchronisation;
+- vérifier que l’appareil est suffisamment chargé.
+
+### Sur le terrain
+
+L’Agent peut notamment :
+
+- créer un client;
+- ouvrir un compte d’épargne selon les produits disponibles;
+- enregistrer un dépôt, un retrait, un virement ou des frais;
+- enregistrer un paiement ou une pénalité de crédit;
+- consulter son rapport et le Total Cash attendu.
+
+#### Dépôt d’épargne
+
+1. Rechercher le client et ouvrir son compte.
+2. Sélectionner « Dépôt ».
+3. Saisir le montant réellement reçu.
+4. Saisir les informations déclarées demandées par le formulaire.
+5. Vérifier le compte, la catégorie et le montant.
+6. Enregistrer.
+
+Le dépôt est compté immédiatement dans le cash physique de l’Agent, même s’il reste en attente de validation Finance. Il ne met pas encore à jour le solde comptable officiel tant qu’il n’est pas confirmé.
+
+#### Paiement de crédit
+
+1. Ouvrir le dossier de crédit.
+2. Sélectionner « Paiement ».
+3. Saisir le montant reçu et le versement déclaré.
+4. Vérifier que le paiement ne dépasse pas le restant dû.
+5. Enregistrer.
+
+Le paiement apparaît dans le cash physique et reste `pending` jusqu’au contrôle.
+
+#### Retrait
+
+Le retrait diminue le cash détenu par l’Agent. Un retrait supérieur au solde disponible est refusé par les règles serveur.
+
+#### Erreur après saisie
+
+- Si la donnée n’est pas encore synchronisée et que l’interface permet la correction, corriger puis vérifier la file.
+- Si la donnée est synchronisée ou protégée, demander un accès temporaire à un Admin.
+- Ne jamais contourner la procédure en créant une opération opposée sans justification.
+
+### Retour au bureau
+
+1. Reconnecter l’appareil à Internet.
+2. Lancer la synchronisation.
+3. Attendre que les éléments `pending` de la file locale soient transmis.
+4. Traiter tout élément `failed` avant la remise de caisse.
+5. Consulter le rapport de la période.
+6. Compter le cash physique.
+7. Remettre le cash avec le détail nécessaire à Finance ou au responsable.
+
+## 6. Comprendre le rapport de l’Agent
+
+Le rapport distingue notamment :
+
+- les dépôts Épargne;
+- les dépôts Fonds Garantie;
+- les dépôts GranDon;
+- les retraits;
+- les paiements de crédit par produit;
+- les pénalités et frais inclus;
+- les opérations en attente;
+- le Total Cash physique.
+
+Le Total Cash inclut les encaissements `pending` et `confirmed`. Il ne faut pas soustraire une deuxième fois les opérations en attente lors du comptage. Les opérations rejetées sont exclues.
+
+## 7. Validation par Finance, Manager ou Admin
+
+### Préparer le rapprochement
+
+1. Ouvrir la page Validation.
+2. Filtrer sur l’Agent concerné.
+3. Choisir la période exacte.
+4. Vérifier le nombre de dépôts et paiements en attente.
+5. Lire le cash physique attendu.
+6. Compter le cash remis.
+
+### Si les montants correspondent
+
+- vérifier rapidement les lignes;
+- confirmer individuellement ou utiliser la validation en lot;
+- vérifier ensuite que le nombre d’opérations en attente a diminué;
+- contrôler les soldes et rapports concernés.
+
+### En cas d’écart
+
+- ne pas valider automatiquement le lot;
+- identifier la ou les opérations en cause;
+- comparer carnet, montant déclaré, montant reçu et compte client;
+- documenter le motif;
+- confirmer les lignes correctes et rejeter seulement les lignes incorrectes;
+- conserver les preuves selon la procédure interne de BSO.
+
+Une opération rejetée ne doit pas modifier le solde officiel et ne doit plus apparaître dans le Total Cash collecté.
+
+## 8. Accès temporaire d’un Agent
+
+Seul un Admin accorde une dérogation temporaire.
+
+L’accès doit préciser :
+
+- l’Agent bénéficiaire;
+- le client, compte ou transaction concerné;
+- le motif;
+- la durée;
+- le responsable ayant autorisé l’accès.
+
+Un accès client permet de travailler sur les ressources rattachées à ce client conformément aux contrôles serveur. Un accès limité à une transaction ne doit pas être utilisé pour une autre transaction.
+
+À l’expiration, l’Agent perd automatiquement le droit de modification.
+
+## 9. Déconnexion
+
+La déconnexion efface les données métier et utilisateur conservées localement sur l’appareil.
+
+### Sans opération non synchronisée
+
+1. Cliquer sur « Déconnexion ».
+2. Attendre le retour à la page de connexion.
+3. Vérifier qu’aucune donnée client n’est accessible sans nouvelle connexion.
+
+### Avec opérations non synchronisées
+
+Le portail affiche un avertissement. Deux choix existent :
+
+- **Annuler** : rester connecté, synchroniser, puis se déconnecter;
+- **Continuer** : accepter la suppression définitive des opérations locales non transmises.
+
+La procédure normale est d’annuler, de synchroniser et de vérifier avant de se déconnecter.
+
+## 10. Réflexes essentiels
+
+- Ne jamais partager son compte ou son code d’invitation.
+- Ne jamais vider les données locales avant une synchronisation réussie.
+- Ne pas confondre Total Cash physique et solde comptable validé.
+- Vérifier le client, le compte, le type et le montant avant chaque enregistrement.
+- Signaler immédiatement un appareil perdu ou volé.
+- Utiliser une dérogation temporaire pour toute correction exceptionnelle d’un Agent.
+- Ne jamais promettre qu’une opération est validée uniquement parce qu’elle apparaît dans le rapport.

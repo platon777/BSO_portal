@@ -167,7 +167,7 @@ const mapCompteEpargneToSupabase = (compte: CompteEpargne, userId: string): any 
   return {
     ...compteData,
     no_compte_ancien: compte.no_compte_ancien ? String(compte.no_compte_ancien).trim() : null,
-    created_by: userId,
+    created_by: compte.created_by || userId,
     updated_by: userId,
     succursale: getSuccursaleId(compte.succursale),
     piece_identification_allowed: compte.piece_identification_allowed
@@ -208,7 +208,7 @@ const mapCompteCreditToSupabase = (compte: CompteCredit, userId: string): any =>
     ...compteData,
     ancien_code: compte.ancien_code ? String(compte.ancien_code).trim() : null,
     taux_interet: normalizeRatePercentForSupabase(compte.taux_interet),
-    created_by: userId,
+    created_by: compte.created_by || userId,
     updated_by: userId,
     collecteur: null, // Field not in local schema
     cycle: compte.no_compte || null,
@@ -284,7 +284,7 @@ const mapTransactionEpargneToSupabase = (transaction: TransactionEpargne, userId
     montant: Number(transaction.montant) || 0,
     date_transaction: transaction.date_transaction,
     created_at: transaction.created_at,
-    created_by: userId,
+    created_by: transaction.created_by || userId,
     is_solde_initial: Boolean(transaction.is_solde_initial),
     validation_status: transaction.validation_status || 'pending',
   };
@@ -351,7 +351,7 @@ const mapTransactionCreditToSupabase = (transaction: TransactionCredit, userId: 
     montant: Number(transaction.montant) || 0,
     date_transaction: transaction.date_transaction,
     created_at: transaction.created_at,
-    created_by: userId,
+    created_by: transaction.created_by || userId,
     validation_status: transaction.validation_status || 'pending',
   };
 

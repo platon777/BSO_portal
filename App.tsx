@@ -20,6 +20,10 @@ import OfflineIndicator from './components/common/OfflineIndicator';
 import { useAuthStore } from './stores/authStore';
 import { Toaster } from 'react-hot-toast';
 import ErrorBoundary from './components/common/ErrorBoundary';
+import { canAccessApplication } from './types/auth';
+import { supabase } from './services/supabase';
+import ResetPasswordModal from './components/modals/ResetPasswordModal';
+import toast from 'react-hot-toast';
 
 type Page =
   | 'dashboard'
@@ -50,10 +54,11 @@ const App: React.FC = () => {
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [selectedEpargneId, setSelectedEpargneId] = useState<string | null>(null);
   const [selectedCreditId, setSelectedCreditId] = useState<string | null>(null);
-  const { isAuthenticated, isLoading, initialize } = useAuthStore();
+  const [isPasswordRecoveryOpen, setIsPasswordRecoveryOpen] = useState(false);
+  const { isAuthenticated, isLoading, initialize, profile, logout } = useAuthStore();
 
   useEffect(() => {
-    const APP_BUILD_VERSION = '2026-07-30-validation-sync-1';
+    const APP_BUILD_VERSION = '2026-09-28-fix-login-auth-v4';
     const APP_BUILD_VERSION_KEY = 'bso_app_build_version';
 
     const refreshPwaBundleIfNeeded = async (): Promise<boolean> => {
@@ -64,7 +69,25 @@ const App: React.FC = () => {
 
       localStorage.setItem(APP_BUILD_VERSION_KEY, APP_BUILD_VERSION);
 
-      // First install: no forced reload needed.
+      // Unregister any stale service workers and caches
+      try {
+        if ('serviceWorker' in navigator) {
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          if (registrations.length > 0) {
+            await Promise.all(registrations.map((registration) => registration.unregister()));
+          }
+        }
+
+        if ('caches' in window) {
+          const cacheNames = await caches.keys();
+          if (cacheNames.length > 0) {
+            await Promise.all(cacheNames.map((cacheName) => caches.delete(cacheName)));
+          }
+        }
+      } catch (error) {
+        console.warn('[App] Failed to refresh PWA cache', error);
+      }
+
       if (!previousVersion) {
         return false;
       }
@@ -113,6 +136,25 @@ const App: React.FC = () => {
       setCurrentPage('login');
     }
   }, [isAuthenticated, isLoading, currentPage]);
+
+  // Listen for Supabase password recovery link or events
+  useEffect(() => {
+    // 1. Check URL hash for type=recovery
+    if (typeof window !== 'undefined' && window.location.hash.includes('type=recovery')) {
+      setIsPasswordRecoveryOpen(true);
+    }
+
+    // 2. Listen to Supabase auth events
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsPasswordRecoveryOpen(true);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
 
   const renderPage = () => {
@@ -250,6 +292,26 @@ const App: React.FC = () => {
     );
   }
 
+  if (isAuthenticated && !canAccessApplication(profile?.role)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
+        <div className="w-full max-w-md rounded-lg bg-white p-6 text-center shadow-md">
+          <h1 className="text-xl font-bold text-red-700">Accès non activé</h1>
+          <p className="mt-3 text-sm text-gray-700">
+            Votre profil ne possède pas un rôle BSO actif. Contactez un administrateur avant d’utiliser la plateforme.
+          </p>
+          <button
+            type="button"
+            onClick={() => logout()}
+            className="mt-5 min-h-[44px] rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+          >
+            Se déconnecter
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // Show login/signup page if not authenticated
   if (!isAuthenticated && (currentPage === 'login' || currentPage === 'signup')) {
     return (
@@ -258,6 +320,23 @@ const App: React.FC = () => {
           <Toaster position="top-center" toastOptions={{ className: 'text-sm' }} />
           {currentPage === 'login' ? <Login /> : <Signup />}
           <ModalRoot />
+          <ResetPasswordModal
+            isOpen={isPasswordRecoveryOpen}
+            onSuccess={() => {
+              setIsPasswordRecoveryOpen(false);
+              if (typeof window !== 'undefined') {
+                window.history.replaceState(null, '', window.location.pathname);
+              }
+              toast.success('Mot de passe mis à jour ! Vous pouvez vous connecter.');
+              setCurrentPage('login');
+            }}
+            onClose={() => {
+              setIsPasswordRecoveryOpen(false);
+              if (typeof window !== 'undefined') {
+                window.history.replaceState(null, '', window.location.pathname);
+              }
+            }}
+          />
         </ModalProvider>
       </ErrorBoundary>
     );
@@ -280,6 +359,22 @@ const App: React.FC = () => {
           <MobileNav currentPage={currentNavPage} setCurrentPage={handleSetPage} />
         </div>
         <ModalRoot />
+        <ResetPasswordModal
+          isOpen={isPasswordRecoveryOpen}
+          onSuccess={() => {
+            setIsPasswordRecoveryOpen(false);
+            if (typeof window !== 'undefined') {
+              window.history.replaceState(null, '', window.location.pathname);
+            }
+            toast.success('Mot de passe mis à jour avec succès !');
+          }}
+          onClose={() => {
+            setIsPasswordRecoveryOpen(false);
+            if (typeof window !== 'undefined') {
+              window.history.replaceState(null, '', window.location.pathname);
+            }
+          }}
+        />
         <OfflineIndicator />
       </ModalProvider>
     </ErrorBoundary>

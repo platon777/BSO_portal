@@ -5,7 +5,7 @@ import { copyToClipboard } from '../utils/clipboard';
 import SecureWrapper from '../components/common/SecureWrapper';
 import { getCreditFinalCapital } from '../utils/creditCalculations';
 import { useAuthStore } from '../stores/authStore';
-import { UserRole } from '../types/auth';
+import { canAccessAdminReports } from '../types/auth';
 import { formatCreditAccountType } from '../utils/creditTypes';
 
 interface ClientDetailsProps {
@@ -29,7 +29,7 @@ const formatValue = (value: unknown) => {
 
 const ClientDetails: React.FC<ClientDetailsProps> = ({ clientId, onBack, onOpenEpargneDetails, onOpenCreditDetails }) => {
   const { profile } = useAuthStore();
-  const canViewBalances = profile?.role === UserRole.ADMIN;
+  const canViewBalances = canAccessAdminReports(profile?.role);
   const data = useLiveQuery(async () => {
     const client = await db.personnes.get(clientId);
     if (!client) {

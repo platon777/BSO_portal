@@ -1,44 +1,63 @@
-# Tests
+# Tests du Portail BSO
 
-Deux couches de tests couvrent les workflows critiques de la plateforme.
+Deux couches automatisées couvrent les workflows critiques : la logique applicative et les règles PostgreSQL.
 
-## 1. Tests frontend (logique métier) — Vitest
+## 1. Tests applicatifs — Vitest
 
-Testent la logique pure : calcul du rapport agent (confirmé vs en attente de
-validation, catégories, Total Cash), résumés de synchro (confirmé vs en attente),
-mapping Supabase ↔ local, statut crédit dérivé, calculs de crédit.
+Les 33 tests vérifient notamment :
 
-```bash
-npm test          # exécution unique
-npm run test:watch
+- les calculs de crédit;
+- les statistiques et le Total Cash;
+- l’inclusion des encaissements en attente;
+- l’exclusion des transactions rejetées;
+- les résumés de synchronisation;
+- le mapping entre Dexie et Supabase;
+- la conservation de `created_by`;
+- la matrice Admin, Manager, Finance, Agent et rôle non défini;
+- la purge locale lors de la déconnexion.
+
+```powershell
+npm.cmd test
+npm.cmd run test:watch
 ```
 
-Fichiers : `test/*.test.ts`. Les modules qui touchent Dexie/Supabase sont mockés ;
-aucune vraie base n'est requise.
+Les modules accédant au navigateur, à Dexie ou à Supabase sont isolés avec des mocks lorsque cela est nécessaire.
 
-## 2. Tests base de données (triggers & workflows) — script SQL rejouable
+## 2. Vérification complète du frontend
 
-Testent la logique serveur (triggers) directement sur PostgreSQL — 13 scénarios du
-cœur métier :
-
-- report des entrées d'argent (dépôt / paiement) en attente de validation ;
-- application du montant à la validation ;
-- refus du trop-payé **à l'insertion et à la validation** ;
-- retrait immédiat + statut forcé `confirmed` ;
-- **virement** épargne (conservation de la masse : source −X, bénéficiaire +X) ;
-- **retrait > solde** refusé (solde insuffisant) ;
-- calcul du **capital final** crédit à la création ;
-- **invariant de cohérence** : `paiement_cumulé + montant_restant = montant_final` ;
-- **génération automatique** du n° de compte ;
-- **anti-doublon** client (téléphone déjà utilisé) ;
-- détection d'écart déclaré / réel.
-
-**Non destructif** : chaque test s'isole et est annulé (rollback) — rien n'est
-persisté (vérifié : aucun résidu en base).
-
-```bash
-SUPABASE_ACCESS_TOKEN=sbp_xxx node supabase/tests/run.mjs
+```powershell
+npm.cmd run check
 ```
 
-Le script (`supabase/tests/db_tests.sql`) affiche `PASS`/`FAIL` par scénario et
-sort en code ≠ 0 si un test échoue. Le jeton n'est jamais committé (lu via l'env).
+Cette commande exécute successivement :
+
+1. le contrôle TypeScript sans génération de fichiers;
+2. les tests Vitest;
+3. le build PWA de production.
+
+## 3. Tests de base de données — SQL transactionnel
+
+Les 20 scénarios couvrent :
+
+- dépôts et paiements en attente puis validés;
+- refus des surpaiements;
+- retraits et virements;
+- calculs et invariants de crédit;
+- détection des irrégularités;
+- génération des numéros et détection des doublons;
+- matrice des rôles;
+- invitations Admin/Manager sans création de rôle Admin;
+- accès temporaire des Agents;
+- privilèges des fonctions RPC;
+- politiques RLS granulaires;
+- immutabilité de l’auteur de création.
+
+```powershell
+$env:SUPABASE_ACCESS_TOKEN='sbp_xxx'
+node supabase/tests/run.mjs
+Remove-Item Env:\SUPABASE_ACCESS_TOKEN
+```
+
+Le jeton doit être temporaire et ne doit jamais être enregistré dans Git.
+
+La suite `supabase/tests/db_tests.sql` est non destructive : chaque scénario est annulé, puis le rapport final provoque l’annulation de la transaction englobante. Aucun jeu de test n’est conservé dans la base cible.

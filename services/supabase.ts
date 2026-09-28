@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Supabase configuration from .mcp.json
-const SUPABASE_URL = 'https://cdfqltezhcssutyjtyjb.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNkZnFsdGV6aGNzc3V0eWp0eWpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzUyMjM4ODksImV4cCI6MjA1MDc5OTg4OX0.UrlM7GogBnQZnkZkHH9F_jCQ8gDC06oPi78gBCEzivk';
+// Target Supabase project. Environment variables remain available for deployments.
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://fdsuyqbscrnityotpmbc.supabase.co';
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZkc3V5cWJzY3JuaXR5b3RwbWJjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc4NTQ0OTIsImV4cCI6MjEwMzQzMDQ5Mn0.wgreFjDyFxVkoq9m5K8Sndr7CQCGA2SbmLIgOW1OYAQ';
 
 // Create Supabase client
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
