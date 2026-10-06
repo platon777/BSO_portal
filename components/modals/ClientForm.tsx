@@ -7,6 +7,7 @@ import { generateUserCode } from '../../services/codeGenerator';
 import { useAuthStore } from '../../stores/authStore';
 import toast from 'react-hot-toast';
 import { SECTEURS, ACTIVITES_PAR_SECTEUR, CAPACITES_DISTRIBUTION, POINTS_DE_VENTE, Secteur } from '../../data/occupationData';
+import { normalizePhotoUrl } from '../../utils/photoUtils';
 
 // Generate Haiti timezone ISO string (UTC-5 / America/Port-au-Prince)
 const getNowHaitiISO = (): string => {
@@ -35,10 +36,15 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSave, onCancel }) => 
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState<Partial<Personne>>(
-    client || {
-      sexe: 'M',
-      statut: 'Actif',
-    }
+    client
+      ? {
+          ...client,
+          photo_identification: normalizePhotoUrl(client.photo_identification),
+        }
+      : {
+          sexe: 'M',
+          statut: 'Actif',
+        }
   );
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -285,11 +291,15 @@ const ClientForm: React.FC<ClientFormProps> = ({ client, onSave, onCancel }) => 
         </Select>
 
         <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Photo d'identification *</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Photo d'identification (Chauffeur / Titulaire) *</label>
           <div className="flex flex-col sm:flex-row sm:items-start gap-4">
             <div className="h-24 w-24 rounded-md border border-gray-300 overflow-hidden bg-gray-50 flex items-center justify-center">
               {formData.photo_identification ? (
-                <img src={formData.photo_identification} alt="Photo client" className="h-full w-full object-cover" />
+                <img
+                  src={normalizePhotoUrl(formData.photo_identification)}
+                  alt="Photo client"
+                  className="h-full w-full object-cover"
+                />
               ) : (
                 <span className="text-xs text-gray-500 text-center px-2">Aucune photo</span>
               )}

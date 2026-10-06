@@ -10,6 +10,7 @@ import { useAuthStore } from '../../stores/authStore';
 import toast from 'react-hot-toast';
 import { getSuccursaleLabel, getSuccursaleOptions } from '../../utils/succursale';
 import { supabase } from '../../services/supabase';
+import { normalizePhotoUrl } from '../../utils/photoUtils';
 
 // Generate Haiti timezone ISO string (UTC-5 / America/Port-au-Prince)
 const getNowHaitiISO = (): string => {
@@ -56,9 +57,13 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
 
   useEffect(() => {
     if (compte) {
+      const rawPhoto = (compte as any).photo_personne_autorisee || (compte as any).photo_allowed || '';
+      const normalizedPhoto = normalizePhotoUrl(rawPhoto) || rawPhoto;
       setFormData({
         ...compte,
         succursale: getSuccursaleLabel(compte.succursale) || compte.succursale,
+        photo_personne_autorisee: normalizedPhoto,
+        photo_allowed: normalizedPhoto,
       });
     } else {
       setFormData({
@@ -159,14 +164,14 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
 
     try {
       const dataUrl = await readFileAsDataUrl(file);
-      setFormData(prev => ({ ...prev, photo_personne_autorisee: dataUrl }));
+      setFormData(prev => ({ ...prev, photo_personne_autorisee: dataUrl, photo_allowed: dataUrl }));
     } catch (error: any) {
       toast.error(error?.message || 'Impossible de sauvegarder la photo.');
     }
   };
 
   const clearAuthorizedPhoto = () => {
-    setFormData(prev => ({ ...prev, photo_personne_autorisee: '' }));
+    setFormData(prev => ({ ...prev, photo_personne_autorisee: '', photo_allowed: '' }));
   };
 
   const clientOptions = useMemo(() => {
@@ -250,9 +255,13 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
       }
     }
 
+    const photoVal = normalizePhotoUrl(formData.photo_personne_autorisee || formData.photo_allowed) || formData.photo_personne_autorisee || formData.photo_allowed;
+
     if (compte && compte.id_compte_epargne) {
       await db.updateRecord('comptes_epargne', compte.id_compte_epargne, {
         ...formData,
+        photo_personne_autorisee: photoVal,
+        photo_allowed: photoVal,
         no_compte_ancien: trimmedLegacyAccount || undefined,
         updated_by: userId,
         updated_at: getNowHaitiISO()
@@ -272,7 +281,7 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
         id_plan: formData.id_plan,
         type_compte_epargne: formData.type_compte_epargne,
         categorie_compte_epargne: formData.categorie_compte_epargne,
-        photo_personne_autorisee: formData.photo_personne_autorisee,
+        photo_personne_autorisee: photoVal,
         solde_actuel: 0,
         fonds_garantie: 0,
         statut: 'Actif',
@@ -284,7 +293,7 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
         person_allowed: formData.person_allowed,
         piece_identification_allowed: formData.piece_identification_allowed,
         nif_cin_allowed: formData.nif_cin_allowed,
-        photo_allowed: formData.photo_allowed,
+        photo_allowed: photoVal,
       };
 
       const compteId = await db.addRecord('comptes_epargne', newCompte);
@@ -396,11 +405,15 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
         <Input label="NIF/CIN Autorise" name="nif_cin_allowed" value={formData.nif_cin_allowed || ''} onChange={handleChange} />
 
         <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Photo personne autorisee</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Photo personne autorisée / Moto (Garantie)</label>
           <div className="flex flex-col sm:flex-row sm:items-start gap-4">
             <div className="h-24 w-24 rounded-md border border-gray-300 overflow-hidden bg-gray-50 flex items-center justify-center">
-              {formData.photo_personne_autorisee ? (
-                <img src={formData.photo_personne_autorisee} alt="Photo personne autorisee" className="h-full w-full object-cover" />
+              {formData.photo_personne_autorisee || formData.photo_allowed ? (
+                <img
+                  src={normalizePhotoUrl(formData.photo_personne_autorisee || formData.photo_allowed)}
+                  alt="Photo personne autorisee ou moto"
+                  className="h-full w-full object-cover"
+                />
               ) : (
                 <span className="text-xs text-gray-500 text-center px-2">Aucune photo</span>
               )}
@@ -421,7 +434,7 @@ const CompteEpargneForm: React.FC<CompteEpargneFormProps> = ({ compte, onSave, o
               >
                 Prendre photo
               </button>
-              {formData.photo_personne_autorisee && (
+              {(formData.photo_personne_autorisee || formData.photo_allowed) && (
                 <button
                   type="button"
                   onClick={clearAuthorizedPhoto}

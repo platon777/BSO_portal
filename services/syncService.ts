@@ -43,6 +43,7 @@ const PHOTO_BUCKET = 'bso';
 const PHOTO_CLIENT_FOLDER = 'photo_client';
 const PHOTO_AUTHORIZED_FOLDER = 'photo_client';
 const CREDIT_FULL_DOWNLOAD_FIX_KEY = 'bso_credit_fix_full_download_v20260211_1';
+const PHOTO_FULL_DOWNLOAD_FIX_KEY = 'bso_photo_fix_full_download_v20261006_1';
 
 // Table dependency order (important for foreign keys)
 const TABLE_ORDER = [
@@ -238,13 +239,17 @@ export const downloadUpdatesFromServer = async (
     const downloadType = lastSyncTimestamp ? 'incrémental' : 'complet';
     console.log(`[Sync] Starting ${downloadType} download`);
 
-    // One-time safety net: force a full re-download of credit accounts after rate formula fixes.
+    // One-time safety net: force a full re-download of credit accounts after rate formula fixes
+    // and full re-download of personnes & comptes_epargne after photo storage migration.
     const shouldForceFullCreditDownload = localStorage.getItem(CREDIT_FULL_DOWNLOAD_FIX_KEY) !== '1';
+    const shouldForceFullPhotoDownload = localStorage.getItem(PHOTO_FULL_DOWNLOAD_FIX_KEY) !== '1';
 
     // Download each table in order
     for (let tableIndex = 0; tableIndex < TABLE_ORDER.length; tableIndex++) {
       const tableName = TABLE_ORDER[tableIndex];
-      const forceFullForTable = shouldForceFullCreditDownload && tableName === 'comptes_credit';
+      const forceFullForTable =
+        (shouldForceFullCreditDownload && tableName === 'comptes_credit') ||
+        (shouldForceFullPhotoDownload && (tableName === 'personnes' || tableName === 'comptes_epargne'));
 
       if (onProgress) {
         const prefix = lastSyncTimestamp ? '📥' : '📦';
@@ -261,8 +266,11 @@ export const downloadUpdatesFromServer = async (
         totalAdded += result.added;
         totalUpdated += result.updated;
 
-        if (forceFullForTable) {
+        if (forceFullForTable && tableName === 'comptes_credit') {
           localStorage.setItem(CREDIT_FULL_DOWNLOAD_FIX_KEY, '1');
+        }
+        if (shouldForceFullPhotoDownload && tableName === 'comptes_epargne') {
+          localStorage.setItem(PHOTO_FULL_DOWNLOAD_FIX_KEY, '1');
         }
 
         if (onProgress) {

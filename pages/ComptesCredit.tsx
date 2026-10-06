@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../services/database';
-import { CompteCreditEnriched, TransactionCreditEnriched, TransactionCredit } from '../types';
+import { CompteCreditEnriched, TransactionCreditEnriched, TransactionCredit, CompteEpargne } from '../types';
 import { useModal } from '../contexts/ModalContext';
 import CompteCreditForm from '../components/modals/CompteCreditForm';
 import TransactionCreditForm from '../components/modals/TransactionCreditForm';
@@ -23,6 +23,7 @@ import {
   CreditAccountSyncSummary,
 } from '../services/creditAccountService';
 import { formatCreditAccountType } from '../utils/creditTypes';
+import { normalizePhotoUrl } from '../utils/photoUtils';
 
 type SortOption = 'created_desc' | 'created_asc' | 'updated_desc' | 'updated_asc';
 type ViewMode = 'comptes' | 'transactions';
@@ -33,6 +34,7 @@ interface ComptesCreditProps {
 
 type CompteCreditListItem = CompteCreditEnriched & {
   syncSummary: CreditAccountSyncSummary;
+  compteEpargne?: CompteEpargne;
 };
 
 const getSortTimestamp = (compte: CompteCreditEnriched, sortOption: SortOption) => {
@@ -90,18 +92,21 @@ const ComptesCredit: React.FC<ComptesCreditProps> = ({ onViewDetails }) => {
     try {
       const allComptes = await db.comptes_credit.toArray();
       const personnes = await db.personnes.toArray();
+      const comptesEpargne = await db.comptes_epargne.toArray();
       const [transactions, queueItems] = await Promise.all([
         db.transactions_credit.orderBy('date_transaction').reverse().toArray(),
         db.syncQueue.where('status').anyOf(['pending', 'failed']).toArray(),
       ]);
 
       const personnesMap = new Map(personnes.map(p => [p.id_personne, p]));
+      const comptesEpargneMap = new Map(comptesEpargne.map(c => [c.id_compte_epargne, c]));
       const comptesMap = new Map(allComptes.map(c => [c.id_compte_credit, c]));
 
       let comptesAvecPersonne: CompteCreditListItem[] = allComptes.map(compte => {
         const compteAvecPersonne = {
           ...compte,
           personne: personnesMap.get(compte.id_personne),
+          compteEpargne: compte.id_compte_epargne ? comptesEpargneMap.get(compte.id_compte_epargne) : undefined,
         };
         return {
           ...compteAvecPersonne,
@@ -273,6 +278,28 @@ const ComptesCredit: React.FC<ComptesCreditProps> = ({ onViewDetails }) => {
     />);
   };
 
+  const openPhotoPreview = (title: string, photoUrl: string) => {
+    const normalizedUrl = normalizePhotoUrl(photoUrl);
+    if (!normalizedUrl) return;
+    showModal(
+      title,
+      <div className="space-y-3">
+        <div className="w-full max-h-[70vh] overflow-auto rounded-lg border border-gray-200 bg-gray-50 p-2 flex items-center justify-center">
+          <img src={normalizedUrl} alt={title} className="w-full max-h-[65vh] rounded-md object-contain" />
+        </div>
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={hideModal}
+            className="px-4 py-2 text-sm font-medium text-blue-700 bg-blue-100 rounded-lg hover:bg-blue-200"
+          >
+            Fermer
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <SecureWrapper>
       <div className="space-y-6">
@@ -331,6 +358,8 @@ const ComptesCredit: React.FC<ComptesCreditProps> = ({ onViewDetails }) => {
               const paiementManuel = compte.montant_deja_paye_manuellement || 0;
               const capitalFinal = getCreditFinalCapital(compte);
               const syncSummary = compte.syncSummary;
+              const clientPhoto = normalizePhotoUrl(compte.personne?.photo_identification);
+              const motoPhoto = normalizePhotoUrl(compte.compteEpargne?.photo_personne_autorisee || compte.compteEpargne?.photo_allowed);
 
               return (
                 <div key={compte.id_compte_credit} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
@@ -340,6 +369,25 @@ const ComptesCredit: React.FC<ComptesCreditProps> = ({ onViewDetails }) => {
                       <p className="text-sm text-gray-700">{compte.personne ? `${compte.personne.prenom} ${compte.personne.nom}` : 'N/A'}</p>
                     </div>
                     <span className={`px-2 text-xs font-semibold rounded-full ${compte.statut === 'Actif' ? 'bg-green-100 text-green-800' : (compte.statut === 'Paye' || compte.statut === 'Payé') ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'}`}>{compte.statut}</span>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    <button
+                      type="button"
+                      disabled={!clientPhoto}
+                      onClick={() => clientPhoto && openPhotoPreview(`Photo chauffeur - ${compte.personne?.prenom || ''} ${compte.personne?.nom || ''}`, clientPhoto)}
+                      className="px-2.5 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      Photo chauffeur
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!motoPhoto}
+                      onClick={() => motoPhoto && openPhotoPreview(`Photo moto - Compte ${compte.no_compte}`, motoPhoto)}
+                      className="px-2.5 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-50 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      Photo moto
+                    </button>
                   </div>
 
                   <div className="bg-gray-50 rounded-lg p-3 mb-3 space-y-1">
@@ -393,6 +441,8 @@ const ComptesCredit: React.FC<ComptesCreditProps> = ({ onViewDetails }) => {
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Code Ancien</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type Credit</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Client</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Photo Chauffeur</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Photo Moto</th>
                   {canViewBalances && <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Montant Prete</th>}
                   {canViewBalances && <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Capital Final</th>}
                   {canViewBalances && <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Paye Manuel</th>}
@@ -407,6 +457,8 @@ const ComptesCredit: React.FC<ComptesCreditProps> = ({ onViewDetails }) => {
                   {paginatedComptes.map((compte) => {
                     const paiementManuel = compte.montant_deja_paye_manuellement || 0;
                     const capitalFinal = getCreditFinalCapital(compte);
+                    const clientPhoto = normalizePhotoUrl(compte.personne?.photo_identification);
+                    const motoPhoto = normalizePhotoUrl(compte.compteEpargne?.photo_personne_autorisee || compte.compteEpargne?.photo_allowed);
                     return (
                       <tr key={compte.id_compte_credit} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium"><div className="flex items-center space-x-3">
@@ -420,6 +472,28 @@ const ComptesCredit: React.FC<ComptesCreditProps> = ({ onViewDetails }) => {
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{compte.ancien_code || '-'}</td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{formatCreditAccountType(compte.type_compte_credit)}</td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{compte.personne ? `${compte.personne.prenom} ${compte.personne.nom}` : 'N/A'}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                          {clientPhoto ? (
+                            <button
+                              type="button"
+                              onClick={() => openPhotoPreview(`Photo chauffeur - ${compte.personne?.prenom || ''} ${compte.personne?.nom || ''}`, clientPhoto)}
+                              className="text-blue-700 hover:text-blue-900 font-medium"
+                            >
+                              Voir
+                            </button>
+                          ) : '-'}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                          {motoPhoto ? (
+                            <button
+                              type="button"
+                              onClick={() => openPhotoPreview(`Photo moto - Compte ${compte.no_compte}`, motoPhoto)}
+                              className="text-indigo-700 hover:text-indigo-900 font-medium"
+                            >
+                              Voir
+                            </button>
+                          ) : '-'}
+                        </td>
                         {canViewBalances && <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 font-semibold">{(compte.montant_prete || 0).toFixed(2)}</td>}
                         {canViewBalances && <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-semibold">{capitalFinal.toFixed(2)}</td>}
                         {canViewBalances && <td className="px-4 py-3 whitespace-nowrap text-sm text-blue-600">{paiementManuel.toFixed(2)}</td>}

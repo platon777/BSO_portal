@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../services/database';
 import { copyToClipboard } from '../utils/clipboard';
@@ -9,6 +9,7 @@ import { canAccessAdminReports } from '../types/auth';
 import { getSuccursaleLabel } from '../utils/succursale';
 import { buildSavingsAccountSyncSummary } from '../services/savingsAccountService';
 import { formatCreditAccountType } from '../utils/creditTypes';
+import { normalizePhotoUrl } from '../utils/photoUtils';
 
 interface CompteEpargneDetailsProps {
   compteId: string;
@@ -32,6 +33,7 @@ const formatValue = (value: unknown) => {
 const CompteEpargneDetails: React.FC<CompteEpargneDetailsProps> = ({ compteId, onBack, onOpenCreditDetails }) => {
   const { profile } = useAuthStore();
   const canViewBalances = canAccessAdminReports(profile?.role);
+  const [previewPhoto, setPreviewPhoto] = useState<{ url: string; title: string } | null>(null);
   const data = useLiveQuery(async () => {
     const safeCompteId = typeof compteId === 'string' ? compteId.trim() : '';
     if (!safeCompteId) {
@@ -93,6 +95,8 @@ const CompteEpargneDetails: React.FC<CompteEpargneDetailsProps> = ({ compteId, o
   }
 
   const { compte, personne, transactions, comptesCredit, syncSummary } = data;
+  const clientPhotoUrl = normalizePhotoUrl(personne?.photo_identification);
+  const motoPhotoUrl = normalizePhotoUrl(compte.photo_personne_autorisee || compte.photo_allowed);
 
   const detailItems: Array<{ label: string; value: unknown }> = [
     { label: 'ID compte', value: compte.id_compte_epargne },
@@ -109,7 +113,8 @@ const CompteEpargneDetails: React.FC<CompteEpargneDetailsProps> = ({ compteId, o
     { label: 'Person allowed', value: compte.person_allowed },
     { label: 'Piece allowed', value: compte.piece_identification_allowed },
     { label: 'NIF/CIN allowed', value: compte.nif_cin_allowed },
-    { label: 'Photo allowed', value: compte.photo_allowed },
+    { label: 'Photo chauffeur', value: clientPhotoUrl ? 'Disponible' : 'Aucune' },
+    { label: 'Photo moto / autorisée', value: motoPhotoUrl ? 'Disponible' : 'Aucune' },
     { label: 'Cree le', value: formatDate(compte.created_at) },
     { label: 'Cree par', value: compte.created_by },
     { label: 'Modifie le', value: formatDate(compte.updated_at) },
@@ -138,23 +143,41 @@ const CompteEpargneDetails: React.FC<CompteEpargneDetailsProps> = ({ compteId, o
 
           {personne && (
             <div className="mb-6 p-3 rounded-lg border border-blue-200 bg-blue-50">
-              <p className="text-xs uppercase tracking-wide text-blue-700">Client lie</p>
-              <div className="mt-2 flex flex-col sm:flex-row sm:items-center gap-3">
-                <div className="h-16 w-16 rounded-full overflow-hidden bg-white border border-blue-200 flex items-center justify-center">
-                  {personne.photo_identification ? (
-                    <img
-                      src={personne.photo_identification}
-                      alt={`Photo ${personne.prenom} ${personne.nom}`}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-xs text-blue-700 text-center px-1">Aucune photo</span>
-                  )}
+              <p className="text-xs uppercase tracking-wide text-blue-700">Client lié (Chauffeur)</p>
+              <div className="mt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="h-16 w-16 rounded-full overflow-hidden bg-white border border-blue-200 flex items-center justify-center">
+                    {clientPhotoUrl ? (
+                      <button
+                        type="button"
+                        onClick={() => setPreviewPhoto({ url: clientPhotoUrl, title: `Photo chauffeur - ${personne.prenom} ${personne.nom}` })}
+                        className="h-full w-full cursor-zoom-in"
+                        title="Agrandir la photo"
+                      >
+                        <img
+                          src={clientPhotoUrl}
+                          alt={`Photo ${personne.prenom} ${personne.nom}`}
+                          className="h-full w-full object-cover"
+                        />
+                      </button>
+                    ) : (
+                      <span className="text-xs text-blue-700 text-center px-1">Aucune photo</span>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-blue-900">{personne.prenom} {personne.nom}</p>
+                    <p className="text-xs text-blue-800">Code: {personne.code_client}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-semibold text-blue-900">{personne.prenom} {personne.nom}</p>
-                  <p className="text-xs text-blue-800">Code: {personne.code_client}</p>
-                </div>
+                {clientPhotoUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setPreviewPhoto({ url: clientPhotoUrl, title: `Photo chauffeur - ${personne.prenom} ${personne.nom}` })}
+                    className="text-xs text-blue-700 hover:text-blue-900 bg-white px-3 py-1.5 rounded-lg border border-blue-200 self-start sm:self-auto shadow-sm"
+                  >
+                    Voir photo chauffeur
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -173,20 +196,57 @@ const CompteEpargneDetails: React.FC<CompteEpargneDetailsProps> = ({ compteId, o
 
           <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="p-3 rounded-lg border border-gray-200 bg-gray-50">
-              <p className="text-xs uppercase tracking-wide text-gray-500 mb-2">Photo du titulaire</p>
-              <div className="h-40 rounded-md overflow-hidden bg-white border border-gray-200 flex items-center justify-center">
-                {personne?.photo_identification ? (
-                  <img src={personne.photo_identification} alt="Photo titulaire" className="h-full w-full object-cover" />
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs uppercase tracking-wide text-gray-700 font-semibold">Photo du titulaire (Chauffeur)</p>
+                {clientPhotoUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setPreviewPhoto({ url: clientPhotoUrl, title: `Photo du titulaire / Chauffeur - ${personne?.prenom || ''} ${personne?.nom || ''}` })}
+                    className="text-xs text-blue-700 hover:text-blue-900 font-medium"
+                  >
+                    Agrandir
+                  </button>
+                )}
+              </div>
+              <div className="h-44 rounded-md overflow-hidden bg-white border border-gray-200 flex items-center justify-center">
+                {clientPhotoUrl ? (
+                  <button
+                    type="button"
+                    onClick={() => setPreviewPhoto({ url: clientPhotoUrl, title: `Photo du titulaire / Chauffeur - ${personne?.prenom || ''} ${personne?.nom || ''}` })}
+                    className="h-full w-full group relative cursor-zoom-in"
+                  >
+                    <img src={clientPhotoUrl} alt="Photo titulaire" className="h-full w-full object-cover group-hover:opacity-90 transition" />
+                    <span className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-0.5 rounded shadow">🔍 Agrandir</span>
+                  </button>
                 ) : (
                   <span className="text-sm text-gray-500">Aucune photo disponible</span>
                 )}
               </div>
             </div>
+
             <div className="p-3 rounded-lg border border-gray-200 bg-gray-50">
-              <p className="text-xs uppercase tracking-wide text-gray-500 mb-2">Photo personne autorisee</p>
-              <div className="h-40 rounded-md overflow-hidden bg-white border border-gray-200 flex items-center justify-center">
-                {compte.photo_personne_autorisee ? (
-                  <img src={compte.photo_personne_autorisee} alt="Photo personne autorisee" className="h-full w-full object-cover" />
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs uppercase tracking-wide text-gray-700 font-semibold">Photo de la moto / Personne autorisée</p>
+                {motoPhotoUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setPreviewPhoto({ url: motoPhotoUrl, title: `Photo de la moto / Personne autorisée - Compte ${compte.no_compte}` })}
+                    className="text-xs text-indigo-700 hover:text-indigo-900 font-medium"
+                  >
+                    Agrandir
+                  </button>
+                )}
+              </div>
+              <div className="h-44 rounded-md overflow-hidden bg-white border border-gray-200 flex items-center justify-center">
+                {motoPhotoUrl ? (
+                  <button
+                    type="button"
+                    onClick={() => setPreviewPhoto({ url: motoPhotoUrl, title: `Photo de la moto / Personne autorisée - Compte ${compte.no_compte}` })}
+                    className="h-full w-full group relative cursor-zoom-in"
+                  >
+                    <img src={motoPhotoUrl} alt="Photo personne autorisee" className="h-full w-full object-cover group-hover:opacity-90 transition" />
+                    <span className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-0.5 rounded shadow">🔍 Agrandir</span>
+                  </button>
                 ) : (
                   <span className="text-sm text-gray-500">Aucune photo disponible</span>
                 )}
@@ -259,6 +319,38 @@ const CompteEpargneDetails: React.FC<CompteEpargneDetailsProps> = ({ compteId, o
           </div>
           {transactions.length === 0 && <p className="text-sm text-gray-600 mt-3">Aucune transaction pour ce compte.</p>}
         </div>
+
+        {/* Modal de prévisualisation de photo */}
+        {previewPhoto && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4"
+            onClick={() => setPreviewPhoto(null)}
+          >
+            <div
+              className="relative max-w-2xl w-full bg-white rounded-xl overflow-hidden shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50">
+                <h3 className="font-semibold text-gray-900 truncate pr-4">{previewPhoto.title}</h3>
+                <button
+                  type="button"
+                  onClick={() => setPreviewPhoto(null)}
+                  className="text-gray-500 hover:text-gray-700 p-1.5 rounded-lg hover:bg-gray-200 text-sm font-bold"
+                  aria-label="Fermer"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="p-4 flex items-center justify-center bg-gray-900 min-h-[300px]">
+                <img
+                  src={previewPhoto.url}
+                  alt={previewPhoto.title}
+                  className="max-h-[75vh] w-auto max-w-full object-contain rounded"
+                />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </SecureWrapper>
   );

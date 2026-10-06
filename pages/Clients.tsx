@@ -16,6 +16,7 @@ import AccessGrantModal from '../components/modals/AccessGrantModal';
 import toast from 'react-hot-toast';
 import * as authService from '../services/supabaseAuth';
 import { copyToClipboard } from '../utils/clipboard';
+import { normalizePhotoUrl } from '../utils/photoUtils';
 
 type SortOption = 'created_desc' | 'created_asc' | 'updated_desc' | 'updated_asc';
 
@@ -36,7 +37,7 @@ interface ClientAvatarProps {
 
 const ClientAvatar: React.FC<ClientAvatarProps> = ({ client, onPreview }) => {
     const [loadError, setLoadError] = useState(false);
-    const photo = client.photo_identification;
+    const photo = normalizePhotoUrl(client.photo_identification);
     const initials = `${client.prenom?.[0] || ''}${client.nom?.[0] || ''}`.toUpperCase() || 'CL';
 
     if (!photo || loadError) {
@@ -150,14 +151,15 @@ const Clients: React.FC<ClientsProps> = ({ onViewDetails }) => {
     };
 
     const handlePreviewPhoto = (client: Personne) => {
-        if (!client.photo_identification) {
+        const photo = normalizePhotoUrl(client.photo_identification);
+        if (!photo) {
             return;
         }
         showModal(
             `Photo - ${client.prenom} ${client.nom}`,
             <div className="flex justify-center">
                 <img
-                    src={client.photo_identification}
+                    src={photo}
                     alt={`Photo ${client.prenom} ${client.nom}`}
                     className="w-full max-w-md max-h-[70vh] object-contain rounded-md border border-gray-200"
                 />

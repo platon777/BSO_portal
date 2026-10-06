@@ -22,6 +22,7 @@ import {
   buildSavingsAccountSyncSummary,
   SavingsAccountSyncSummary,
 } from '../services/savingsAccountService';
+import { normalizePhotoUrl } from '../utils/photoUtils';
 
 type SortOption = 'created_desc' | 'created_asc' | 'updated_desc' | 'updated_asc';
 type ViewMode = 'comptes' | 'transactions';
@@ -293,11 +294,13 @@ const ComptesEpargne: React.FC<ComptesEpargneProps> = ({ onViewDetails }) => {
   };
 
   const openPhotoPreview = (title: string, photoUrl: string) => {
+    const normalizedUrl = normalizePhotoUrl(photoUrl);
+    if (!normalizedUrl) return;
     showModal(
       title,
       <div className="space-y-3">
-        <div className="w-full max-h-[70vh] overflow-auto rounded-lg border border-gray-200 bg-gray-50 p-2">
-          <img src={photoUrl} alt={title} className="w-full h-auto rounded-md object-contain" />
+        <div className="w-full max-h-[70vh] overflow-auto rounded-lg border border-gray-200 bg-gray-50 p-2 flex items-center justify-center">
+          <img src={normalizedUrl} alt={title} className="w-full max-h-[65vh] rounded-md object-contain" />
         </div>
         <div className="flex justify-end">
           <button
@@ -368,8 +371,8 @@ const ComptesEpargne: React.FC<ComptesEpargneProps> = ({ onViewDetails }) => {
           <div className="space-y-3 md:hidden">
             {paginatedComptes.map((compte) => {
               const succursaleLabel = getSuccursaleLabel(compte.succursale) || compte.succursale || '-';
-              const clientPhoto = compte.personne?.photo_identification;
-              const authorizedPhoto = compte.photo_personne_autorisee;
+              const clientPhoto = normalizePhotoUrl(compte.personne?.photo_identification);
+              const authorizedPhoto = normalizePhotoUrl(compte.photo_personne_autorisee || compte.photo_allowed);
               const syncSummary = compte.syncSummary;
 
               return (
@@ -387,18 +390,18 @@ const ComptesEpargne: React.FC<ComptesEpargneProps> = ({ onViewDetails }) => {
                   <button
                     type="button"
                     disabled={!clientPhoto}
-                    onClick={() => clientPhoto && openPhotoPreview('Photo client', clientPhoto)}
+                    onClick={() => clientPhoto && openPhotoPreview(`Photo chauffeur - ${compte.personne?.prenom || ''} ${compte.personne?.nom || ''}`, clientPhoto)}
                     className="px-2.5 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed"
                   >
-                    Photo client
+                    Photo chauffeur
                   </button>
                   <button
                     type="button"
                     disabled={!authorizedPhoto}
-                    onClick={() => authorizedPhoto && openPhotoPreview('Photo personne autorisee', authorizedPhoto)}
+                    onClick={() => authorizedPhoto && openPhotoPreview(`Photo moto / autorisée - Compte ${compte.no_compte}`, authorizedPhoto)}
                     className="px-2.5 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-50 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed"
                   >
-                    Photo autorisee
+                    Photo moto / autorisée
                   </button>
                 </div>
 
@@ -452,8 +455,8 @@ const ComptesEpargne: React.FC<ComptesEpargneProps> = ({ onViewDetails }) => {
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">N Compte</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">N Ancien</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Client</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Photo Client</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Photo Autorisee</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Photo Chauffeur</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Photo Moto / Autorisée</th>
                     {canViewBalances && <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Solde Actuel</th>}
                     {canViewBalances && <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Etat sync</th>}
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Categorie</th>
@@ -465,42 +468,45 @@ const ComptesEpargne: React.FC<ComptesEpargneProps> = ({ onViewDetails }) => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {paginatedComptes.map((compte) => (
-                    <tr key={compte.id_compte_epargne} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex items-center space-x-3">
-                          <button onClick={() => onViewDetails?.(compte.id_compte_epargne)} className="text-blue-700 hover:text-blue-900 disabled:opacity-60" title="Voir details" disabled={!onViewDetails}>Details</button>
-                          <button onClick={() => handleAddTransaction(compte)} className="text-blue-600 hover:text-blue-800" title="Nouvelle Transaction"><ArrowRightLeftIcon className="w-5 h-5" /></button>
-                          <button onClick={() => handleEditCompte(compte)} className="text-indigo-600 hover:text-indigo-800" title="Modifier"><EditIcon className="w-5 h-5" /></button>
-                          <button onClick={() => handleDeleteCompte(compte)} className="text-red-600 hover:text-red-800" title="Supprimer"><TrashIcon className="w-5 h-5" /></button>
-                          {profile?.role === UserRole.ADMIN && (<button onClick={() => handleGrantAccessCompte(compte)} className="text-yellow-600 hover:text-yellow-900" title="Accorder acces temporaire"><KeyIcon className="w-5 h-5" /></button>)}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 cursor-pointer hover:text-blue-600" onClick={() => copyToClipboard(compte.no_compte, 'Numero de compte')} title="Cliquer pour copier">{compte.no_compte || '-'}</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{compte.no_compte_ancien || '-'}</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{compte.personne ? `${compte.personne.prenom} ${compte.personne.nom}` : 'N/A'}</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
-                        {compte.personne?.photo_identification ? (
-                          <button
-                            type="button"
-                            onClick={() => openPhotoPreview('Photo client', compte.personne!.photo_identification!)}
-                            className="text-blue-700 hover:text-blue-900"
-                          >
-                            Voir
-                          </button>
-                        ) : '-'}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
-                        {compte.photo_personne_autorisee ? (
-                          <button
-                            type="button"
-                            onClick={() => openPhotoPreview('Photo personne autorisee', compte.photo_personne_autorisee!)}
-                            className="text-indigo-700 hover:text-indigo-900"
-                          >
-                            Voir
-                          </button>
-                        ) : '-'}
-                      </td>
+                  {paginatedComptes.map((compte) => {
+                    const clientPhoto = normalizePhotoUrl(compte.personne?.photo_identification);
+                    const authorizedPhoto = normalizePhotoUrl(compte.photo_personne_autorisee || compte.photo_allowed);
+                    return (
+                      <tr key={compte.id_compte_epargne} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <div className="flex items-center space-x-3">
+                            <button onClick={() => onViewDetails?.(compte.id_compte_epargne)} className="text-blue-700 hover:text-blue-900 disabled:opacity-60" title="Voir details" disabled={!onViewDetails}>Details</button>
+                            <button onClick={() => handleAddTransaction(compte)} className="text-blue-600 hover:text-blue-800" title="Nouvelle Transaction"><ArrowRightLeftIcon className="w-5 h-5" /></button>
+                            <button onClick={() => handleEditCompte(compte)} className="text-indigo-600 hover:text-indigo-800" title="Modifier"><EditIcon className="w-5 h-5" /></button>
+                            <button onClick={() => handleDeleteCompte(compte)} className="text-red-600 hover:text-red-800" title="Supprimer"><TrashIcon className="w-5 h-5" /></button>
+                            {profile?.role === UserRole.ADMIN && (<button onClick={() => handleGrantAccessCompte(compte)} className="text-yellow-600 hover:text-yellow-900" title="Accorder acces temporaire"><KeyIcon className="w-5 h-5" /></button>)}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 cursor-pointer hover:text-blue-600" onClick={() => copyToClipboard(compte.no_compte, 'Numero de compte')} title="Cliquer pour copier">{compte.no_compte || '-'}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{compte.no_compte_ancien || '-'}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{compte.personne ? `${compte.personne.prenom} ${compte.personne.nom}` : 'N/A'}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                          {clientPhoto ? (
+                            <button
+                              type="button"
+                              onClick={() => openPhotoPreview(`Photo chauffeur - ${compte.personne?.prenom || ''} ${compte.personne?.nom || ''}`, clientPhoto)}
+                              className="text-blue-700 hover:text-blue-900 font-medium"
+                            >
+                              Voir
+                            </button>
+                          ) : '-'}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                          {authorizedPhoto ? (
+                            <button
+                              type="button"
+                              onClick={() => openPhotoPreview(`Photo moto / autorisée - Compte ${compte.no_compte}`, authorizedPhoto)}
+                              className="text-indigo-700 hover:text-indigo-900 font-medium"
+                            >
+                              Voir
+                            </button>
+                          ) : '-'}
+                        </td>
                       {canViewBalances && (
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-semibold">
                           {formatMoney(compte.syncSummary.confirmedBalanceEstimate)}
@@ -523,7 +529,8 @@ const ComptesEpargne: React.FC<ComptesEpargneProps> = ({ onViewDetails }) => {
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{getAgentName(compte.created_by)}</td>
                       <td className="px-4 py-3 whitespace-nowrap"><span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${compte.statut === 'Actif' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{compte.statut}</span></td>
                     </tr>
-                  ))}
+                  );
+                })}
                 </tbody>
               </table>
             </div>

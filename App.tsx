@@ -24,6 +24,7 @@ import { canAccessApplication } from './types/auth';
 import { supabase } from './services/supabase';
 import ResetPasswordModal from './components/modals/ResetPasswordModal';
 import toast from 'react-hot-toast';
+import { migrateOldPhotoUrlsInDexie } from './utils/photoUtils';
 
 type Page =
   | 'dashboard'
@@ -58,7 +59,7 @@ const App: React.FC = () => {
   const { isAuthenticated, isLoading, initialize, profile, logout } = useAuthStore();
 
   useEffect(() => {
-    const APP_BUILD_VERSION = '2026-09-28-fix-login-auth-v4';
+    const APP_BUILD_VERSION = '2026-10-06-fix-photos-v5';
     const APP_BUILD_VERSION_KEY = 'bso_app_build_version';
 
     const refreshPwaBundleIfNeeded = async (): Promise<boolean> => {
@@ -113,6 +114,9 @@ const App: React.FC = () => {
     (async () => {
       const didReload = await refreshPwaBundleIfNeeded();
       if (didReload) return;
+
+      // Migrate any stale photo URLs in Dexie IndexedDB
+      await migrateOldPhotoUrlsInDexie();
 
       // Initialize authentication
       initialize();
